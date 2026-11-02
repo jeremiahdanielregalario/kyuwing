@@ -204,7 +204,6 @@ async function main() {
         date: today,
         type: GameDayType.REGULAR,
         status: GameDayStatus.LIVE,
-        targetScore: 35,
         startedAt: minutesAgo(95),
         courtPlan: [
           { id: "slot-1", label: "First wave", start: "10:00", end: "12:00", courts: 3 },
@@ -228,21 +227,19 @@ async function main() {
     });
 
     // Two completed matches + two live matches.
-    const completedPairs: Array<[string, string, string, string, number, number]> = [
-      ["Jose", "Nico", "Pat", "Trish", 35, 28],
-      ["Miggy", "Bea", "Kai", "Mika", 35, 31],
+    const completedPairs: Array<[string, string, string, string]> = [
+      ["Jose", "Nico", "Pat", "Trish"],
+      ["Miggy", "Bea", "Kai", "Mika"],
     ];
 
     let round = 1;
-    for (const [a, b, c, d, score1, score2] of completedPairs) {
+    for (const [a, b, c, d] of completedPairs) {
       const match = await prisma.match.create({
         data: {
           gameDayId: gameDay.id,
           courtNumber: round,
           round,
           status: "COMPLETED",
-          score1,
-          score2,
           startedAt: minutesAgo(70 - round * 10),
           endedAt: minutesAgo(50 - round * 10),
           players: {

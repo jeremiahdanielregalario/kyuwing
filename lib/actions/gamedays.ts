@@ -20,7 +20,6 @@ import {
   gameDayCreateSchema,
   gameDayUpdateSchema,
   parseCategory,
-  scoreSchema,
   type PlayerInput,
 } from "@/lib/validation";
 
@@ -68,7 +67,6 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
       venueId: venue.id,
       date,
       type: parsed.data.type,
-      targetScore: parsed.data.targetScore,
       courtPlan: parsed.data.courtPlan,
       notes: parsed.data.notes || null,
     },
@@ -95,7 +93,6 @@ export async function updateGameDay(input: unknown): Promise<ActionResult> {
     data: {
       ...(rest.name !== undefined ? { name: rest.name || "Game day" } : {}),
       ...(rest.type ? { type: rest.type } : {}),
-      ...(rest.targetScore ? { targetScore: rest.targetScore } : {}),
       ...(rest.courtPlan ? { courtPlan: rest.courtPlan } : {}),
       ...(rest.notes !== undefined ? { notes: rest.notes || null } : {}),
       ...(date ? { date: dateOnlyFromKey(date) } : {}),
@@ -598,13 +595,9 @@ export async function startAllSuggested(gameDayId: string): Promise<ActionResult
   });
 }
 
-export async function completeMatch(matchId: string, score1: number, score2: number): Promise<ActionResult> {
+export async function completeMatch(matchId: string): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;
-
-  const parsed = scoreSchema.safeParse({ score1, score2 });
-  if (!parsed.success) return fail("Enter valid scores.");
-  if (parsed.data.score1 === parsed.data.score2) return fail("Badminton games cannot end in a tie.");
 
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { players: true } });
   if (!match) return fail("Match not found.");
@@ -614,12 +607,7 @@ export async function completeMatch(matchId: string, score1: number, score2: num
   await prisma.$transaction([
     prisma.match.update({
       where: { id: matchId },
-      data: {
-        status: "COMPLETED",
-        score1: parsed.data.score1,
-        score2: parsed.data.score2,
-        endedAt: now,
-      },
+      data: { status: "COMPLETED", endedAt: now },
     }),
     prisma.sessionPlayer.updateMany({
       where: { gameDayId: match.gameDayId, playerId: { in: match.players.map((row) => row.playerId) } },

@@ -230,7 +230,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     { label: "Level", width: 40 },
     { label: "Type", width: 76 },
     { label: "Games", width: 40, align: "center" },
-    { label: "W-L", width: 38, align: "center" },
     { label: "Flat", width: 54, align: "right" },
     { label: "Per game", width: 54, align: "right" },
     { label: "Total", width: 55, align: "right" },
@@ -247,7 +246,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         row.level,
         CATEGORY_LABELS[row.category],
         String(row.gamesPlayed),
-        `${row.wins}-${row.losses}`,
         formatPesoPdf(row.flatFee),
         formatPesoPdf(row.perGameFee),
         formatPesoPdf(row.total),
@@ -285,9 +283,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const matchColumns: Column[] = [
     { label: "R", width: 24, align: "center" },
     { label: "Court", width: 40, align: "center" },
-    { label: "Team A", width: 210 },
-    { label: "Score", width: 60, align: "center" },
-    { label: "Team B", width: 210 },
+    { label: "Team A", width: 240 },
+    { label: "Team B", width: 240 },
     { label: "Finished", width: 60, align: "right" },
   ];
   tableHeader(matchColumns);
@@ -298,7 +295,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         String(match.round),
         `C${match.courtNumber}`,
         match.team1.map((player) => `${player.nickname} (${player.levelLabel})`).join(" & "),
-        `${match.score1} - ${match.score2}`,
         match.team2.map((player) => `${player.nickname} (${player.levelLabel})`).join(" & "),
         match.endedAt ? formatClock(match.endedAt) : "",
       ],

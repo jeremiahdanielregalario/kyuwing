@@ -38,7 +38,6 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
   const [date, setDate] = React.useState(defaultDate);
   const [type, setType] = React.useState("REGULAR");
   const [name, setName] = React.useState("");
-  const [targetScore, setTargetScore] = React.useState(35);
   const [notes, setNotes] = React.useState("");
   const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue)] : []);
   const [pending, startTransition] = React.useTransition();
@@ -81,7 +80,6 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
         venueId,
         date,
         type,
-        targetScore,
         notes,
         courtPlan: slots,
       });
@@ -148,15 +146,6 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
                 <option value="TIPID">Tipid (court fee only)</option>
                 <option value="MEGA">MEGA</option>
               </Select>
-            </Field>
-            <Field label="Target score">
-              <Input
-                type="number"
-                min={5}
-                max={99}
-                value={targetScore}
-                onChange={(event) => setTargetScore(Number(event.target.value))}
-              />
             </Field>
           </div>
 

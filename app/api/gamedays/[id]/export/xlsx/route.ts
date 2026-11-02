@@ -87,8 +87,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     "Level",
     "Player type",
     "Games",
-    "Wins",
-    "Losses",
     "Flat fee",
     "Per game",
     "Total",
@@ -103,8 +101,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       row.level,
       CATEGORY_LABELS[row.category],
       row.gamesPlayed,
-      row.wins,
-      row.losses,
       row.flatFee,
       row.perGameFee,
       row.total,
@@ -131,7 +127,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   ]);
   totalRow.font = { bold: true };
   totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIME } };
-  [22, 9, 18, 9, 8, 8, 12, 12, 12, 12, 12, 12].forEach((width, index) => {
+  [22, 9, 18, 9, 12, 12, 12, 12, 12, 12].forEach((width, index) => {
     fees.getColumn(index + 1).width = width;
   });
 
@@ -139,20 +135,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const matches = workbook.addWorksheet("Matches", { views: [{ state: "frozen", ySplit: 5 }] });
   titleBlock(matches, "Match History", meta);
   matches.addRow([]);
-  const matchHeader = matches.addRow(["Round", "Court", "Team A", "Score", "Team B", "Started", "Finished"]);
+  const matchHeader = matches.addRow(["Round", "Court", "Team A", "Team B", "Started", "Finished"]);
   styleHeader(matchHeader);
   for (const match of [...report.matches].reverse()) {
     matches.addRow([
       match.round,
       match.courtNumber,
       match.team1.map((player) => `${player.nickname} (${player.levelLabel})`).join(" & "),
-      `${match.score1} - ${match.score2}`,
       match.team2.map((player) => `${player.nickname} (${player.levelLabel})`).join(" & "),
       match.startedAt ? formatClock(match.startedAt) : "",
       match.endedAt ? formatClock(match.endedAt) : "",
     ]);
   }
-  [8, 8, 34, 10, 34, 12, 12].forEach((width, index) => {
+  [8, 8, 34, 34, 12, 12].forEach((width, index) => {
     matches.getColumn(index + 1).width = width;
   });
 

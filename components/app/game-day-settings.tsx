@@ -58,7 +58,6 @@ export function GameDaySettings({
   const [venueId, setVenueId] = React.useState(gameDay.venue.id);
   const [date, setDate] = React.useState(dateValue(gameDay.date));
   const [type, setType] = React.useState(gameDay.type);
-  const [targetScore, setTargetScore] = React.useState(gameDay.targetScore);
   const [notes, setNotes] = React.useState(gameDay.notes ?? "");
   const [slots, setSlots] = React.useState<Slot[]>(gameDay.courtPlan);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -93,7 +92,6 @@ export function GameDaySettings({
         venueId,
         date,
         type,
-        targetScore,
         notes: notes || null,
         courtPlan: slots,
       }),
@@ -240,15 +238,6 @@ export function GameDaySettings({
                   <option value="TIPID">Tipid (court fee only)</option>
                   <option value="MEGA">MEGA</option>
                 </Select>
-              </Field>
-              <Field label="Target score">
-                <Input
-                  type="number"
-                  min={5}
-                  max={99}
-                  value={targetScore}
-                  onChange={(event) => setTargetScore(Number(event.target.value))}
-                />
               </Field>
             </div>
 

@@ -37,7 +37,6 @@ import {
   Search,
   Settings2,
   Star,
-  Trophy,
   UserCheck,
   UserRoundPlus,
   Users,
@@ -76,7 +75,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
-import { Stat } from "@/components/ui/stat";
 import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -178,9 +176,6 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
   const [checkQuery, setCheckQuery] = React.useState("");
   const [walkOpen, setWalkOpen] = React.useState(false);
   const [walk, setWalk] = React.useState({ nickname: "", level: "C", category: "ACTIVE" });
-  const [scoreMatch, setScoreMatch] = React.useState<BoardMatch | null>(null);
-  const [score1, setScore1] = React.useState("");
-  const [score2, setScore2] = React.useState("");
   const [editMatch, setEditMatch] = React.useState<BoardMatch | null>(null);
   const [editCourt, setEditCourt] = React.useState(1);
   const [editTeam1, setEditTeam1] = React.useState<string[]>([]);
@@ -339,12 +334,6 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
     .filter((player) => player.nickname.toLowerCase().includes(checkQuery.toLowerCase()))
     .sort((a, b) => a.nickname.localeCompare(b.nickname));
 
-  const openScore = (match: BoardMatch) => {
-    setScoreMatch(match);
-    setScore1("");
-    setScore2("");
-  };
-
   const openEdit = (match: BoardMatch) => {
     setEditMatch(match);
     setEditCourt(match.courtNumber);
@@ -352,22 +341,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
     setEditTeam2(match.team2.map((player) => player.playerId));
   };
 
-  const submitScore = () => {
-    if (!scoreMatch) return;
-    const first = Number(score1);
-    const second = Number(score2);
-    if (!Number.isFinite(first) || !Number.isFinite(second) || score1 === "" || score2 === "") {
-      toast.error("Enter both final scores.");
-      return;
+  const finishMatch = (match: BoardMatch) => {
+    if (window.confirm(`End the game on Court ${match.courtNumber}? Players requeue automatically.`)) {
+      act(() => completeMatch(match.id));
     }
-    if (first === second) {
-      toast.error("A badminton game cannot end in a tie.");
-      return;
-    }
-    act(
-      () => completeMatch(scoreMatch.id, first, second),
-      () => setScoreMatch(null),
-    );
   };
 
   const submitEdit = () => {
@@ -542,38 +519,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat
-            label="Waiting now"
-            value={data.stats.waiting}
-            hint={`${data.stats.expected} still expected · avg ${data.stats.averageWaitMinutes}m`}
-            icon={<Users className="h-4 w-4" />}
-            tone="forest"
-          />
-          <Stat
-            label="On court"
-            value={data.stats.playing}
-            hint={`${live.length} live · ${suggested.length} suggested`}
-            icon={<Activity className="h-4 w-4" />}
-          />
-          <Stat
-            label="Open courts"
-            value={`${data.stats.courtsOpen}/${data.stats.courtsTotal}`}
-            hint={slot ? `${slot.start}–${slot.end} block` : "Set a court block"}
-            icon={<LayoutGrid className="h-4 w-4" />}
-            tone="lime"
-          />
-          <Stat
-            label="Games today"
-            value={data.stats.gamesCompleted}
-            hint={`${data.stats.totalGamesPlayed} player-games logged`}
-            icon={<Trophy className="h-4 w-4" />}
-          />
-        </div>
-
-        <Card className="p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-muted mr-1 ml-1 text-[10px] font-bold tracking-[0.16em] uppercase">
+        {/* Status rail: block switcher on top, live numbers below */}
+        <Card className="overflow-hidden">
+          <div className="border-line/70 flex flex-wrap items-center gap-2 border-b px-3 py-2.5">
+            <span className="text-muted ml-1 text-[10px] font-bold tracking-[0.16em] uppercase">
               Court plan
             </span>
             {plan.length === 0 && (
@@ -584,28 +533,64 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                 Add a court block
               </Link>
             )}
-            {plan.map((row, index) => (
-              <button
-                key={row.id}
-                type="button"
-                onClick={() => setSlotIndex(index)}
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
-                  data.activeSlotIndex === index
-                    ? "border-forest bg-forest text-cream"
-                    : "border-line bg-paper text-ink-soft hover:border-forest/40",
-                )}
-              >
-                <span className="font-mono">
-                  {row.start}–{row.end}
-                </span>
-                <span className="ml-1.5 opacity-60">· {row.courts}c</span>
-                {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
-              </button>
-            ))}
+            {plan.map((row, index) => {
+              const active = data.activeSlotIndex === index;
+              const current = plan[data.activeSlotIndex] === row && active;
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => setSlotIndex(index)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                    active
+                      ? "bg-forest border-forest text-cream"
+                      : "border-line bg-paper text-ink-soft hover:border-forest/40 hover:bg-cream/60",
+                  )}
+                >
+                  <span className="font-mono">
+                    {row.start}–{row.end}
+                  </span>
+                  <span className="ml-1.5 opacity-60">· {row.courts}c</span>
+                  {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
+                  {isValidating && current && (
+                    <span className="bg-lime ml-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full" />
+                  )}
+                </button>
+              );
+            })}
             <span className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]">
               <Dot tone="lime" /> {now ? formatClock(new Date(now)) : "--:--"} Manila
             </span>
+          </div>
+          <div className="bg-line grid grid-cols-2 gap-px sm:grid-cols-5">
+            <RailCell
+              label="Waiting"
+              value={data.stats.waiting}
+              sub={`${data.stats.expected} still expected`}
+            />
+            <RailCell
+              label="On court"
+              value={data.stats.playing}
+              sub={`${data.stats.courtsBusy}/${data.stats.courtsTotal} courts busy`}
+            />
+            <RailCell
+              label="Open courts"
+              value={`${data.stats.courtsOpen}/${data.stats.courtsTotal}`}
+              sub="in the selected block"
+            />
+            <RailCell
+              label="Games today"
+              value={data.stats.gamesCompleted}
+              sub={`${data.stats.totalGamesPlayed} player-games`}
+            />
+            <RailCell
+              label="Longest wait"
+              value={`${data.stats.longestWaitMinutes}m`}
+              sub={`avg ${data.stats.averageWaitMinutes}m`}
+              warn={now > 0 && data.stats.longestWaitMinutes >= 20}
+              className="col-span-2 sm:col-span-1"
+            />
           </div>
         </Card>
 
@@ -615,55 +600,54 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             disabled={pending || isCompleted}
             className="flex-1 sm:flex-none"
           >
-            <Wand2 className="h-4 w-4" />
-            Auto-pair next games
+            <Wand2 className="h-4 w-4" /> Auto-pair
+            {slot ? ` (${Math.min(data.stats.waiting, slot.courts * 4)} max)` : ""}
           </Button>
-          <Button variant="accent" onClick={() => setCheckOpen(true)} disabled={isCompleted}>
-            <UserCheck className="h-4 w-4" />
-            Check in
+          <Button variant="accent" onClick={() => setCheckOpen(true)} disabled={isCompleted} className="flex-1 sm:flex-none">
+            <UserCheck className="h-4 w-4" /> Check in
           </Button>
-          <Button variant="paper" onClick={() => setWalkOpen(true)} disabled={isCompleted}>
-            <UserRoundPlus className="h-4 w-4" />
-            Walk-in
+          <Button variant="paper" onClick={() => setWalkOpen(true)} disabled={isCompleted} className="flex-1 sm:flex-none">
+            <UserRoundPlus className="h-4 w-4" /> Walk-in
           </Button>
-          {suggested.length > 0 && (
-            <>
-              <Button
-                variant="primary"
-                onClick={() => act(() => startAllSuggested(data.gameDay.id))}
-                loading={pending}
-              >
-                <Play className="h-4 w-4" />
-                Start all ({suggested.length})
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (window.confirm("Clear all suggested matches? Players stay in the queue.")) {
-                    act(() => clearSuggestedMatches(data.gameDay.id));
-                  }
-                }}
-              >
-                Clear suggestions
-              </Button>
-            </>
-          )}
-          {isValidating && <span className="text-muted ml-auto hidden text-[11px] sm:inline">Syncing…</span>}
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg font-bold tracking-tight">
-                Courts
-                <span className="text-muted ml-2 font-sans text-[11px] font-normal">
-                  {slot ? `${slot.start}–${slot.end} · ${data.stats.courtsTotal} courts` : ""}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-baseline gap-2">
+                <h2 className="font-display text-lg font-bold tracking-tight">Courts</h2>
+                <span className="text-muted text-[11px]">
+                  {slot ? `Block ${slot.start}–${slot.end}` : ""}
                 </span>
-              </h2>
-              <span className="text-muted inline-flex items-center gap-1.5 text-[11px]">
-                <Dot tone={live.length ? "green" : "muted"} /> {live.length} live
-              </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {suggested.length > 0 && (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => act(() => startAllSuggested(data.gameDay.id))}
+                      loading={pending}
+                    >
+                      <Play className="h-3.5 w-3.5" /> Start all ({suggested.length})
+                    </Button>
+                    <button
+                      type="button"
+                      className="text-muted hover:text-ink text-[11px] font-semibold transition"
+                      onClick={() => {
+                        if (window.confirm("Clear all suggested matches? Players stay in the queue.")) {
+                          act(() => clearSuggestedMatches(data.gameDay.id));
+                        }
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+                <span className="text-muted inline-flex items-center gap-1.5 text-[11px]">
+                  <Dot tone={live.length ? "green" : "muted"} /> {live.length} live
+                </span>
+              </div>
             </div>
 
             {data.stats.courtsTotal === 0 ? (
@@ -701,7 +685,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                         isCompleted={isCompleted}
                         onPair={() => act(() => generateMatches(data.gameDay.id, slotIndex, 1))}
                         onStart={(id) => act(() => startMatch(id))}
-                        onFinish={openScore}
+                        onFinish={finishMatch}
                         onEdit={openEdit}
                         onCancel={(id) => {
                           if (window.confirm("Cancel this match? Players will stay in the queue.")) {
@@ -748,14 +732,9 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                         <span className="text-muted mx-1.5">vs</span>
                         {match.team2.map((player) => player.nickname).join(" & ")}
                       </span>
-                      <span className="font-mono font-bold">
-                        <span className={match.score1! > match.score2! ? "text-forest" : "text-muted"}>
-                          {match.score1}
-                        </span>
-                        <span className="text-muted mx-1">–</span>
-                        <span className={match.score2! > match.score1! ? "text-forest" : "text-muted"}>
-                          {match.score2}
-                        </span>
+                      <span className="text-muted font-mono text-[10px] font-bold">
+                        <CircleCheck className="text-forest inline h-3 w-3 align-[-2px]" />{" "}
+                        {match.endedAt ? formatClock(match.endedAt) : "Done"}
                       </span>
                     </div>
                   ))}
@@ -985,64 +964,6 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
               If the nickname already exists, their saved level and player type will be used.
             </p>
           </div>
-        </Modal>
-
-        {/* Score modal */}
-        <Modal
-          open={Boolean(scoreMatch)}
-          onClose={() => setScoreMatch(null)}
-          title={`Finish Court ${scoreMatch?.courtNumber ?? ""}`}
-          description="Enter the final score. Both players return to the queue automatically."
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setScoreMatch(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                onClick={submitScore}
-                loading={pending}
-                disabled={score1 === "" || score2 === ""}
-              >
-                <Flag className="h-4 w-4" /> Finish game
-              </Button>
-            </>
-          }
-        >
-          {scoreMatch && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2">
-                <ScorePad
-                  label="Team A"
-                  team={scoreMatch.team1}
-                  value={score1}
-                  onChange={setScore1}
-                  target={data.gameDay.targetScore}
-                />
-                <div className="grid place-items-center px-1">
-                  <span className="border-line bg-cream text-muted rounded-full border px-2 py-1 font-mono text-[10px] font-bold">
-                    VS
-                  </span>
-                </div>
-                <ScorePad
-                  label="Team B"
-                  team={scoreMatch.team2}
-                  value={score2}
-                  onChange={setScore2}
-                  target={data.gameDay.targetScore}
-                />
-              </div>
-              <p className="text-muted text-center text-[11px]">
-                First to {data.gameDay.targetScore}. Court changes after the game — update the next match when
-                you are ready.
-              </p>
-              {Number(score1) === Number(score2) && score1 !== "" && score2 !== "" && (
-                <p className="bg-coral-soft rounded-xl px-3 py-2 text-center text-[12px] font-semibold text-[#a8331a]">
-                  Scores are tied. A badminton game needs a winner.
-                </p>
-              )}
-            </div>
-          )}
         </Modal>
 
         {/* Edit match modal */}
@@ -1600,7 +1521,14 @@ function QueueRow({
       {player.status === "WAITING" && (
         <>
           <span
-            className="bg-cream-deep text-ink-soft shrink-0 rounded-md px-1.5 py-1 font-mono text-[10px] font-bold tabular-nums"
+            className={cn(
+              "shrink-0 rounded-md px-1.5 py-1 font-mono text-[10px] font-bold tabular-nums",
+              wait < 5 * 60
+                ? "bg-lime/30 text-forest-deep"
+                : wait < 15 * 60
+                  ? "bg-amber-100 text-amber-900"
+                  : "bg-coral text-white",
+            )}
             title="Waiting time"
           >
             {formatDuration(wait)}
@@ -1652,60 +1580,36 @@ function QueueRow({
   );
 }
 
-function ScorePad({
+function railTone(warn: boolean | undefined) {
+  // a stretched wait turns the number coral so the master notices
+  return warn ? "text-coral" : undefined;
+}
+
+function RailCell({
   label,
-  team,
   value,
-  onChange,
-  target,
+  sub,
+  warn,
+  className,
 }: {
   label: string;
-  team: BoardMatch["team1"];
-  value: string;
-  onChange: (value: string) => void;
-  target: number;
+  value: string | number;
+  sub?: string;
+  warn?: boolean;
+  className?: string;
 }) {
-  const step = (delta: number) => {
-    const current = Number(value) || 0;
-    onChange(String(Math.max(0, Math.min(99, current + delta))));
-  };
   return (
-    <div className="border-line bg-cream/40 rounded-2xl border p-3">
-      <p className="text-muted text-center text-[9px] font-bold tracking-[0.14em] uppercase">{label}</p>
-      <p className="mt-1 truncate text-center text-[11px] font-semibold">
-        {team.map((player) => player.nickname).join(" & ")}
+    <div className={cn("bg-paper px-4 py-3.5", className)}>
+      <p className="text-muted text-[9px] font-bold tracking-[0.16em] uppercase">{label}</p>
+      <p
+        className={cn(
+          "font-display mt-1.5 text-[1.65rem] leading-none font-bold tabular-nums",
+          railTone(warn),
+        )}
+      >
+        {value}
       </p>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
-        inputMode="numeric"
-        placeholder="0"
-        className="placeholder:text-line-strong mt-2 w-full bg-transparent text-center font-mono text-5xl leading-none font-bold tracking-tight outline-none"
-        aria-label={`${label} score`}
-      />
-      <div className="mt-2 flex items-center justify-center gap-1">
-        <button
-          type="button"
-          onClick={() => step(-1)}
-          className="border-line bg-paper hover:bg-cream-deep grid h-7 w-7 place-items-center rounded-full border text-xs font-bold"
-        >
-          −
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(String(target))}
-          className="border-line bg-paper hover:bg-cream-deep rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold"
-        >
-          {target}
-        </button>
-        <button
-          type="button"
-          onClick={() => step(1)}
-          className="border-line bg-paper hover:bg-cream-deep grid h-7 w-7 place-items-center rounded-full border text-xs font-bold"
-        >
-          +
-        </button>
-      </div>
+      {sub && <p className="text-muted mt-1.5 text-[10px]">{sub}</p>}
     </div>
   );
 }

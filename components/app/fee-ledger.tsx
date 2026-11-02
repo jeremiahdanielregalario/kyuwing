@@ -181,7 +181,6 @@ export function FeeLedger({ report }: { report: FeeReport }) {
               <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
                 <th className="px-4 py-2.5 font-bold">Player</th>
                 <th className="px-2 py-2.5 text-center font-bold">Games</th>
-                <th className="px-2 py-2.5 text-center font-bold">W–L</th>
                 <th className="px-2 py-2.5 text-right font-bold">Flat</th>
                 <th className="px-2 py-2.5 text-right font-bold">/ Game</th>
                 <th className="px-2 py-2.5 text-right font-bold">Total</th>
@@ -194,7 +193,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-muted px-4 py-12 text-center">
+                  <td colSpan={9} className="text-muted px-4 py-12 text-center">
                     No players match this view.
                   </td>
                 </tr>
@@ -216,9 +215,6 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                         </div>
                       </td>
                       <td className="px-2 py-2.5 text-center font-mono font-bold">{row.gamesPlayed}</td>
-                      <td className="text-muted px-2 py-2.5 text-center font-mono text-[11px]">
-                        {row.wins}–{row.losses}
-                      </td>
                       <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.flatFee)}</td>
                       <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.perGameFee)}</td>
                       <td className="px-2 py-2.5 text-right font-mono font-bold">{formatPeso(row.total)}</td>

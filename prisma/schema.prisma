@@ -138,7 +138,6 @@ model GameDay {
   date        DateTime       @db.Date
   type        GameDayType    @default(REGULAR)
   status      GameDayStatus  @default(DRAFT)
-  targetScore Int            @default(35)
   courtPlan   Json           @default("[]")
   notes       String?
   startedAt   DateTime?
@@ -186,8 +185,6 @@ model Match {
   courtNumber Int
   round       Int         @default(1)
   status      MatchStatus @default(SUGGESTED)
-  score1      Int?
-  score2      Int?
   note        String?
   startedAt   DateTime?
   endedAt     DateTime?

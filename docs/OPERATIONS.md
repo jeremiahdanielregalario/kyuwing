@@ -7,7 +7,7 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 - [ ] Charge the tablet or phone. A power bank is not optional for a four-hour session.
 - [ ] Confirm the venue booking and the exact court numbers.
 - [ ] Open Kyuwing and log in with the queue-master PIN.
-- [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, target score (35 by default).
+- [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, court blocks.
 - [ ] Set the court blocks to match the booking. Example: 3 courts 09:00–10:00, 4 courts 10:00–12:00, 3 courts 12:00–14:00.
 - [ ] Double-check the fee matrix in **Venues → Fees** if anything changed.
 - [ ] Build the sign-up list, or tap **Add all active players** and remove no-shows later.
@@ -16,7 +16,6 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 
 1. Open the game day and press **Start** to move it from Draft to Live.
 2. Check in only the players who are physically present. Start with the first four to eight.
-3. Confirm the target score with the group.
 4. When a court is free, press **Auto-pair**.
 
 Do not check in the whole sign-up list on faith. The queue is supposed to reflect the court, not the group chat.
@@ -26,13 +25,13 @@ Do not check in the whole sign-up list on faith. The queue is supposed to reflec
 ### The loop
 
 ```
-Player arrives → Check in → Auto-pair → Start → Finish with score → Requeue
+Player arrives → Check in → Auto-pair → Start → End game → Requeue
 ```
 
 - Check in players as they arrive, one at a time. The wait timer starts at check-in.
 - Pair when a court is actually free. Pairing early reserves players who are still in a game.
 - Start a match only when all four are walking on court.
-- Finish a match with the final score. Both teams requeue automatically and each player's game count increments.
+- End a match with one tap. Both teams requeue automatically and each player's game count increments.
 - If a suggested match is wrong, press **Edit** on the court card and swap players before starting.
 
 ### Reading the board
@@ -79,8 +78,8 @@ The board will say so. Wait for arrivals or check in someone from Expected. Do n
 **A court is double-booked.**
 Edit the court block in **Settings**, or move the affected match to another court. Do not delete the game day.
 
-**A score was entered wrong.**
-There is no score edit in the current UI. Cancel the match if it is still live; if it is completed, note the correction in the game-day notes and in the report. Avoid editing the database during a session.
+**A game was finished by mistake.**
+Cancel the match if it is still live. If it is completed, the game count already moved to fees; requeue the players and adjust the fee entry on the Fees page. Avoid editing the database during a session.
 
 ### Requests
 

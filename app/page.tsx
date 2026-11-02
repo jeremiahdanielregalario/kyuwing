@@ -48,7 +48,7 @@ const steps = [
     number: "04",
     icon: Wallet,
     title: "Finish and settle",
-    body: "Enter the final score. Players requeue automatically, games are counted, and the fee ledger is ready to export.",
+    body: "End the game with one tap. Players requeue automatically, games are counted, and the fee ledger is ready to export.",
   },
 ];
 
@@ -130,11 +130,11 @@ const faqs = [
   },
   {
     q: "Can we export the day's records?",
-    a: "Yes. Every game day has an Excel workbook and a PDF report: summary, per-player fees, all matches with scores, and payment status. The fee page also prints cleanly.",
+    a: "Yes. Every game day has an Excel workbook and a PDF report: summary, per-player fees, all matches with times, and payment status. The fee page also prints cleanly.",
   },
   {
     q: "Is it usable on a phone behind the court?",
-    a: "The queue board is designed mobile-first: big touch targets, one-tap check-in, score keypads, and a bottom navigation bar. It also works offline-ish on flaky venue Wi-Fi — the last loaded board stays visible while it reconnects.",
+    a: "The queue board is designed mobile-first: big touch targets, one-tap check-in, one-tap finish, and a bottom navigation bar. It also works offline-ish on flaky venue Wi-Fi — the last loaded board stays visible while it reconnects.",
   },
 ];
 
@@ -230,7 +230,7 @@ export default function HomePage() {
                 </a>
               </div>
               <ul className="text-cream/60 mt-8 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-medium">
-                {["No player accounts", "Works on any phone", "35-point doubles", "Excel + PDF reports"].map(
+                {["No player accounts", "Works on any phone", "Drag-and-drop courts", "Excel + PDF reports"].map(
                   (item) => (
                     <li key={item} className="inline-flex items-center gap-1.5">
                       <span className="bg-lime text-forest-deep grid h-4 w-4 place-items-center rounded-full">
@@ -470,7 +470,7 @@ export default function HomePage() {
                 not by favor.
               </h2>
               <p className="text-cream/70 mt-5 max-w-md text-[14px] leading-relaxed">
-                Kyuwing scores every possible foursome and split of teams, then picks the lowest-cost match.
+                Kyuwing weighs every possible foursome and split of teams, then picks the fairest available match.
                 The result is a fair game, not a random shuffle.
               </p>
               <div className="mt-8 flex flex-wrap gap-2">
@@ -698,7 +698,7 @@ export default function HomePage() {
                 Walk out with the books closed.
               </h2>
               <p className="text-muted mt-5 max-w-md text-[14px] leading-relaxed">
-                Every game is logged with its court, round, players, and score. The fee page recalculates as
+                Every game is logged with its court, round, and players. The fee page recalculates as
                 the day goes, so the final tally is already waiting when the last shuttle drops.
               </p>
               <ul className="mt-7 space-y-3">
@@ -706,7 +706,7 @@ export default function HomePage() {
                   "Per-player games, wins, and losses",
                   "Flat + per-game fee breakdown by player type",
                   "Paid, partial, and outstanding balances",
-                  "Match history with court and final score",
+                  "Match history with courts and rounds",
                   "Excel workbook and print-ready PDF",
                 ].map((item) => (
                   <li key={item} className="text-ink-soft flex items-start gap-2.5 text-[13px]">

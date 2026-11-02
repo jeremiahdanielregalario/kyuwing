@@ -26,7 +26,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
   if (!report) notFound();
 
   const leaderboard = [...report.rows].sort(
-    (a, b) => b.wins - a.wins || b.gamesPlayed - a.gamesPlayed || a.nickname.localeCompare(b.nickname),
+    (a, b) => b.gamesPlayed - a.gamesPlayed || a.nickname.localeCompare(b.nickname),
   );
   const matches = report.matches;
 
@@ -97,7 +97,6 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
                   <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
                     <th className="px-4 py-2.5 font-bold">Court</th>
                     <th className="px-2 py-2.5 font-bold">Team A</th>
-                    <th className="px-2 py-2.5 text-center font-bold">Score</th>
                     <th className="px-2 py-2.5 font-bold">Team B</th>
                     <th className="px-4 py-2.5 text-right font-bold">Time</th>
                   </tr>
@@ -111,7 +110,6 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
                     </tr>
                   ) : (
                     matches.map((match) => {
-                      const team1Won = (match.score1 ?? 0) > (match.score2 ?? 0);
                       return (
                         <tr key={match.id} className="border-line/50 border-b">
                           <td className="px-4 py-2.5">
@@ -124,28 +122,17 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
                             <div className="flex flex-wrap gap-1.5">
                               {match.team1.map((player) => (
                                 <span key={player.playerId} className="inline-flex items-center gap-1">
-                                  <span className={team1Won ? "font-semibold" : "text-muted"}>
-                                    {player.nickname}
-                                  </span>
+                                  <span className="font-semibold">{player.nickname}</span>
                                   <LevelBadge level={player.level} className="px-1 text-[9px]" />
                                 </span>
                               ))}
                             </div>
                           </td>
-                          <td className="px-2 py-2.5 text-center">
-                            <span className="inline-flex items-center gap-1 font-mono text-[12px] font-bold">
-                              <span className={team1Won ? "text-forest" : "text-muted"}>{match.score1}</span>
-                              <span className="text-muted">–</span>
-                              <span className={!team1Won ? "text-forest" : "text-muted"}>{match.score2}</span>
-                            </span>
-                          </td>
                           <td className="px-2 py-2.5">
                             <div className="flex flex-wrap gap-1.5">
                               {match.team2.map((player) => (
                                 <span key={player.playerId} className="inline-flex items-center gap-1">
-                                  <span className={!team1Won ? "font-semibold" : "text-muted"}>
-                                    {player.nickname}
-                                  </span>
+                                  <span className="font-semibold">{player.nickname}</span>
                                   <LevelBadge level={player.level} className="px-1 text-[9px]" />
                                 </span>
                               ))}
@@ -167,7 +154,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
             <Card className="overflow-hidden">
               <div className="border-line/80 border-b px-4 py-3">
                 <h2 className="font-display text-base font-bold">Player leaderboard</h2>
-                <p className="text-muted text-[11px]">Wins first, then games played.</p>
+                <p className="text-muted text-[11px]">Most games first.</p>
               </div>
               <div className="divide-line/50 divide-y">
                 {leaderboard.slice(0, 10).map((row, index) => (
@@ -175,10 +162,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
                     <span className="text-muted w-4 font-mono text-[10px] font-bold">{index + 1}</span>
                     <LevelBadge level={row.level} />
                     <span className="min-w-0 flex-1 truncate text-[12px] font-semibold">{row.nickname}</span>
-                    <span className="text-muted font-mono text-[10px]">{row.gamesPlayed}g</span>
-                    <span className="w-10 text-right font-mono text-[11px] font-bold">
-                      {row.wins}–{row.losses}
-                    </span>
+                    <span className="text-muted font-mono text-[10px]">{row.gamesPlayed} games</span>
                   </div>
                 ))}
               </div>

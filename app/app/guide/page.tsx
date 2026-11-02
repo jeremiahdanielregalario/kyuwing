@@ -64,7 +64,7 @@ const flow = [
     step: "05",
     icon: Play,
     title: "Start and finish games",
-    body: "Suggested matches become live when players walk on court. Enter the final score to finish — both teams requeue automatically and games are counted.",
+    body: "Suggested matches become live when players walk on court. Press finish — both teams requeue automatically and games are counted.",
     detail: "Court card → Start → Finish",
     href: "/app",
   },
@@ -118,7 +118,7 @@ const tips = [
       "Start the game day so the board leaves Draft.",
       "Check the court blocks match the actual booking.",
       "Check in the first four to eight players — no more.",
-      "Confirm the target score (35 for regular play).",
+      "Confirm the court blocks for each time slot.",
     ],
   },
   {

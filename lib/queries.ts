@@ -33,7 +33,6 @@ function toGameDayDto(gameDay: GameDayWithPlayers): BoardGameDay {
     date: gameDay.date.toISOString(),
     type: gameDay.type,
     status: gameDay.status,
-    targetScore: gameDay.targetScore,
     notes: gameDay.notes,
     startedAt: gameDay.startedAt?.toISOString() ?? null,
     courtPlan: parseCourtPlan(gameDay.courtPlan),
@@ -100,8 +99,6 @@ function toBoardMatch(match: MatchWithPlayers, sessionByPlayer: Map<string, stri
     courtNumber: match.courtNumber,
     round: match.round,
     status: match.status,
-    score1: match.score1,
-    score2: match.score2,
     startedAt: match.startedAt?.toISOString() ?? null,
     endedAt: match.endedAt?.toISOString() ?? null,
     note: match.note,
@@ -256,17 +253,6 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
   });
   if (!gameDay) return null;
 
-  const wins = new Map<string, number>();
-  const losses = new Map<string, number>();
-  for (const match of gameDay.matches) {
-    if (match.score1 === null || match.score2 === null) continue;
-    const winner = match.score1 > match.score2 ? 1 : 2;
-    for (const row of match.players) {
-      const target = row.team === winner ? wins : losses;
-      target.set(row.playerId, (target.get(row.playerId) ?? 0) + 1);
-    }
-  }
-
   const rows: FeeRow[] = gameDay.players.map((row) => {
     const rule = gameDay.venue.feeRules.find(
       (candidate) => candidate.dayType === gameDay.type && candidate.category === row.player.category,
@@ -280,8 +266,6 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
       category: row.player.category,
       status: row.status,
       gamesPlayed: row.gamesPlayed,
-      wins: wins.get(row.playerId) ?? 0,
-      losses: losses.get(row.playerId) ?? 0,
       flatFee: rule?.flatFee ?? 0,
       perGameFee: rule?.perGameFee ?? 0,
       total,

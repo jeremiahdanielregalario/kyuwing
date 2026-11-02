@@ -43,8 +43,6 @@ export type BoardMatch = {
   courtNumber: number;
   round: number;
   status: "SUGGESTED" | "LIVE" | "COMPLETED" | "CANCELLED";
-  score1: number | null;
-  score2: number | null;
   startedAt: string | null;
   endedAt: string | null;
   note: string | null;
@@ -58,7 +56,6 @@ export type BoardGameDay = {
   date: string;
   type: "REGULAR" | "TIPID" | "MEGA";
   status: "DRAFT" | "LIVE" | "COMPLETED";
-  targetScore: number;
   notes: string | null;
   startedAt: string | null;
   courtPlan: CourtSlot[];
@@ -98,8 +95,6 @@ export type FeeRow = {
   category: "ACTIVE" | "ALUMNI" | "APPLICANT";
   status: string;
   gamesPlayed: number;
-  wins: number;
-  losses: number;
   flatFee: number;
   perGameFee: number;
   total: number;

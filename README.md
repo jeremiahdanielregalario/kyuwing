@@ -11,7 +11,7 @@
 Running open-play doubles by hand is a juggling act: who has waited longest, who has already partnered whom, which court is free, who still owes money. Kyuwing takes the bookkeeping off the queue master's hands while keeping the human in control.
 
 - **Arrival is the queue.** Sign-ups are only a list of expected players. A wait timer starts at check-in, not at sign-up.
-- **Balanced games, not random ones.** The engine scores every foursome and every team split, then picks the fairest available match.
+- **Balanced games, not random ones.** The engine weighs every foursome and every team split, then picks the fairest available match.
 - **Repeat pairings fade out.** Teammates, opponents, and whole foursomes are penalized if they keep recurring.
 - **Court blocks match reality.** “3 courts from 9–10, 4 courts from 10–12” is a first-class setting.
 - **Fees follow the games.** Flat fee + per-game rate, by venue, player type, and game-day type.
@@ -21,7 +21,7 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 
 | Area          | What it does                                                                                    |
 | ------------- | ----------------------------------------------------------------------------------------------- |
-| Game days     | Draft → Live → Completed lifecycle, venue, date, type, score target, court blocks               |
+| Game days     | Draft → Live → Completed lifecycle, venue, date, type, court blocks                             |
 | Sign-ups      | Add from the player database, add all active players, CSV/JSON import, walk-ins                 |
 | Live board    | Expected / Waiting / Playing / Done lanes, live wait timers, court-surface cards                |
 | Court control | Drag a match to another court, drag players between slots, drop four players onto an open court |
@@ -162,14 +162,14 @@ Open <http://localhost:3000>, go to **Queue master login**, and use the PIN from
 
 ```
 Create game day → build sign-ups → check in arrivals → auto-pair open courts
-      → start match → finish with score → players requeue → settle fees → export
+      → start match → end game → players requeue → settle fees → export
 ```
 
-1. **Create the game day** — venue, date, type, target score, court blocks.
+1. **Create the game day** — venue, date, type, court blocks.
 2. **Build the sign-up list** — from the database, all active players, CSV/JSON, or walk-ins.
 3. **Check in only on arrival** — this starts the wait timer and makes a player pairable.
 4. **Auto-pair** — fills every free court with the fairest foursome; review before starting.
-5. **Start and finish** — a suggested match becomes live, then a final score requeues all four players and increments games played.
+5. **Start and finish** — a suggested match becomes live, then ending it requeues all four players and increments games played.
 6. **Settle and export** — record payments in Fees, then download Excel or PDF from Reports.
 
 The in-app **Playbook** (`/app/guide`) has the same routine with checklists and FAQs.

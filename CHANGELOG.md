@@ -9,12 +9,12 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 - **UP BadAss identity** — the app now uses the association's black, gold, and paper-white palette, the official wordmark, the 2015/Diliman story, the mission and vision, and the three core values (Competency, Commitment, Camaraderie) on the landing page and login screen.
 - **Drag and drop courts** — drag a match card onto another court to swap them, drag a player chip onto another slot to swap players, and drop four waiting players onto an open court to build a match by hand.
 - **Court-surface cards** — every court card is drawn on a top-down badminton court with singles/doubles lines and a gold net, matching the Queue Maestro card layout.
-- **Game days** — draft/live/completed lifecycle, venue and date selection, game-day types (Regular, Tipid, MEGA), 35-point default target, editable court blocks per time slot.
+- **Game days** — draft/live/completed lifecycle, venue and date selection, game-day types (Regular, Tipid, MEGA), editable court blocks per time slot.
 - **Sign-ups** — add players individually, add every active player at once, CSV/JSON roster import, walk-ins with instant check-in, and per-player notes.
 - **Live queue board** — Expected / Waiting / Playing / Done lanes, live wait timers, longest-wait and average-wait stats, court cards for every block, and SWR polling for multi-device use.
 - **Pairing engine** — weighted foursome selection and team splitting with bracket rules, repeat-partner/opponent/foursome penalties, wait-time and games-played fairness, priority, and cross-bracket scarcity mode.
 - **Requests** — partner-with, play-against, and permanent partners, with soft-rule handling and visible request badges.
-- **Manual control** — swap players on a suggested match, move a match to another court, clear suggestions, start all, cancel, and finish with a score.
+- **Manual control** — swap players on a suggested match, move a match to another court, clear suggestions, start all, cancel, and finish with a game.
 - **Players** — 19-level ladder (`E-` through `A+`), nickname and full name, category (active/alumni/applicant), active flag, search, level filters, and CSV/JSON export.
 - **Fees** — venue × game-day-type × category rules, automatic flat + per-game calculation, per-player ledger, cash/GCash/bank/other payment recording, and mark-all-paid.
 - **Reports** — session summary and per-player breakdown; Excel workbook with Summary, Players, Matches, and Fees sheets; print-ready PDF with the same data.
@@ -26,6 +26,10 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 - Negative peso amounts now format as `-₱250` instead of `₱-250`.
 - PDF exports use `PHP 250` instead of `₱250` because standard PDF fonts lack the peso glyph.
+
+### Removed
+
+- **Score tracking** — matches no longer record scores and there is no target score setting. Finishing a game is one tap; reports and exports list match history by court and time instead of final scores.
 
 ### Fixed
 

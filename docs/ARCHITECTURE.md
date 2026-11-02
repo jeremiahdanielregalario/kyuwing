@@ -52,7 +52,7 @@ A single session. Three states:
 | Status | Meaning |
 | --- | --- |
 | `DRAFT` | Being set up. Not on the live board. Players can still be added. |
-| `LIVE` | Running. The board accepts check-ins, pairings, and scores. |
+| `LIVE` | Running. The board accepts check-ins, pairings, and manual court edits. |
 | `COMPLETED` | Frozen. Leftover suggestions are cancelled and the report is final. |
 
 `courtPlan` is a JSON array of `{ id, label, start, end, courts }`. It is intentionally not relational: it is small, edited as a unit, and only read for the current board. `parseCourtPlan` validates it defensively because it comes from the database as `Json`.

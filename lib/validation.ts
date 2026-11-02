@@ -51,7 +51,6 @@ export const gameDayCreateSchema = z.object({
   venueId: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date"),
   type: z.enum(GAMEDAY_TYPE_KEYS).default("REGULAR"),
-  targetScore: z.coerce.number().int().min(5).max(99).default(35),
   courtPlan: z.array(courtSlotSchema).min(1).max(8),
   notes: z.string().trim().max(500).optional().nullable(),
 });
@@ -59,11 +58,6 @@ export const gameDayCreateSchema = z.object({
 export const gameDayUpdateSchema = gameDayCreateSchema.partial().extend({
   id: z.string().min(1),
   status: z.enum(["DRAFT", "LIVE", "COMPLETED"]).optional(),
-});
-
-export const scoreSchema = z.object({
-  score1: z.coerce.number().int().min(0).max(99),
-  score2: z.coerce.number().int().min(0).max(99),
 });
 
 export const venueUpdateSchema = z.object({
