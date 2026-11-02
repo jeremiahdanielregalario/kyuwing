@@ -104,7 +104,8 @@ cp .env.example .env
 
 | Variable               | Required          | Purpose                                             |
 | ---------------------- | ----------------- | --------------------------------------------------- |
-| `DATABASE_URL`         | yes               | PostgreSQL connection string                        |
+| `DATABASE_URL`         | yes               | PostgreSQL connection string (pooled in production) |
+| `DIRECT_URL`           | recommended       | Direct connection used by `prisma migrate`          |
 | `QUEUE_MASTER_PIN`     | yes in production | Shared PIN for the queue-master login               |
 | `AUTH_SECRET`          | yes in production | Signs the session cookie; use 32+ random characters |
 | `NEXT_PUBLIC_APP_URL`  | recommended       | Absolute URL used in links and metadata             |
@@ -219,13 +220,14 @@ Short version:
 ```bash
 vercel link
 vercel env add DATABASE_URL production
+vercel env add DIRECT_URL production
 vercel env add QUEUE_MASTER_PIN production
 vercel env add AUTH_SECRET production
 vercel env add NEXT_PUBLIC_APP_URL production
 vercel --prod
 ```
 
-Then run `pnpm db:deploy` against the production `DATABASE_URL`.
+Then run `pnpm db:deploy` against the production database.
 
 ## Documentation
 

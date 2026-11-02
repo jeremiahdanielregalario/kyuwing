@@ -49,6 +49,7 @@ docs/                     Long-form documentation
 - **Dates are stored as UTC midnight of the Manila calendar date.** Use `dateOnly()`, `dateOnlyFromKey()`, and `formatGameDate()`. Never use `new Date(y, m, d)` or `toLocaleDateString` for game dates — they shift across timezones.
 - All displayed times are Asia/Manila. Use the helpers in `lib/datetime.ts`.
 - Money is stored as whole Philippine pesos (`Int`). Use `formatPeso()` in UI and `formatPesoPdf()` in PDFs (`₱` is unavailable in standard PDF fonts).
+- `DATABASE_URL` is the runtime connection (pooled in production). `DIRECT_URL` is used only by `prisma migrate`; locally it can equal `DATABASE_URL`.
 
 ### Server actions
 

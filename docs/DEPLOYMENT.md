@@ -44,11 +44,20 @@ Confirm the CI workflow (`.github/workflows/ci.yml`) passes. It boots a Postgres
 
 ### Supabase
 
-1. Create a project.
-2. Copy the **connection pooling** string (port `6543`) or the direct connection (port `5432`).
-3. Prisma migrations need a direct connection; the app can use the pooled one. If you use only one URL, prefer the pooled string with `?pgbouncer=true&connection_limit=1` for runtime and run migrations with the direct URL via `DIRECT_URL` if you add it to the schema.
+1. Create a project and wait for provisioning to finish.
+2. Open **Project Settings → Database → Connection string**.
+3. Copy the **Transaction pooler** string (port `6543`) for `DATABASE_URL`. Append `?pgbouncer=true&connection_limit=1` if it is not already present.
+4. Copy the **Session pooler** string (port `5432`) or the **Direct connection** string for `DIRECT_URL`. Migrations need a session/direct connection, not the transaction pooler.
+5. URL-encode special characters in the password (`@` → `%40`, `#` → `%23`, and so on).
 
-If you add `DIRECT_URL` to `prisma/schema.prisma`, keep it optional in local `.env` and set it in production.
+```bash
+DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+DIRECT_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+```
+
+`DIRECT_URL` is declared in `prisma/schema.prisma` and is used only by Prisma Migrate. If your direct host is IPv6-only and Vercel cannot reach it, use the session pooler URL above instead — it supports migrations over IPv4.
+
+Free Supabase projects pause after a period of inactivity. A weekly game day is usually enough activity to keep it awake; the first request after a pause may take a little longer.
 
 ## 3. Create the Vercel project
 
@@ -85,12 +94,12 @@ It must be the account tied to the GitHub identity that owns the repo.
 
 | Variable | Required | Example | Notes |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | yes | `postgresql://user:pass@host/db?sslmode=require` | Pooled connection recommended |
+| `DATABASE_URL` | yes | `postgresql://user:pass@host/db?sslmode=require` | Pooled connection recommended at runtime |
+| `DIRECT_URL` | yes in production | direct Postgres URL | Used by `prisma migrate`; can equal `DATABASE_URL` when there is no pooler |
 | `QUEUE_MASTER_PIN` | yes | a 6+ digit PIN | Shared by all queue masters; rotate when someone leaves |
 | `AUTH_SECRET` | yes | 32+ random chars | `openssl rand -base64 32`; rotating invalidates sessions |
 | `NEXT_PUBLIC_APP_URL` | yes | `https://kyuwing.vercel.app` | Used in metadata and absolute links |
 | `NEXT_PUBLIC_ORG_NAME` | no | `UP BadAss` | Overrides the org label |
-| `DIRECT_URL` | only if configured | direct Postgres URL | For migrations on pooled providers |
 
 Set the same values for **Preview** if you want preview deployments to work; otherwise use a separate preview database so previews cannot touch production data.
 

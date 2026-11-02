@@ -33,6 +33,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://kyuwing:kyuwing@localhost:5433/kyuwing?schema=public
+      DIRECT_URL: postgresql://kyuwing:kyuwing@localhost:5433/kyuwing?schema=public
       QUEUE_MASTER_PIN: "1234"
       AUTH_SECRET: ci-only-secret-not-used-in-production
       NEXT_PUBLIC_APP_URL: http://localhost:3000
