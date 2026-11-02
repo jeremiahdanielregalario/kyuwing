@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { Stat } from "@/components/ui/stat";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 export function FeeLedger({ report }: { report: FeeReport }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
+  const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [filter, setFilter] = React.useState<"all" | "unpaid" | "paid">("all");
   const [query, setQuery] = React.useState("");
   const [selected, setSelected] = React.useState<FeeRow | null>(null);
@@ -140,10 +142,15 @@ export function FeeLedger({ report }: { report: FeeReport }) {
               size="sm"
               variant="paper"
               disabled={pending}
-              onClick={() => {
-                if (window.confirm("Mark everyone as paid in full?"))
-                  act(() => markAllPaid(report.gameDay.id));
-              }}
+              onClick={() =>
+                setConfirmSpec({
+                  title: "Mark everyone as paid in full?",
+                  description: `${report.rows.length} player fee rows flip to paid. Outstanding balance drops to ₱0.`,
+                  confirmLabel: "Mark all paid",
+                  cancelLabel: "Not yet",
+                  onConfirm: () => act(() => markAllPaid(report.gameDay.id)),
+                })
+              }
             >
               <Check className="h-3.5 w-3.5" /> Mark all paid
             </Button>
@@ -333,6 +340,8 @@ export function FeeLedger({ report }: { report: FeeReport }) {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>
   );
 }

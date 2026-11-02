@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 type VenueOption = { id: string; name: string; shortName: string };
@@ -61,6 +62,7 @@ export function GameDaySettings({
   const [notes, setNotes] = React.useState(gameDay.notes ?? "");
   const [slots, setSlots] = React.useState<Slot[]>(gameDay.courtPlan);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [confirmText, setConfirmText] = React.useState("");
 
   const act = (fn: () => Promise<AnyResult>, onSuccess?: () => void) => {
@@ -164,18 +166,19 @@ export function GameDaySettings({
               <Button
                 size="sm"
                 variant="paper"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Close this game day? Live and suggested matches will be cancelled and players marked done.",
-                    )
-                  ) {
-                    act(
-                      () => setGameDayStatus(gameDay.id, "COMPLETED"),
-                      () => router.push(`/app/gamedays/${gameDay.id}/reports`),
-                    );
-                  }
-                }}
+                onClick={() =>
+                  setConfirmSpec({
+                    title: "Close this game day?",
+                    description: "Live and suggested matches are cancelled and remaining players are marked done. Fees stay editable.",
+                    confirmLabel: "Close game day",
+                    cancelLabel: "Keep running",
+                    tone: "danger",
+                    onConfirm: () =>
+                      act(() => setGameDayStatus(gameDay.id, "COMPLETED"), () =>
+                        router.push(`/app/gamedays/${gameDay.id}/reports`),
+                      ),
+                  })
+                }
                 loading={pending}
               >
                 <CircleCheck className="h-3.5 w-3.5" /> Complete day
@@ -434,6 +437,8 @@ export function GameDaySettings({
           </p>
         </div>
       </Modal>
+
+      <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>
   );
 }

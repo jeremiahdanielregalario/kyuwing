@@ -75,6 +75,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -176,6 +177,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
   const [checkQuery, setCheckQuery] = React.useState("");
   const [walkOpen, setWalkOpen] = React.useState(false);
   const [walk, setWalk] = React.useState({ nickname: "", level: "C", category: "ACTIVE" });
+  const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [editMatch, setEditMatch] = React.useState<BoardMatch | null>(null);
   const [editCourt, setEditCourt] = React.useState(1);
   const [editTeam1, setEditTeam1] = React.useState<string[]>([]);
@@ -342,9 +344,31 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
   };
 
   const finishMatch = (match: BoardMatch) => {
-    if (window.confirm(`End the game on Court ${match.courtNumber}? Players requeue automatically.`)) {
-      act(() => completeMatch(match.id));
-    }
+    setConfirmSpec({
+      title: `End the game on Court ${match.courtNumber}?`,
+      description: "All four players requeue automatically.",
+      detail: (
+        <div className="border-line bg-cream/70 space-y-1.5 rounded-xl border px-3.5 py-3">
+          {[
+            ["Team A", match.team1],
+            ["Team B", match.team2],
+          ].map(([label, team]) => (
+            <p key={label as string} className="flex items-center justify-between gap-3 text-[12px]">
+              <span className="text-muted shrink-0 font-semibold tracking-wide uppercase">{label as string}</span>
+              <span className="truncate font-semibold">
+                {(team as BoardMatch["team1"]).map((player) => player.nickname).join(" & ")}
+              </span>
+            </p>
+          ))}
+          <p className="text-muted pt-0.5 text-[11px]">
+            Round {match.round} · doubles · fee counts on end
+          </p>
+        </div>
+      ),
+      confirmLabel: "End game",
+      cancelLabel: "Keep playing",
+      onConfirm: () => act(() => completeMatch(match.id)),
+    });
   };
 
   const submitEdit = () => {
@@ -634,11 +658,18 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                     <button
                       type="button"
                       className="text-muted hover:text-ink text-[11px] font-semibold transition"
-                      onClick={() => {
-                        if (window.confirm("Clear all suggested matches? Players stay in the queue.")) {
-                          act(() => clearSuggestedMatches(data.gameDay.id));
-                        }
-                      }}
+                      onClick={() =>
+                        setConfirmSpec({
+                          title: "Clear all suggested matches?",
+                          description: `${suggested.length} suggested game${
+                            suggested.length === 1 ? "" : "s"
+                          } discarded. Players stay in the queue.`,
+                          confirmLabel: "Clear suggestions",
+                          cancelLabel: "Keep suggestions",
+                          tone: "danger",
+                          onConfirm: () => act(() => clearSuggestedMatches(data.gameDay.id)),
+                        })
+                      }
                     >
                       Clear
                     </button>
@@ -687,11 +718,16 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                         onStart={(id) => act(() => startMatch(id))}
                         onFinish={finishMatch}
                         onEdit={openEdit}
-                        onCancel={(id) => {
-                          if (window.confirm("Cancel this match? Players will stay in the queue.")) {
-                            act(() => cancelMatch(id));
-                          }
-                        }}
+                        onCancel={(id) =>
+                          setConfirmSpec({
+                            title: "Cancel this match?",
+                            description: "Players will stay in the queue.",
+                            confirmLabel: "Cancel match",
+                            cancelLabel: "Keep match",
+                            tone: "danger",
+                            onConfirm: () => act(() => cancelMatch(id)),
+                          })
+                        }
                         onClearDraft={(index) =>
                           setDrafts((prev) => ({
                             ...prev,
@@ -812,11 +848,15 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                         now={now}
                         pending={pending}
                         onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                        onDone={() => {
-                          if (window.confirm(`Mark ${player.nickname} done for the day?`)) {
-                            act(() => markPlayerDone(player.sessionPlayerId));
-                          }
-                        }}
+                        onDone={() =>
+                          setConfirmSpec({
+                            title: `Mark ${player.nickname} done for the day?`,
+                            description: "They leave the board and stop receiving games.",
+                            confirmLabel: "Mark done",
+                            cancelLabel: "Not yet",
+                            onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
+                          })
+                        }
                         onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
                         onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
                       />
@@ -840,6 +880,8 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             </div>
           </Card>
         </div>
+
+        <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
 
         {/* Check-in modal */}
         <Modal

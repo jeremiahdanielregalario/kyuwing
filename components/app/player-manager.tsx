@@ -35,6 +35,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 type PlayerRecord = {
@@ -73,6 +74,7 @@ type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 export function PlayerManager({ players }: { players: PlayerRecord[] }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
+  const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [query, setQuery] = React.useState("");
   const [levelFilter, setLevelFilter] = React.useState("ALL");
   const [categoryFilter, setCategoryFilter] = React.useState("ALL");
@@ -335,13 +337,14 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
                         <button
                           type="button"
                           onClick={() => {
-                            if (
-                              window.confirm(
-                                `Delete ${player.nickname}? Players with history will be archived instead.`,
-                              )
-                            ) {
-                              act(() => deletePlayer(player.id));
-                            }
+                            setConfirmSpec({
+                              title: `Delete ${player.nickname}?`,
+                              description: "Players with games on record are archived instead so fees stay correct.",
+                              confirmLabel: "Delete player",
+                              cancelLabel: "Keep player",
+                              tone: "danger",
+                              onConfirm: () => act(() => deletePlayer(player.id)),
+                            })
                           }}
                           disabled={pending}
                           className="text-muted hover:bg-coral-soft hover:text-coral grid h-7 w-7 place-items-center rounded-full transition"
@@ -510,6 +513,8 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
           </a>
         </div>
       </Modal>
+
+      <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>
   );
 }

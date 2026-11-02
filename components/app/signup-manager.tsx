@@ -41,6 +41,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 type DatabasePlayer = {
@@ -67,6 +68,7 @@ export function SignupManager({
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
+  const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [search, setSearch] = React.useState("");
   const [tab, setTab] = React.useState<"all" | "expected" | "waiting" | "done">("all");
   const [manageId, setManageId] = React.useState<string | null>(null);
@@ -296,11 +298,16 @@ export function SignupManager({
                     </Button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (window.confirm(`Remove ${player.nickname} from this game day?`)) {
-                          act(() => removePlayerFromGameDay(player.sessionPlayerId));
-                        }
-                      }}
+                      onClick={() =>
+                        setConfirmSpec({
+                          title: `Remove ${player.nickname} from this game day?`,
+                          description: "They can be added back later with check-in or as a walk-in.",
+                          confirmLabel: "Remove player",
+                          cancelLabel: "Keep player",
+                          tone: "danger",
+                          onConfirm: () => act(() => removePlayerFromGameDay(player.sessionPlayerId)),
+                        })
+                      }
                       disabled={pending}
                       className="text-muted hover:bg-coral-soft hover:text-coral grid h-8 w-8 place-items-center rounded-full transition"
                       aria-label={`Remove ${player.nickname}`}
@@ -632,6 +639,8 @@ export function SignupManager({
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>
   );
 }
