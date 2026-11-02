@@ -88,13 +88,36 @@ const fetcher = async (url: string) => {
   return response.json() as Promise<BoardData>;
 };
 
+/**
+ * Ticking clock for wait timers. It deliberately starts at 0 so the server and
+ * the first client render agree (Date.now() during render is a hydration
+ * mismatch); the effect fills in the real time immediately after mount.
+ */
 function useNow() {
-  const [now, setNow] = React.useState(() => Date.now());
+  const [now, setNow] = React.useState(0);
   React.useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    const tick = () => setNow(Date.now());
+    const kick = window.setTimeout(tick, 0);
+    const timer = window.setInterval(tick, 1000);
+    return () => {
+      window.clearTimeout(kick);
+      window.clearInterval(timer);
+    };
   }, []);
   return now;
+}
+
+/**
+ * dnd-kit generates `aria-describedby` ids from a module counter, so the ids
+ * differ between the server render and the client render. Only attach its
+ * drag attributes after hydration.
+ */
+function useMounted() {
+  return React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 }
 
 function waitSeconds(queuedAt: string | null, now: number) {
@@ -581,7 +604,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
               </button>
             ))}
             <span className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]">
-              <Dot tone="lime" /> {formatClock(new Date(now))} Manila
+              <Dot tone="lime" /> {now ? formatClock(new Date(now)) : "--:--"} Manila
             </span>
           </div>
         </Card>
@@ -1142,6 +1165,7 @@ function CourtCard({
     data: { kind: "court", courtNumber: court, matchId: match?.id } satisfies DropTarget,
     disabled: isCompleted,
   });
+  const mounted = useMounted();
   const {
     setNodeRef: setHandleRef,
     listeners,
@@ -1209,7 +1233,7 @@ function CourtCard({
   }
 
   const live = match.status === "LIVE";
-  const elapsed = match.startedAt ? Math.floor((now - Date.parse(match.startedAt)) / 1000) : 0;
+  const elapsed = match.startedAt && now ? Math.max(0, Math.floor((now - Date.parse(match.startedAt)) / 1000)) : 0;
   const balance = Math.abs(teamValue(match.team1) - teamValue(match.team2));
 
   return (
@@ -1229,7 +1253,7 @@ function CourtCard({
             <span
               ref={setHandleRef}
               {...listeners}
-              {...attributes}
+              {...(mounted ? attributes : {})}
               aria-label={`Move the Court ${court} match`}
               className={cn(
                 "text-cream/45 hover:text-cream grid h-6 w-5 cursor-grab touch-none place-items-center rounded",
@@ -1361,6 +1385,7 @@ function PlayerChip({
     } satisfies DropTarget,
     disabled,
   });
+  const mounted = useMounted();
   const {
     setNodeRef: setDragRef,
     listeners,
@@ -1392,7 +1417,7 @@ function PlayerChip({
       <div
         ref={setDragRef}
         {...listeners}
-        {...attributes}
+        {...(mounted ? attributes : {})}
         className="flex cursor-grab touch-none items-center gap-1.5 px-1.5 py-1"
       >
         <Avatar name={player.nickname} size="sm" className="h-6 w-6 text-[9px]" />
@@ -1477,6 +1502,7 @@ function DraggableQueueItem({
   disabled: boolean;
   children: React.ReactNode;
 }) {
+  const mounted = useMounted();
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `queue-${player.sessionPlayerId}`,
     data: {
@@ -1496,7 +1522,7 @@ function DraggableQueueItem({
         <span
           ref={setNodeRef}
           {...listeners}
-          {...attributes}
+          {...(mounted ? attributes : {})}
           aria-label={`Drag ${player.nickname} to a court`}
           className="text-muted/50 hover:text-ink grid w-4 shrink-0 cursor-grab touch-none place-items-center rounded"
         >

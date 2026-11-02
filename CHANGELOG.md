@@ -32,6 +32,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 - Board query now loads pairing requests, which the queue UI reads.
 - Button variants and sizes are actually applied instead of being computed and discarded.
 - Modal avoids a hydration mismatch by mounting its portal after hydration.
+- Live board avoids a hydration mismatch: the tick clock starts at zero on the server and dnd-kit's drag aria attributes attach after hydration.
 - Venue fee editor switches records without an effect-driven state reset.
 - Sign-up details derive wait time from a captured timestamp rather than `Date.now()` during render.
 
