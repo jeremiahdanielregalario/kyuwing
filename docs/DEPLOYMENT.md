@@ -67,7 +67,7 @@ Free Supabase projects pause after a period of inactivity. A weekly game day is 
 2. Framework preset: **Next.js**. Build command: `pnpm build`. Install command: `pnpm install`.
 3. Add the environment variables below for **Production** (and Preview if you want preview deployments).
 4. Deploy.
-5. Rename the project to `kyuwing` so the default domain is `kyuwing.vercel.app`.
+5. Deploy, then point the `badass-kyuwing.vercel.app` alias at the production deployment (or rename the project to `badass-kyuwing`).
 
 ### Option B — CLI
 
@@ -98,7 +98,7 @@ It must be the account tied to the GitHub identity that owns the repo.
 | `DIRECT_URL` | yes in production | direct Postgres URL | Used by `prisma migrate`; can equal `DATABASE_URL` when there is no pooler |
 | `QUEUE_MASTER_PIN` | yes | a 6+ digit PIN | Shared by all queue masters; rotate when someone leaves |
 | `AUTH_SECRET` | yes | 32+ random chars | `openssl rand -base64 32`; rotating invalidates sessions |
-| `NEXT_PUBLIC_APP_URL` | yes | `https://kyuwing.vercel.app` | Used in metadata and absolute links |
+| `NEXT_PUBLIC_APP_URL` | yes | `https://badass-kyuwing.vercel.app` | Used in metadata and absolute links |
 | `NEXT_PUBLIC_ORG_NAME` | no | `UP BadAss` | Overrides the org label |
 
 Set the same values for **Preview** if you want preview deployments to work; otherwise use a separate preview database so previews cannot touch production data.
@@ -135,7 +135,7 @@ If you do seed a staging environment, remember to replace the placeholder fees b
 
 ## 6. Verify the deployment
 
-1. Open `https://kyuwing.vercel.app`.
+1. Open `https://badass-kyuwing.vercel.app`.
 2. Confirm the landing page renders and the pairing demo is interactive.
 3. Open `/login`, sign in with the production PIN.
 4. Create a test game day, add a player, check in, pair, start, finish, and confirm requeue.
@@ -145,7 +145,7 @@ If you do seed a staging environment, remember to replace the placeholder fees b
 
 ## 7. Custom domain
 
-The default `kyuwing.vercel.app` is fine for the association. To use a custom domain:
+`badass-kyuwing.vercel.app` is the production alias for the association. To use a custom domain:
 
 1. Vercel project → **Settings → Domains** → add the domain.
 2. Point DNS as instructed (A/CNAME).

@@ -12,6 +12,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const params = await searchParams;
   const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/app";
   if (session) redirect(next);
+  const appHost = (() => {
+    try {
+      return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://badass-kyuwing.vercel.app").host;
+    } catch {
+      return "badass-kyuwing.vercel.app";
+    }
+  })();
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1.08fr]">
@@ -65,9 +72,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <span className="animate-pulse-soft bg-lime h-1.5 w-1.5 rounded-full" />
             Game-day control room
           </span>
-          <span className="text-cream/35 font-mono text-[10px] tracking-[0.2em] uppercase">
-            kyuwing.vercel.app
-          </span>
+          <span className="text-cream/35 font-mono text-[10px] tracking-[0.2em] uppercase">{appHost}</span>
         </div>
 
         <div className="relative px-10 pb-10">
