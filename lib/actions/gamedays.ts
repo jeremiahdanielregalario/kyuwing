@@ -832,3 +832,174 @@ export async function createQuickPlayer(
     level: levelLabel(player.level),
   });
 }
+
+/**
+ * Place four checked-in players on a court by hand (drag and drop).
+ * The first two become Team 1, the last two Team 2.
+ */
+export async function createManualMatch(
+  gameDayId: string,
+  courtNumber: number,
+  playerIds: string[],
+): Promise<ActionResult<{ matchId: string }>> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  if (!Number.isInteger(courtNumber) || courtNumber < 1 || courtNumber > 20)
+    return fail("Pick a valid court.");
+  if (playerIds.length !== 4 || new Set(playerIds).size !== 4)
+    return fail("A court needs four different players.");
+
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id: gameDayId },
+    include: { players: true, matches: { select: { round: true, courtNumber: true, status: true } } },
+  });
+  if (!gameDay) return fail("Game day not found.");
+  if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
+
+  const waiting = new Set(
+    gameDay.players.filter((row) => row.status === "WAITING").map((row) => row.playerId),
+  );
+  if (playerIds.some((playerId) => !waiting.has(playerId)))
+    return fail("Only checked-in, waiting players can be placed on a court.");
+
+  const clash = gameDay.matches.find(
+    (match) => match.courtNumber === courtNumber && (match.status === "SUGGESTED" || match.status === "LIVE"),
+  );
+  if (clash) return fail(`Court ${courtNumber} already has a match.`);
+
+  const round = Math.max(0, ...gameDay.matches.map((match) => match.round)) + 1;
+  const match = await prisma.match.create({
+    data: {
+      gameDayId,
+      courtNumber,
+      round,
+      status: "SUGGESTED",
+      players: {
+        create: [
+          ...playerIds.slice(0, 2).map((playerId, index) => ({
+            playerId,
+            team: 1,
+            slot: index + 1,
+          })),
+          ...playerIds.slice(2).map((playerId, index) => ({
+            playerId,
+            team: 2,
+            slot: index + 1,
+          })),
+        ],
+      },
+    },
+  });
+
+  refreshGameDay(gameDayId);
+  return ok(`Court ${courtNumber} set by hand.`, { matchId: match.id });
+}
+
+/**
+ * Move a match to another court. If that court is already taken by another
+ * active match, the two matches swap courts.
+ */
+export async function moveMatchToCourt(matchId: string, courtNumber: number): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  if (!Number.isInteger(courtNumber) || courtNumber < 1 || courtNumber > 20)
+    return fail("Pick a valid court.");
+
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match) return fail("Match not found.");
+  if (match.status === "COMPLETED" || match.status === "CANCELLED")
+    return fail("This match can no longer be moved.");
+  if (match.courtNumber === courtNumber) return ok("Match is already on that court.");
+
+  const occupant = await prisma.match.findFirst({
+    where: {
+      gameDayId: match.gameDayId,
+      courtNumber,
+      status: { in: ["SUGGESTED", "LIVE"] },
+      id: { not: matchId },
+    },
+  });
+
+  if (occupant) {
+    await prisma.$transaction([
+      prisma.match.update({ where: { id: matchId }, data: { courtNumber } }),
+      prisma.match.update({ where: { id: occupant.id }, data: { courtNumber: match.courtNumber } }),
+    ]);
+    refreshGameDay(match.gameDayId);
+    return ok(`Swapped Court ${match.courtNumber} and Court ${courtNumber}.`);
+  }
+
+  await prisma.match.update({ where: { id: matchId }, data: { courtNumber } });
+  refreshGameDay(match.gameDayId);
+  return ok(`Moved to Court ${courtNumber}.`);
+}
+
+/**
+ * Swap two players between two active matches without disturbing the rest of
+ * either line-up. Used when a queue master drags one player chip onto another.
+ */
+export async function swapMatchPlayers(
+  matchIdA: string,
+  playerIdA: string,
+  matchIdB: string,
+  playerIdB: string,
+): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  if (matchIdA === matchIdB) return fail("Drop a player onto another match to swap.");
+  if (playerIdA === playerIdB) return ok("No change.");
+
+  const matches = await prisma.match.findMany({
+    where: { id: { in: [matchIdA, matchIdB] } },
+    include: { players: true },
+  });
+  if (matches.length !== 2) return fail("Match not found.");
+  const [a, b] = matches;
+  if (a.gameDayId !== b.gameDayId) return fail("Matches must belong to the same game day.");
+  if ([a, b].some((match) => match.status === "COMPLETED" || match.status === "CANCELLED"))
+    return fail("Finished matches cannot be changed.");
+
+  const rowA = a.players.find((row) => row.playerId === playerIdA);
+  const rowB = b.players.find((row) => row.playerId === playerIdB);
+  if (!rowA || !rowB) return fail("Those players are not on those courts.");
+  if (a.players.some((row) => row.playerId === playerIdB))
+    return fail("That swap would duplicate a player on one court.");
+  if (b.players.some((row) => row.playerId === playerIdA))
+    return fail("That swap would duplicate a player on one court.");
+
+  await prisma.$transaction([
+    prisma.matchPlayer.update({
+      where: { matchId_playerId: { matchId: matchIdA, playerId: playerIdA } },
+      data: { playerId: playerIdB },
+    }),
+    prisma.matchPlayer.update({
+      where: { matchId_playerId: { matchId: matchIdB, playerId: playerIdB } },
+      data: { playerId: playerIdA },
+    }),
+  ]);
+
+  for (const [match, incomingId, outgoingId] of [
+    [a, playerIdB, playerIdA],
+    [b, playerIdA, playerIdB],
+  ] as const) {
+    const ids = match.players.map((row) => row.playerId).filter((id) => id !== outgoingId);
+    ids.push(incomingId);
+    if (match.status === "LIVE") {
+      await prisma.sessionPlayer.updateMany({
+        where: { gameDayId: match.gameDayId, playerId: { in: ids } },
+        data: { status: "PLAYING" },
+      });
+    } else {
+      await prisma.sessionPlayer.updateMany({
+        where: { gameDayId: match.gameDayId, playerId: { in: ids } },
+        data: { status: "WAITING" },
+      });
+    }
+  }
+
+  refreshGameDay(a.gameDayId);
+  return ok("Players swapped.");
+}

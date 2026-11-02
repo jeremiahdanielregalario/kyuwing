@@ -6,6 +6,9 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **UP BadAss identity** — the app now uses the association's black, gold, and paper-white palette, the official wordmark, the 2015/Diliman story, the mission and vision, and the three core values (Competency, Commitment, Camaraderie) on the landing page and login screen.
+- **Drag and drop courts** — drag a match card onto another court to swap them, drag a player chip onto another slot to swap players, and drop four waiting players onto an open court to build a match by hand.
+- **Court-surface cards** — every court card is drawn on a top-down badminton court with singles/doubles lines and a gold net, matching the Queue Maestro card layout.
 - **Game days** — draft/live/completed lifecycle, venue and date selection, game-day types (Regular, Tipid, MEGA), 35-point default target, editable court blocks per time slot.
 - **Sign-ups** — add players individually, add every active player at once, CSV/JSON roster import, walk-ins with instant check-in, and per-player notes.
 - **Live queue board** — Expected / Waiting / Playing / Done lanes, live wait timers, longest-wait and average-wait stats, court cards for every block, and SWR polling for multi-device use.

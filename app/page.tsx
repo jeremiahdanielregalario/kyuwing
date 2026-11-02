@@ -20,7 +20,7 @@ import {
   Wallet,
   Wand2,
 } from "lucide-react";
-import { Logo, OrgBadge } from "@/components/logo";
+import { BrandMark, Logo } from "@/components/logo";
 import { PairingDemo } from "@/components/marketing/pairing-demo";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -141,10 +141,14 @@ const faqs = [
 export default function HomePage() {
   return (
     <div className="overflow-x-clip">
+      <div className="gold-rule h-1 w-full" aria-hidden="true" />
       <header className="border-line/70 bg-cream/85 sticky top-0 z-50 border-b backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:px-6">
           <Logo />
           <nav className="text-ink-soft hidden items-center gap-7 text-[13px] font-semibold md:flex">
+            <a href="#association" className="hover:text-ink transition">
+              Association
+            </a>
             <a href="#how" className="hover:text-ink transition">
               How it works
             </a>
@@ -153,9 +157,6 @@ export default function HomePage() {
             </a>
             <a href="#fees" className="hover:text-ink transition">
               Fees
-            </a>
-            <a href="#reports" className="hover:text-ink transition">
-              Reports
             </a>
             <a href="#faq" className="hover:text-ink transition">
               FAQ
@@ -178,48 +179,61 @@ export default function HomePage() {
 
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden">
+        <section className="bg-forest-deep text-cream relative overflow-hidden">
+          <div className="court-lines pointer-events-none absolute inset-0 opacity-40" aria-hidden="true" />
           <div
-            className="bg-lime/30 pointer-events-none absolute top-10 -right-32 h-[34rem] w-[34rem] rounded-full blur-3xl"
+            className="bg-lime/10 pointer-events-none absolute top-10 -right-32 h-[34rem] w-[34rem] rounded-full blur-3xl"
             aria-hidden="true"
           />
           <div
-            className="bg-sky/25 pointer-events-none absolute top-60 -left-40 h-[26rem] w-[26rem] rounded-full blur-3xl"
+            className="bg-lime/[0.06] pointer-events-none absolute top-60 -left-40 h-[26rem] w-[26rem] rounded-full blur-3xl"
             aria-hidden="true"
           />
-          <div className="mx-auto grid max-w-6xl items-center gap-14 px-5 pt-14 pb-20 sm:px-6 sm:pt-20 sm:pb-24 lg:grid-cols-[1.02fr_0.98fr] lg:gap-10 lg:pt-24">
+          <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-5 pt-14 pb-20 sm:px-6 sm:pt-20 sm:pb-24 lg:grid-cols-[1.02fr_0.98fr] lg:gap-10 lg:pt-24">
             <div className="animate-rise">
-              <OrgBadge />
-              <h1 className="font-display mt-6 text-[3.35rem] leading-[0.92] font-extrabold tracking-[-0.055em] sm:text-[4.6rem] lg:text-[5.2rem]">
+              <span className="border-lime/30 bg-lime/10 text-lime inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[10px] font-bold tracking-[0.16em] uppercase">
+                <span className="animate-pulse-soft bg-lime h-1.5 w-1.5 rounded-full" />
+                UP Badminton Association in Diliman · Est. 2015
+              </span>
+              <h1 className="font-brand text-cream mt-6 text-[2.5rem] leading-[0.95] tracking-tight uppercase sm:text-[3.2rem] lg:text-[3.7rem]">
                 Queue less.
                 <br />
-                <span className="relative inline-block">
-                  <span className="relative z-10">Play more.</span>
-                  <span
-                    className="bg-lime absolute inset-x-0 bottom-1 z-0 h-[38%] -rotate-1 rounded-sm"
-                    aria-hidden="true"
-                  />
-                </span>
+                <span className="text-lime">Play more.</span>
               </h1>
-              <p className="text-ink-soft mt-6 max-w-lg text-[15px] leading-relaxed sm:text-base">
-                Kyuwing is the queue master&apos;s wingman for UP BadAss game days. Check players in, get fair
-                doubles on every open court in seconds, and close the day with a fee report — not a
-                spreadsheet.
+              <p className="text-cream/70 mt-6 max-w-lg text-[15px] leading-relaxed sm:text-base">
+                The game-day board for UP BadAss. Check players in, get balanced doubles on every open court,
+                drag a match anywhere it is needed, and close the day with a fee report — not a spreadsheet.
               </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {["Competency", "Commitment", "Camaraderie"].map((value) => (
+                  <span
+                    key={value}
+                    className="border-cream/15 bg-cream/5 text-cream/70 rounded-full border px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] uppercase"
+                  >
+                    {value}
+                  </span>
+                ))}
+              </div>
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link href="/app" className={buttonVariants({ variant: "primary", size: "lg" })}>
+                <Link href="/app" className={buttonVariants({ variant: "accent", size: "lg" })}>
                   Open the queue board
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <a href="#pairing" className={buttonVariants({ variant: "outline", size: "lg" })}>
-                  See how pairing works
+                <a
+                  href="#association"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "border-cream/25 text-cream hover:border-lime/60 hover:bg-cream/10",
+                  )}
+                >
+                  Meet UP BadAss
                 </a>
               </div>
-              <ul className="text-ink-soft mt-8 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-medium">
+              <ul className="text-cream/60 mt-8 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-medium">
                 {["No player accounts", "Works on any phone", "35-point doubles", "Excel + PDF reports"].map(
                   (item) => (
                     <li key={item} className="inline-flex items-center gap-1.5">
-                      <span className="bg-forest text-lime grid h-4 w-4 place-items-center rounded-full">
+                      <span className="bg-lime text-forest-deep grid h-4 w-4 place-items-center rounded-full">
                         <Check className="h-2.5 w-2.5" strokeWidth={3} />
                       </span>
                       {item}
@@ -236,29 +250,119 @@ export default function HomePage() {
         </section>
 
         {/* Marquee */}
-        <section className="border-forest-deep/20 bg-forest text-cream border-y py-4">
-          <div className="text-cream/75 mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-7 gap-y-2 px-5 text-[11px] font-semibold tracking-[0.18em] uppercase sm:justify-between">
+        <section className="bg-lime text-forest-deep border-y border-black/10 py-4">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-7 gap-y-2 px-5 text-[11px] font-bold tracking-[0.18em] uppercase sm:justify-between">
             {[
               "Balanced doubles",
               "Arrival timers",
               "Court blocks",
+              "Drag & drop courts",
               "Permanent pairs",
-              "Requests honored",
               "Per-game fees",
               "Excel + PDF",
             ].map((item, index) => (
               <span key={item} className="inline-flex items-center gap-2.5">
-                {index > 0 && <span className="bg-lime/70 h-1 w-1 rounded-full" />}
+                {index > 0 && <span className="bg-forest-deep/40 h-1 w-1 rounded-full" />}
                 {item}
               </span>
             ))}
           </div>
         </section>
 
+        {/* Association */}
+        <section id="association" className="border-line bg-paper scroll-mt-24 border-b">
+          <div className="mx-auto max-w-6xl px-5 py-20 sm:px-6 sm:py-24">
+            <div className="max-w-3xl">
+              <p className="text-gold-deep text-[11px] font-bold tracking-[0.18em] uppercase">
+                The association
+              </p>
+              <h2 className="font-brand mt-3 text-3xl leading-[1.02] tracking-tight uppercase sm:text-5xl">
+                Competency. Commitment.
+                <br />
+                <span className="text-gold-deep">Camaraderie.</span>
+              </h2>
+              <p className="text-muted mt-5 max-w-2xl text-[15px] leading-relaxed">
+                Founded in 2015, the UP Badminton Association in Diliman is a premier youth sports
+                organization and the lone badminton organization at the University of the Philippines Diliman
+                — open to undergraduates, master&apos;s students, and PhD students alike. Kyuwing is the board
+                that keeps its game days moving.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 lg:grid-cols-3">
+              {[
+                {
+                  letter: "C",
+                  title: "Competency",
+                  body: "We train with intent, compete with purpose, and keep raising the level of our game — on and off the court.",
+                },
+                {
+                  letter: "C",
+                  title: "Commitment",
+                  body: "We show up for practice, for each other, and for the sport. Consistency is how a batch becomes a legacy.",
+                },
+                {
+                  letter: "C",
+                  title: "Camaraderie",
+                  body: "We are a family first. Every smash, every miss, and every after-game meal is part of the same story.",
+                },
+              ].map((value) => (
+                <div
+                  key={value.title}
+                  className="border-line bg-cream/60 hover:border-lime-deep/60 group relative overflow-hidden rounded-3xl border p-6 transition-colors"
+                >
+                  <span
+                    className="font-brand text-lime/50 pointer-events-none absolute -top-4 right-4 text-[6rem] leading-none select-none"
+                    aria-hidden="true"
+                  >
+                    {value.letter}
+                  </span>
+                  <p className="text-gold-deep text-[10px] font-bold tracking-[0.18em] uppercase">
+                    Core value
+                  </p>
+                  <h3 className="font-display mt-2 text-xl font-bold tracking-tight">{value.title}</h3>
+                  <p className="text-muted relative mt-2 text-[13px] leading-relaxed">{value.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-10 grid gap-4 md:grid-cols-2">
+              <div className="border-line bg-cream/60 rounded-3xl border p-6">
+                <p className="font-brand text-gold-deep text-lg uppercase">Mission</p>
+                <p className="text-ink-soft mt-3 text-[14px] leading-relaxed">
+                  To develop our members into holistic individuals dedicated to advocating badminton through
+                  practice of the sport and our social responsibility.
+                </p>
+              </div>
+              <div className="border-line bg-cream/60 rounded-3xl border p-6">
+                <p className="font-brand text-gold-deep text-lg uppercase">Vision</p>
+                <p className="text-ink-soft mt-3 text-[14px] leading-relaxed">
+                  A premier youth sports organization that aims to be a forerunner in promoting badminton as a
+                  sport.
+                </p>
+              </div>
+            </div>
+
+            <div className="border-line mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-3xl border bg-[var(--color-line)] sm:grid-cols-4">
+              {[
+                ["2015", "Founded"],
+                ["100+", "Active members"],
+                ["15", "Batches"],
+                ["1", "University-wide badminton org"],
+              ].map(([value, label]) => (
+                <div key={label} className="bg-paper px-5 py-6">
+                  <p className="font-brand text-2xl leading-none tracking-tight">{value}</p>
+                  <p className="text-muted mt-2 text-[10px] font-bold tracking-[0.14em] uppercase">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* How it works */}
         <section id="how" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20 sm:px-6 sm:py-28">
           <div className="max-w-2xl">
-            <p className="text-forest-soft text-[11px] font-bold tracking-[0.18em] uppercase">
+            <p className="text-gold-deep text-[11px] font-bold tracking-[0.18em] uppercase">
               The game-day loop
             </p>
             <h2 className="font-display mt-3 text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl">
@@ -318,7 +422,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-5 py-20 sm:px-6 sm:py-28">
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div className="max-w-2xl">
-                <p className="text-forest-soft text-[11px] font-bold tracking-[0.18em] uppercase">
+                <p className="text-gold-deep text-[11px] font-bold tracking-[0.18em] uppercase">
                   Everything in one board
                 </p>
                 <h2 className="font-display mt-3 text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl">
@@ -442,7 +546,7 @@ export default function HomePage() {
         <section id="fees" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20 sm:px-6 sm:py-28">
           <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:gap-16">
             <div>
-              <p className="text-forest-soft text-[11px] font-bold tracking-[0.18em] uppercase">
+              <p className="text-gold-deep text-[11px] font-bold tracking-[0.18em] uppercase">
                 Fees, without the math
               </p>
               <h2 className="font-display mt-3 text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl">
@@ -587,7 +691,7 @@ export default function HomePage() {
             </div>
 
             <div className="order-1 lg:order-2">
-              <p className="text-forest-soft text-[11px] font-bold tracking-[0.18em] uppercase">
+              <p className="text-gold-deep text-[11px] font-bold tracking-[0.18em] uppercase">
                 Close the day
               </p>
               <h2 className="font-display mt-3 text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl">
@@ -624,7 +728,7 @@ export default function HomePage() {
         {/* FAQ */}
         <section id="faq" className="mx-auto max-w-4xl scroll-mt-24 px-5 py-20 sm:px-6 sm:py-28">
           <div className="text-center">
-            <p className="text-forest-soft text-[11px] font-bold tracking-[0.18em] uppercase">
+            <p className="text-gold-deep text-[11px] font-bold tracking-[0.18em] uppercase">
               Questions, answered
             </p>
             <h2 className="font-display mt-3 text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl">
@@ -660,8 +764,8 @@ export default function HomePage() {
               <span className="text-lime">Let&apos;s run the queue.</span>
             </h2>
             <p className="text-cream/65 mx-auto mt-5 max-w-xl text-[14px] leading-relaxed">
-              Kyuwing is built for UP BadAss, by UP BadAss. Open the board, check in the first four, and let
-              the queue master enjoy the game too.
+              Built for UP BadAss, by UP BadAss. Open the board, check in the first four, and let the queue
+              master enjoy the game too. Competency. Commitment. Camaraderie.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link href="/app" className={buttonVariants({ variant: "accent", size: "lg" })}>
@@ -685,14 +789,13 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-cream/10 bg-forest-deep text-cream/70 border-t">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <footer className="bg-forest-deep text-cream/70 border-cream/10 border-t">
+        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1.1fr]">
           <div>
-            <div className="flex items-center gap-2.5">
-              <Logo className="[&_span]:text-cream" />
-            </div>
+            <Logo tone="cream" />
             <p className="text-cream/55 mt-4 max-w-xs text-[13px] leading-relaxed">
-              Fair, fast game-day queueing for the UP Badminton Association, Diliman. Queue less. Play more.
+              Fair, fast game-day queueing for the UP Badminton Association, Diliman. Competency. Commitment.
+              Camaraderie.
             </p>
             <div className="text-cream/45 mt-5 flex flex-wrap gap-2 text-[10px] tracking-[0.14em] uppercase">
               <span className="border-cream/10 rounded-full border px-2.5 py-1">KBC · Mondays</span>
@@ -720,25 +823,31 @@ export default function HomePage() {
           <div>
             <p className="text-cream/40 text-[10px] font-bold tracking-[0.16em] uppercase">Made for</p>
             <div className="border-cream/10 bg-cream/[0.04] mt-4 flex items-center gap-3 rounded-2xl border p-3">
-              {/* Replace this placeholder with the official UP BadAss logo. */}
-              <img
-                src="/brand/upbadass-logo.svg"
-                alt="UP BadAss"
-                className="ring-cream/15 h-10 w-10 rounded-full ring-1"
-              />
+              <BrandMark className="h-10 w-16 shrink-0 px-1" />
               <div>
                 <p className="font-display text-cream text-sm font-bold">UP BadAss</p>
-                <p className="text-cream/50 text-[10px]">UP Badminton Association</p>
+                <p className="text-cream/50 text-[10px]">UP Badminton Association in Diliman</p>
               </div>
             </div>
             <p className="text-cream/45 mt-4 inline-flex items-center gap-1.5 text-[11px]">
               <MapPin className="h-3.5 w-3.5" /> Diliman, Quezon City
             </p>
+            <div className="text-cream/45 mt-3 flex items-center gap-3 text-[11px]">
+              <a href="https://www.facebook.com/upbadass.official" className="hover:text-lime transition">
+                Facebook
+              </a>
+              <a href="https://www.instagram.com/upbadass" className="hover:text-lime transition">
+                Instagram
+              </a>
+              <a href="https://www.tiktok.com/@upbadass" className="hover:text-lime transition">
+                TikTok
+              </a>
+            </div>
           </div>
         </div>
         <div className="border-cream/10 border-t">
           <div className="text-cream/40 mx-auto flex max-w-6xl flex-col gap-2 px-5 py-5 text-[11px] sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <p>© {new Date().getFullYear()} Kyuwing · App by Danyel Regalario</p>
+            <p>© {new Date().getFullYear()} UP BadAss · App by Danyel Regalario</p>
             <p className="inline-flex items-center gap-1.5">
               <Clock3 className="h-3.5 w-3.5" /> Built for the long queue and the last shuttle.
             </p>

@@ -31,16 +31,16 @@ export function AppNav() {
             className={cn(
               "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all",
               active
-                ? "bg-forest text-cream shadow-[0_10px_24px_-18px_rgba(6,37,28,0.9)]"
-                : "text-ink-soft hover:bg-cream-deep/70 hover:text-ink",
+                ? "bg-lime text-forest-deep shadow-[0_10px_24px_-16px_rgba(255,214,0,0.9)]"
+                : "text-cream/65 hover:bg-cream/10 hover:text-cream",
             )}
           >
             <span
               className={cn(
                 "grid h-8 w-8 place-items-center rounded-lg transition-colors",
                 active
-                  ? "bg-lime text-forest-deep"
-                  : "bg-cream-deep/70 text-forest group-hover:bg-cream-deep",
+                  ? "bg-forest-deep/10 text-forest-deep"
+                  : "bg-cream/10 text-cream/70 group-hover:bg-cream/15",
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -66,7 +66,7 @@ export function MobileNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors",
-                active ? "text-forest" : "text-muted",
+                active ? "text-ink" : "text-muted",
               )}
             >
               <span
@@ -88,11 +88,11 @@ export function MobileNav() {
 
 export function FooterLinks() {
   return (
-    <div className="text-muted flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-      <Link href="/" className="hover:text-ink transition">
+    <div className="text-cream/45 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+      <Link href="/" className="hover:text-lime transition">
         Public site
       </Link>
-      <Link href="/app/venues" className="hover:text-ink inline-flex items-center gap-1 transition">
+      <Link href="/app/venues" className="hover:text-lime inline-flex items-center gap-1 transition">
         <MapPin className="h-3 w-3" /> Venues
       </Link>
     </div>

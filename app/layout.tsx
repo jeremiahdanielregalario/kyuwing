@@ -1,11 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, DM_Sans, JetBrains_Mono, Special_Gothic_Expanded_One } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-display",
+  display: "swap",
+});
+
+const brand = Special_Gothic_Expanded_One({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-brand",
   display: "swap",
 });
 
@@ -47,23 +54,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d3b2e",
+  themeColor: "#0a0a0a",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${brand.variable} ${body.variable} ${mono.variable}`}>
       <body className="bg-cream text-ink min-h-screen">
         {children}
         <Toaster
           position="top-center"
           toastOptions={{
             style: {
-              background: "#0f241b",
-              color: "#f5f1e6",
-              border: "1px solid #175743",
+              background: "#0a0a0a",
+              color: "#fbfaf5",
+              border: "1px solid #3b3b36",
               borderRadius: "14px",
               fontSize: "14px",
             },

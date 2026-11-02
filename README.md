@@ -19,17 +19,18 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 
 ## Feature tour
 
-| Area       | What it does                                                                      |
-| ---------- | --------------------------------------------------------------------------------- |
-| Game days  | Draft → Live → Completed lifecycle, venue, date, type, score target, court blocks |
-| Sign-ups   | Add from the player database, add all active players, CSV/JSON import, walk-ins   |
-| Live board | Expected / Waiting / Playing / Done lanes, live wait timers, court cards          |
-| Pairing    | Multi-court auto-pair, single-court suggestions, manual edits, request handling   |
-| Requests   | Partner-with, play-against, and permanent partners per game day                   |
-| Players    | 19-level ladder (`E-` … `A+`), nickname + full name, category, active flag        |
-| Fees       | Venue/type/category fee rules, per-player ledger, cash/GCash/bank/other           |
-| Reports    | Session summary, player breakdown, Excel (`.xlsx`) and PDF export                 |
-| Ops guide  | In-app queue-master playbook with checklists and FAQs                             |
+| Area          | What it does                                                                                    |
+| ------------- | ----------------------------------------------------------------------------------------------- |
+| Game days     | Draft → Live → Completed lifecycle, venue, date, type, score target, court blocks               |
+| Sign-ups      | Add from the player database, add all active players, CSV/JSON import, walk-ins                 |
+| Live board    | Expected / Waiting / Playing / Done lanes, live wait timers, court-surface cards                |
+| Court control | Drag a match to another court, drag players between slots, drop four players onto an open court |
+| Pairing       | Multi-court auto-pair, single-court suggestions, drag-and-drop edits, requests                  |
+| Requests      | Partner-with, play-against, and permanent partners per game day                                 |
+| Players       | 19-level ladder (`E-` … `A+`), nickname + full name, category, active flag                      |
+| Fees          | Venue/type/category fee rules, per-player ledger, cash/GCash/bank/other                         |
+| Reports       | Session summary, player breakdown, Excel (`.xlsx`) and PDF export                               |
+| Ops guide     | In-app queue-master playbook with checklists and FAQs                                           |
 
 ### Player levels
 

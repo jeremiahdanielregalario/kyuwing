@@ -5,6 +5,19 @@ import Link from "next/link";
 import useSWR from "swr";
 import { toast } from "sonner";
 import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
   Activity,
   AlertCircle,
   Check,
@@ -14,6 +27,7 @@ import {
   Crosshair,
   Download,
   Flag,
+  GripVertical,
   HeartHandshake,
   LayoutGrid,
   Link2,
@@ -36,23 +50,26 @@ import {
   checkInPlayer,
   clearSuggestedMatches,
   completeMatch,
+  createManualMatch,
   generateMatches,
   markPlayerDone,
+  moveMatchToCourt,
   requeuePlayer,
   setGameDayStatus,
   startAllSuggested,
   startMatch,
+  swapMatchPlayers,
   togglePriority,
-  updateMatchCourt,
   updateMatchPlayers,
   addWalkIn,
 } from "@/lib/actions/gamedays";
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
-import { LEVELS, levelValue } from "@/lib/levels";
+import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
 import { formatClock, formatDuration, formatGameDate } from "@/lib/datetime";
+import { CourtLines } from "@/components/app/court-surface";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge, Dot } from "@/components/ui/badge";
+import { Dot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -89,6 +106,32 @@ function teamValue(team: { level: string }[]) {
   return team.reduce((sum, player) => sum + levelValue(player.level), 0);
 }
 
+type DragPayload =
+  | { kind: "match"; matchId: string; courtNumber: number }
+  | {
+      kind: "match-player";
+      matchId: string;
+      playerId: string;
+      team: number;
+      slot: number;
+      nickname: string;
+      level: string;
+    }
+  | { kind: "queue-player"; playerId: string; nickname: string; level: string };
+
+type DropTarget =
+  | { kind: "court"; courtNumber: number; matchId?: string }
+  | { kind: "slot"; matchId: string; team: number; slot: number; playerId: string }
+  | { kind: "draft-slot"; courtNumber: number; index: number };
+
+const EMPTY_DRAFT: Array<string | null> = [null, null, null, null];
+
+function lineupOf(match: BoardMatch) {
+  const order = (team: BoardMatch["team1"]) =>
+    [...team].sort((a, b) => a.slot - b.slot).map((player) => player.playerId);
+  return { team1: order(match.team1), team2: order(match.team2) };
+}
+
 export function QueueBoard({ initialData }: { initialData: BoardData }) {
   const [slotIndex, setSlotIndex] = React.useState(initialData.activeSlotIndex);
   const key = `/api/gamedays/${initialData.gameDay.id}/board?slot=${slotIndex}`;
@@ -119,6 +162,18 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
   const [editCourt, setEditCourt] = React.useState(1);
   const [editTeam1, setEditTeam1] = React.useState<string[]>([]);
   const [editTeam2, setEditTeam2] = React.useState<string[]>([]);
+  const [drafts, setDrafts] = React.useState<Record<number, Array<string | null>>>({});
+  const [activeDrag, setActiveDrag] = React.useState<DragPayload | null>(null);
+  const creatingDrafts = React.useRef<Set<number>>(new Set());
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const playerById = React.useMemo(
+    () => new Map(data.players.map((player) => [player.playerId, player])),
+    [data.players],
+  );
 
   const act = (fn: () => Promise<AnyResult>, onSuccess?: () => void) => {
     startTransition(async () => {
@@ -131,6 +186,92 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
         toast.error(result.error);
       }
     });
+  };
+
+  const placeInDraft = (court: number, index: number, playerId: string) => {
+    const current = drafts[court] ?? EMPTY_DRAFT;
+    const next = current.map((id) => (id === playerId ? null : id));
+    next[index] = playerId;
+    setDrafts((prev) => ({ ...prev, [court]: next }));
+
+    if (!next.every(Boolean) || creatingDrafts.current.has(court)) return;
+    creatingDrafts.current.add(court);
+
+    startTransition(async () => {
+      const result = await createManualMatch(data.gameDay.id, court, next as string[]);
+      if (result.ok) toast.success(result.message ?? "Court set.");
+      else toast.error(result.error);
+      creatingDrafts.current.delete(court);
+      setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
+      await mutate();
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDrag(null);
+    const active = event.active.data.current as DragPayload | undefined;
+    const over = event.over?.data.current as DropTarget | undefined;
+    if (!active || !over || isCompleted) return;
+
+    if (active.kind === "match") {
+      if (over.kind === "court") {
+        act(() => moveMatchToCourt(active.matchId, over.courtNumber));
+      }
+      return;
+    }
+
+    if (active.kind === "queue-player") {
+      if (over.kind === "draft-slot") {
+        placeInDraft(over.courtNumber, over.index, active.playerId);
+        return;
+      }
+      if (over.kind === "court" && !over.matchId) {
+        const current = drafts[over.courtNumber] ?? EMPTY_DRAFT;
+        const empty = current.findIndex((id) => id === null);
+        if (empty >= 0) placeInDraft(over.courtNumber, empty, active.playerId);
+        return;
+      }
+      if (over.kind === "slot") {
+        if (over.playerId === active.playerId) return;
+        const match = data.activeMatches.find((item) => item.id === over.matchId);
+        if (!match) return;
+        const lineup = lineupOf(match);
+        const next = over.team === 1 ? [...lineup.team1] : [...lineup.team2];
+        next[over.slot - 1] = active.playerId;
+        act(() =>
+          over.team === 1
+            ? updateMatchPlayers(match.id, next, lineup.team2)
+            : updateMatchPlayers(match.id, lineup.team1, next),
+        );
+      }
+      return;
+    }
+
+    if (active.kind === "match-player") {
+      if (over.kind !== "slot" || over.playerId === active.playerId) return;
+      if (over.matchId !== active.matchId) {
+        act(() => swapMatchPlayers(active.matchId, active.playerId, over.matchId, over.playerId));
+        return;
+      }
+
+      const match = data.activeMatches.find((item) => item.id === active.matchId);
+      if (!match) return;
+      const lineup = lineupOf(match);
+      const team1 = [...lineup.team1];
+      const team2 = [...lineup.team2];
+      const from = active.team === 1 ? team1 : team2;
+      const to = over.team === 1 ? team1 : team2;
+      const fromIndex = active.slot - 1;
+      const toIndex = over.slot - 1;
+      const swap = to[toIndex];
+      to[toIndex] = from[fromIndex];
+      from[fromIndex] = swap;
+      act(() => updateMatchPlayers(match.id, team1, team2));
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDrag((event.active.data.current as DragPayload | undefined) ?? null);
   };
 
   const plan = data.gameDay.courtPlan;
@@ -215,7 +356,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
     }
     startTransition(async () => {
       if (editCourt !== editMatch.courtNumber) {
-        const moved = await updateMatchCourt(editMatch.id, editCourt);
+        const moved = await moveMatchToCourt(editMatch.id, editCourt);
         if (!moved.ok) {
           toast.error(moved.error);
           return;
@@ -265,678 +406,713 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
   }, [data.activeMatches, data.players, editMatch]);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-muted flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.14em] uppercase">
-            <span>{data.gameDay.venue.shortName}</span>
-            <span className="bg-muted/40 h-1 w-1 rounded-full" />
-            <span>{formatGameDate(data.gameDay.date, { weekday: true })}</span>
-            <span className="bg-muted/40 h-1 w-1 rounded-full" />
-            <span>{GAMEDAY_TYPE_LABELS[data.gameDay.type]}</span>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] tracking-[0.12em]",
-                data.gameDay.status === "LIVE" && "bg-emerald-100 text-emerald-800",
-                data.gameDay.status === "DRAFT" && "bg-amber-100 text-amber-900",
-                data.gameDay.status === "COMPLETED" && "bg-cream-deep text-muted",
-              )}
-            >
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveDrag(null)}
+    >
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="text-muted flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.14em] uppercase">
+              <span>{data.gameDay.venue.shortName}</span>
+              <span className="bg-muted/40 h-1 w-1 rounded-full" />
+              <span>{formatGameDate(data.gameDay.date, { weekday: true })}</span>
+              <span className="bg-muted/40 h-1 w-1 rounded-full" />
+              <span>{GAMEDAY_TYPE_LABELS[data.gameDay.type]}</span>
               <span
                 className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  data.gameDay.status === "LIVE"
-                    ? "animate-pulse-soft bg-emerald-500"
-                    : "bg-current opacity-50",
+                  "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] tracking-[0.12em]",
+                  data.gameDay.status === "LIVE" && "bg-emerald-100 text-emerald-800",
+                  data.gameDay.status === "DRAFT" && "bg-amber-100 text-amber-900",
+                  data.gameDay.status === "COMPLETED" && "bg-cream-deep text-muted",
                 )}
-              />
-              {data.gameDay.status}
-            </span>
-          </div>
-          <h1 className="font-display mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            {data.gameDay.name}
-          </h1>
-          <p className="text-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
-            <span className="inline-flex items-center gap-1.5">
-              <Clock3 className="h-3.5 w-3.5" />
-              {slot ? `${slot.start}–${slot.end} · ${slot.courts} courts` : "No court block set"}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Activity className="h-3.5 w-3.5" />
-              {isValidating ? "Syncing board…" : "Live on all devices"}
-            </span>
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/app/gamedays/${data.gameDay.id}/reports`} className="hidden sm:inline-flex">
-            <Button variant="paper" size="sm">
-              <Download className="h-3.5 w-3.5" /> Reports
-            </Button>
-          </Link>
-          <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
-            <Button variant="paper" size="sm">
-              <Settings2 className="h-3.5 w-3.5" /> Settings
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {isDraft && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3">
-          <div className="flex items-start gap-2.5">
-            <AlertCircle className="mt-0.5 h-4 w-4 text-amber-700" />
-            <div>
-              <p className="text-[13px] font-semibold text-amber-900">This game day is still a draft.</p>
-              <p className="text-[11px] text-amber-800/70">
-                Start it when the first players arrive. You can still edit settings before or during play.
-              </p>
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    data.gameDay.status === "LIVE"
+                      ? "animate-pulse-soft bg-emerald-500"
+                      : "bg-current opacity-50",
+                  )}
+                />
+                {data.gameDay.status}
+              </span>
             </div>
+            <h1 className="font-display mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+              {data.gameDay.name}
+            </h1>
+            <p className="text-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+              <span className="inline-flex items-center gap-1.5">
+                <Clock3 className="h-3.5 w-3.5" />
+                {slot ? `${slot.start}–${slot.end} · ${slot.courts} courts` : "No court block set"}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5" />
+                {isValidating ? "Syncing board…" : "Live on all devices"}
+              </span>
+            </p>
           </div>
-          <Button
-            size="sm"
-            variant="accent"
-            onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
-            loading={pending}
-          >
-            <Play className="h-3.5 w-3.5" /> Start game day
-          </Button>
-        </div>
-      )}
-
-      {isCompleted && (
-        <div className="border-line bg-cream-deep/70 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3">
-          <div className="flex items-start gap-2.5">
-            <CircleCheck className="text-forest mt-0.5 h-4 w-4" />
-            <div>
-              <p className="text-[13px] font-semibold">Game day closed.</p>
-              <p className="text-muted text-[11px]">
-                The final ledger and match history are ready to export.
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Link href={`/app/gamedays/${data.gameDay.id}/reports`}>
-              <Button size="sm" variant="primary">
-                Open reports
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/app/gamedays/${data.gameDay.id}/reports`} className="hidden sm:inline-flex">
+              <Button variant="paper" size="sm">
+                <Download className="h-3.5 w-3.5" /> Reports
               </Button>
             </Link>
-            <Button
-              size="sm"
-              variant="paper"
-              onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
-            >
-              Reopen
-            </Button>
+            <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
+              <Button variant="paper" size="sm">
+                <Settings2 className="h-3.5 w-3.5" /> Settings
+              </Button>
+            </Link>
           </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
-          label="Waiting now"
-          value={data.stats.waiting}
-          hint={`${data.stats.expected} still expected · avg ${data.stats.averageWaitMinutes}m`}
-          icon={<Users className="h-4 w-4" />}
-          tone="forest"
-        />
-        <Stat
-          label="On court"
-          value={data.stats.playing}
-          hint={`${live.length} live · ${suggested.length} suggested`}
-          icon={<Activity className="h-4 w-4" />}
-        />
-        <Stat
-          label="Open courts"
-          value={`${data.stats.courtsOpen}/${data.stats.courtsTotal}`}
-          hint={slot ? `${slot.start}–${slot.end} block` : "Set a court block"}
-          icon={<LayoutGrid className="h-4 w-4" />}
-          tone="lime"
-        />
-        <Stat
-          label="Games today"
-          value={data.stats.gamesCompleted}
-          hint={`${data.stats.totalGamesPlayed} player-games logged`}
-          icon={<Trophy className="h-4 w-4" />}
-        />
-      </div>
-
-      <Card className="p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted mr-1 ml-1 text-[10px] font-bold tracking-[0.16em] uppercase">
-            Court plan
-          </span>
-          {plan.length === 0 && (
-            <Link
-              href={`/app/gamedays/${data.gameDay.id}/settings`}
-              className="text-coral text-[12px] font-semibold underline"
-            >
-              Add a court block
-            </Link>
-          )}
-          {plan.map((row, index) => (
-            <button
-              key={row.id}
-              type="button"
-              onClick={() => setSlotIndex(index)}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
-                data.activeSlotIndex === index
-                  ? "border-forest bg-forest text-cream"
-                  : "border-line bg-paper text-ink-soft hover:border-forest/40",
-              )}
-            >
-              <span className="font-mono">
-                {row.start}–{row.end}
-              </span>
-              <span className="ml-1.5 opacity-60">· {row.courts}c</span>
-              {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
-            </button>
-          ))}
-          <span className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]">
-            <Dot tone="lime" /> {formatClock(new Date(now))} Manila
-          </span>
-        </div>
-      </Card>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          onClick={() => act(() => generateMatches(data.gameDay.id, slotIndex))}
-          disabled={pending || isCompleted}
-          className="flex-1 sm:flex-none"
-        >
-          <Wand2 className="h-4 w-4" />
-          Auto-pair next games
-        </Button>
-        <Button variant="accent" onClick={() => setCheckOpen(true)} disabled={isCompleted}>
-          <UserCheck className="h-4 w-4" />
-          Check in
-        </Button>
-        <Button variant="paper" onClick={() => setWalkOpen(true)} disabled={isCompleted}>
-          <UserRoundPlus className="h-4 w-4" />
-          Walk-in
-        </Button>
-        {suggested.length > 0 && (
-          <>
+        {isDraft && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="mt-0.5 h-4 w-4 text-amber-700" />
+              <div>
+                <p className="text-[13px] font-semibold text-amber-900">This game day is still a draft.</p>
+                <p className="text-[11px] text-amber-800/70">
+                  Start it when the first players arrive. You can still edit settings before or during play.
+                </p>
+              </div>
+            </div>
             <Button
-              variant="primary"
-              onClick={() => act(() => startAllSuggested(data.gameDay.id))}
+              size="sm"
+              variant="accent"
+              onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
               loading={pending}
             >
-              <Play className="h-4 w-4" />
-              Start all ({suggested.length})
+              <Play className="h-3.5 w-3.5" /> Start game day
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (window.confirm("Clear all suggested matches? Players stay in the queue.")) {
-                  act(() => clearSuggestedMatches(data.gameDay.id));
-                }
-              }}
-            >
-              Clear suggestions
-            </Button>
-          </>
-        )}
-        {isValidating && <span className="text-muted ml-auto hidden text-[11px] sm:inline">Syncing…</span>}
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold tracking-tight">
-              Courts
-              <span className="text-muted ml-2 font-sans text-[11px] font-normal">
-                {slot ? `${slot.start}–${slot.end} · ${data.stats.courtsTotal} courts` : ""}
-              </span>
-            </h2>
-            <span className="text-muted inline-flex items-center gap-1.5 text-[11px]">
-              <Dot tone={live.length ? "green" : "muted"} /> {live.length} live
-            </span>
           </div>
+        )}
 
-          {data.stats.courtsTotal === 0 ? (
-            <EmptyState
-              icon={<LayoutGrid className="h-5 w-5" />}
-              title="No courts in this block"
-              description="Add a time block and court count in Settings so the engine knows where games can go."
-              action={
-                <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
-                  <Button size="sm" variant="primary">
-                    Open settings
-                  </Button>
-                </Link>
-              }
-            />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {courtNumbers.map((court) => {
-                const match = data.activeMatches.find((item) => item.courtNumber === court);
-                return (
-                  <CourtCard
-                    key={court}
-                    court={court}
-                    match={match}
-                    now={now}
-                    pending={pending}
-                    isCompleted={isCompleted}
-                    onPair={() => act(() => generateMatches(data.gameDay.id, slotIndex, 1))}
-                    onStart={(id) => act(() => startMatch(id))}
-                    onFinish={openScore}
-                    onEdit={openEdit}
-                    onCancel={(id) => {
-                      if (window.confirm("Cancel this match? Players will stay in the queue.")) {
-                        act(() => cancelMatch(id));
-                      }
-                    }}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {data.recentMatches.length > 0 && (
-            <div className="border-line bg-paper/70 rounded-2xl border p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-muted text-[11px] font-bold tracking-[0.16em] uppercase">
-                  Recently finished
-                </h3>
-                <Link
-                  href={`/app/gamedays/${data.gameDay.id}/reports`}
-                  className="text-forest text-[11px] font-semibold hover:underline"
-                >
-                  All matches
-                </Link>
-              </div>
-              <div className="space-y-2">
-                {data.recentMatches.slice(0, 4).map((match) => (
-                  <div
-                    key={match.id}
-                    className="border-line/60 bg-cream/30 flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-[11px]"
-                  >
-                    <span className="text-muted font-mono font-bold">C{match.courtNumber}</span>
-                    <span className="min-w-0 flex-1 truncate font-semibold">
-                      {match.team1.map((player) => player.nickname).join(" & ")}
-                      <span className="text-muted mx-1.5">vs</span>
-                      {match.team2.map((player) => player.nickname).join(" & ")}
-                    </span>
-                    <span className="font-mono font-bold">
-                      <span className={match.score1! > match.score2! ? "text-forest" : "text-muted"}>
-                        {match.score1}
-                      </span>
-                      <span className="text-muted mx-1">–</span>
-                      <span className={match.score2! > match.score1! ? "text-forest" : "text-muted"}>
-                        {match.score2}
-                      </span>
-                    </span>
-                  </div>
-                ))}
+        {isCompleted && (
+          <div className="border-line bg-cream-deep/70 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3">
+            <div className="flex items-start gap-2.5">
+              <CircleCheck className="text-forest mt-0.5 h-4 w-4" />
+              <div>
+                <p className="text-[13px] font-semibold">Game day closed.</p>
+                <p className="text-muted text-[11px]">
+                  The final ledger and match history are ready to export.
+                </p>
               </div>
             </div>
-          )}
+            <div className="flex gap-2">
+              <Link href={`/app/gamedays/${data.gameDay.id}/reports`}>
+                <Button size="sm" variant="primary">
+                  Open reports
+                </Button>
+              </Link>
+              <Button
+                size="sm"
+                variant="paper"
+                onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
+              >
+                Reopen
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat
+            label="Waiting now"
+            value={data.stats.waiting}
+            hint={`${data.stats.expected} still expected · avg ${data.stats.averageWaitMinutes}m`}
+            icon={<Users className="h-4 w-4" />}
+            tone="forest"
+          />
+          <Stat
+            label="On court"
+            value={data.stats.playing}
+            hint={`${live.length} live · ${suggested.length} suggested`}
+            icon={<Activity className="h-4 w-4" />}
+          />
+          <Stat
+            label="Open courts"
+            value={`${data.stats.courtsOpen}/${data.stats.courtsTotal}`}
+            hint={slot ? `${slot.start}–${slot.end} block` : "Set a court block"}
+            icon={<LayoutGrid className="h-4 w-4" />}
+            tone="lime"
+          />
+          <Stat
+            label="Games today"
+            value={data.stats.gamesCompleted}
+            hint={`${data.stats.totalGamesPlayed} player-games logged`}
+            icon={<Trophy className="h-4 w-4" />}
+          />
         </div>
 
-        <Card className="h-fit xl:sticky xl:top-6">
-          <div className="border-line/80 border-b px-4 pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
-              <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
-                <Users className="h-3 w-3" /> {data.players.length}
-              </span>
-            </div>
-            <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">
-              {(
-                [
-                  ["waiting", "Waiting"],
-                  ["playing", "On court"],
-                  ["expected", "Expected"],
-                  ["done", "Done"],
-                ] as Array<[QueueTab, string]>
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setTab(value)}
-                  className={cn(
-                    "shrink-0 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition",
-                    tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
-                  )}
-                >
-                  {label}
-                  <span
-                    className={cn(
-                      "ml-1 font-mono text-[9px]",
-                      tab === value ? "text-lime/80" : "text-muted/70",
-                    )}
-                  >
-                    {tabCounts[value]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="relative mt-3">
-              <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Find a player…"
-                className="h-9 pl-8 text-[12px]"
-              />
-            </div>
-          </div>
-
-          <div className="max-h-[min(62vh,640px)] overflow-y-auto px-2 py-2">
-            {visible.length === 0 ? (
-              <div className="text-muted px-3 py-10 text-center text-[12px]">
-                {query
-                  ? "No player matches that search."
-                  : `No players ${tab === "waiting" ? "waiting" : tab}.`}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {visible.map((player) => (
-                  <QueueRow
-                    key={player.sessionPlayerId}
-                    player={player}
-                    now={now}
-                    pending={pending}
-                    onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                    onDone={() => {
-                      if (window.confirm(`Mark ${player.nickname} done for the day?`)) {
-                        act(() => markPlayerDone(player.sessionPlayerId));
-                      }
-                    }}
-                    onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
-                    onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="border-line/80 flex items-center justify-between border-t px-4 py-3">
-            <span className="text-muted text-[11px]">
-              Longest wait{" "}
-              <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
+        <Card className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted mr-1 ml-1 text-[10px] font-bold tracking-[0.16em] uppercase">
+              Court plan
             </span>
-            <Link
-              href={`/app/gamedays/${data.gameDay.id}/signups`}
-              className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
-            >
-              Manage sign-ups <ChevronRight className="h-3 w-3" />
-            </Link>
+            {plan.length === 0 && (
+              <Link
+                href={`/app/gamedays/${data.gameDay.id}/settings`}
+                className="text-coral text-[12px] font-semibold underline"
+              >
+                Add a court block
+              </Link>
+            )}
+            {plan.map((row, index) => (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => setSlotIndex(index)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                  data.activeSlotIndex === index
+                    ? "border-forest bg-forest text-cream"
+                    : "border-line bg-paper text-ink-soft hover:border-forest/40",
+                )}
+              >
+                <span className="font-mono">
+                  {row.start}–{row.end}
+                </span>
+                <span className="ml-1.5 opacity-60">· {row.courts}c</span>
+                {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
+              </button>
+            ))}
+            <span className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]">
+              <Dot tone="lime" /> {formatClock(new Date(now))} Manila
+            </span>
           </div>
         </Card>
-      </div>
 
-      {/* Check-in modal */}
-      <Modal
-        open={checkOpen}
-        onClose={() => setCheckOpen(false)}
-        title="Check in arrivals"
-        description="Only checked-in players enter the pairing queue."
-        size="md"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setCheckOpen(false)}>
-              Done
-            </Button>
-            <Button
-              variant="accent"
-              onClick={() => {
-                setCheckOpen(false);
-                setWalkOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" /> Walk-in
-            </Button>
-          </>
-        }
-      >
-        <div className="relative mb-3">
-          <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
-          <Input
-            value={checkQuery}
-            onChange={(event) => setCheckQuery(event.target.value)}
-            placeholder="Search the sign-up list…"
-            className="pl-8"
-            autoFocus
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={() => act(() => generateMatches(data.gameDay.id, slotIndex))}
+            disabled={pending || isCompleted}
+            className="flex-1 sm:flex-none"
+          >
+            <Wand2 className="h-4 w-4" />
+            Auto-pair next games
+          </Button>
+          <Button variant="accent" onClick={() => setCheckOpen(true)} disabled={isCompleted}>
+            <UserCheck className="h-4 w-4" />
+            Check in
+          </Button>
+          <Button variant="paper" onClick={() => setWalkOpen(true)} disabled={isCompleted}>
+            <UserRoundPlus className="h-4 w-4" />
+            Walk-in
+          </Button>
+          {suggested.length > 0 && (
+            <>
+              <Button
+                variant="primary"
+                onClick={() => act(() => startAllSuggested(data.gameDay.id))}
+                loading={pending}
+              >
+                <Play className="h-4 w-4" />
+                Start all ({suggested.length})
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (window.confirm("Clear all suggested matches? Players stay in the queue.")) {
+                    act(() => clearSuggestedMatches(data.gameDay.id));
+                  }
+                }}
+              >
+                Clear suggestions
+              </Button>
+            </>
+          )}
+          {isValidating && <span className="text-muted ml-auto hidden text-[11px] sm:inline">Syncing…</span>}
         </div>
-        {expected.length === 0 ? (
-          <EmptyState
-            icon={<Users className="h-5 w-5" />}
-            title="Everyone is checked in"
-            description="No expected players left. Add a walk-in if someone new arrives."
-          />
-        ) : (
-          <div className="space-y-1">
-            {expected.map((player) => (
-              <div
-                key={player.sessionPlayerId}
-                className="border-line/70 flex items-center gap-3 rounded-xl border px-3 py-2.5"
-              >
-                <Avatar name={player.nickname} level={player.levelLabel} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
-                  <p className="text-muted text-[10px]">
-                    {CATEGORY_SHORT[player.category]} · {player.gamesPlayed} games
-                  </p>
-                </div>
-                <LevelBadge level={player.level} />
-                <Button
-                  size="sm"
-                  variant="accent"
-                  onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                  loading={pending}
-                >
-                  Check in
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
 
-      {/* Walk-in modal */}
-      <Modal
-        open={walkOpen}
-        onClose={() => setWalkOpen(false)}
-        title="Add a walk-in"
-        description="Adds them to the player database if they are new, then puts them straight in the queue."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setWalkOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submitWalkIn} loading={pending} disabled={!walk.nickname.trim()}>
-              <UserRoundPlus className="h-4 w-4" /> Add to queue
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Field label="Nickname">
-            <Input
-              value={walk.nickname}
-              onChange={(event) => setWalk({ ...walk, nickname: event.target.value })}
-              placeholder="e.g. Jose"
-              autoFocus
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Level">
-              <Select
-                value={walk.level}
-                onChange={(event) => setWalk({ ...walk, level: event.target.value })}
-              >
-                {LEVELS.map((level) => (
-                  <option key={level.key} value={level.key}>
-                    {level.label} · {level.bracket}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Player type">
-              <Select
-                value={walk.category}
-                onChange={(event) => setWalk({ ...walk, category: event.target.value })}
-              >
-                <option value="ACTIVE">Active member</option>
-                <option value="ALUMNI">Inactive / Alumni</option>
-                <option value="APPLICANT">Applicant</option>
-              </Select>
-            </Field>
-          </div>
-          <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
-            If the nickname already exists, their saved level and player type will be used.
-          </p>
-        </div>
-      </Modal>
-
-      {/* Score modal */}
-      <Modal
-        open={Boolean(scoreMatch)}
-        onClose={() => setScoreMatch(null)}
-        title={`Finish Court ${scoreMatch?.courtNumber ?? ""}`}
-        description="Enter the final score. Both players return to the queue automatically."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setScoreMatch(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="accent"
-              onClick={submitScore}
-              loading={pending}
-              disabled={score1 === "" || score2 === ""}
-            >
-              <Flag className="h-4 w-4" /> Finish game
-            </Button>
-          </>
-        }
-      >
-        {scoreMatch && (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
           <div className="space-y-4">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2">
-              <ScorePad
-                label="Team A"
-                team={scoreMatch.team1}
-                value={score1}
-                onChange={setScore1}
-                target={data.gameDay.targetScore}
-              />
-              <div className="grid place-items-center px-1">
-                <span className="border-line bg-cream text-muted rounded-full border px-2 py-1 font-mono text-[10px] font-bold">
-                  VS
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold tracking-tight">
+                Courts
+                <span className="text-muted ml-2 font-sans text-[11px] font-normal">
+                  {slot ? `${slot.start}–${slot.end} · ${data.stats.courtsTotal} courts` : ""}
                 </span>
-              </div>
-              <ScorePad
-                label="Team B"
-                team={scoreMatch.team2}
-                value={score2}
-                onChange={setScore2}
-                target={data.gameDay.targetScore}
-              />
+              </h2>
+              <span className="text-muted inline-flex items-center gap-1.5 text-[11px]">
+                <Dot tone={live.length ? "green" : "muted"} /> {live.length} live
+              </span>
             </div>
-            <p className="text-muted text-center text-[11px]">
-              First to {data.gameDay.targetScore}. Court changes after the game — update the next match when
-              you are ready.
-            </p>
-            {Number(score1) === Number(score2) && score1 !== "" && score2 !== "" && (
-              <p className="bg-coral-soft rounded-xl px-3 py-2 text-center text-[12px] font-semibold text-[#a8331a]">
-                Scores are tied. A badminton game needs a winner.
-              </p>
+
+            {data.stats.courtsTotal === 0 ? (
+              <EmptyState
+                icon={<LayoutGrid className="h-5 w-5" />}
+                title="No courts in this block"
+                description="Add a time block and court count in Settings so the engine knows where games can go."
+                action={
+                  <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
+                    <Button size="sm" variant="primary">
+                      Open settings
+                    </Button>
+                  </Link>
+                }
+              />
+            ) : (
+              <>
+                <p className="border-line bg-paper/70 text-muted flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]">
+                  <GripVertical className="text-forest h-3.5 w-3.5" />
+                  Drag a court card onto another court to swap them. Drag a player onto a slot to swap
+                  players, or fill an open court with four dropped players.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {courtNumbers.map((court) => {
+                    const match = data.activeMatches.find((item) => item.courtNumber === court);
+                    return (
+                      <CourtCard
+                        key={court}
+                        court={court}
+                        match={match}
+                        draft={drafts[court] ?? EMPTY_DRAFT}
+                        playerById={playerById}
+                        now={now}
+                        pending={pending}
+                        isCompleted={isCompleted}
+                        onPair={() => act(() => generateMatches(data.gameDay.id, slotIndex, 1))}
+                        onStart={(id) => act(() => startMatch(id))}
+                        onFinish={openScore}
+                        onEdit={openEdit}
+                        onCancel={(id) => {
+                          if (window.confirm("Cancel this match? Players will stay in the queue.")) {
+                            act(() => cancelMatch(id));
+                          }
+                        }}
+                        onClearDraft={(index) =>
+                          setDrafts((prev) => ({
+                            ...prev,
+                            [court]: (prev[court] ?? EMPTY_DRAFT).map((id, position) =>
+                              position === index ? null : id,
+                            ),
+                          }))
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {data.recentMatches.length > 0 && (
+              <div className="border-line bg-paper/70 rounded-2xl border p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-muted text-[11px] font-bold tracking-[0.16em] uppercase">
+                    Recently finished
+                  </h3>
+                  <Link
+                    href={`/app/gamedays/${data.gameDay.id}/reports`}
+                    className="text-forest text-[11px] font-semibold hover:underline"
+                  >
+                    All matches
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {data.recentMatches.slice(0, 4).map((match) => (
+                    <div
+                      key={match.id}
+                      className="border-line/60 bg-cream/30 flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-[11px]"
+                    >
+                      <span className="text-muted font-mono font-bold">C{match.courtNumber}</span>
+                      <span className="min-w-0 flex-1 truncate font-semibold">
+                        {match.team1.map((player) => player.nickname).join(" & ")}
+                        <span className="text-muted mx-1.5">vs</span>
+                        {match.team2.map((player) => player.nickname).join(" & ")}
+                      </span>
+                      <span className="font-mono font-bold">
+                        <span className={match.score1! > match.score2! ? "text-forest" : "text-muted"}>
+                          {match.score1}
+                        </span>
+                        <span className="text-muted mx-1">–</span>
+                        <span className={match.score2! > match.score1! ? "text-forest" : "text-muted"}>
+                          {match.score2}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-        )}
-      </Modal>
 
-      {/* Edit match modal */}
-      <Modal
-        open={Boolean(editMatch)}
-        onClose={() => setEditMatch(null)}
-        title={`Edit Court ${editMatch?.courtNumber ?? ""}`}
-        description="Swap players or move the match. Keep the pairing fair."
-        size="lg"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setEditMatch(null)}>
-              Cancel
-            </Button>
-            <Button onClick={submitEdit} loading={pending}>
-              <Check className="h-4 w-4" /> Save line-up
-            </Button>
-          </>
-        }
-      >
-        {editMatch && (
-          <div className="space-y-5">
-            <Field label="Court">
-              <Select value={editCourt} onChange={(event) => setEditCourt(Number(event.target.value))}>
-                {Array.from(
-                  { length: Math.max(1, data.stats.courtsTotal || 1) },
-                  (_, index) => index + 1,
-                ).map((court) => (
-                  <option key={court} value={court}>
-                    Court {court}
-                  </option>
+          <Card className="h-fit xl:sticky xl:top-6">
+            <div className="border-line/80 border-b px-4 pt-4 pb-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
+                <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
+                  <Users className="h-3 w-3" /> {data.players.length}
+                </span>
+              </div>
+              <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">
+                {(
+                  [
+                    ["waiting", "Waiting"],
+                    ["playing", "On court"],
+                    ["expected", "Expected"],
+                    ["done", "Done"],
+                  ] as Array<[QueueTab, string]>
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTab(value)}
+                    className={cn(
+                      "shrink-0 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition",
+                      tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
+                    )}
+                  >
+                    {label}
+                    <span
+                      className={cn(
+                        "ml-1 font-mono text-[9px]",
+                        tab === value ? "text-lime/80" : "text-muted/70",
+                      )}
+                    >
+                      {tabCounts[value]}
+                    </span>
+                  </button>
                 ))}
-              </Select>
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                { label: "Team A", value: editTeam1, set: setEditTeam1, tone: "forest" as const },
-                { label: "Team B", value: editTeam2, set: setEditTeam2, tone: "paper" as const },
-              ].map((team) => (
-                <div
-                  key={team.label}
-                  className={cn(
-                    "rounded-2xl border p-3",
-                    team.tone === "forest" ? "border-forest/20 bg-forest/[0.03]" : "border-line bg-cream/30",
-                  )}
-                >
-                  <p className="text-muted mb-2 text-[10px] font-bold tracking-[0.14em] uppercase">
-                    {team.label}
-                  </p>
-                  <div className="space-y-2">
-                    {[0, 1].map((slotIndexInTeam) => (
-                      <Select
-                        key={slotIndexInTeam}
-                        value={team.value[slotIndexInTeam] ?? ""}
-                        onChange={(event) => {
-                          const next = [...team.value];
-                          next[slotIndexInTeam] = event.target.value;
-                          team.set(next);
+              </div>
+              <div className="relative mt-3">
+                <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Find a player…"
+                  className="h-9 pl-8 text-[12px]"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-[min(62vh,640px)] overflow-y-auto px-2 py-2">
+              {visible.length === 0 ? (
+                <div className="text-muted px-3 py-10 text-center text-[12px]">
+                  {query
+                    ? "No player matches that search."
+                    : `No players ${tab === "waiting" ? "waiting" : tab}.`}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {visible.map((player) => (
+                    <DraggableQueueItem
+                      key={player.sessionPlayerId}
+                      player={player}
+                      disabled={player.status !== "WAITING" || pending || isCompleted}
+                    >
+                      <QueueRow
+                        player={player}
+                        now={now}
+                        pending={pending}
+                        onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
+                        onDone={() => {
+                          if (window.confirm(`Mark ${player.nickname} done for the day?`)) {
+                            act(() => markPlayerDone(player.sessionPlayerId));
+                          }
                         }}
-                      >
-                        <option value="">Pick a player…</option>
-                        {editOptions.map((player) => (
-                          <option key={player.playerId} value={player.playerId}>
-                            {player.nickname} · {player.levelLabel}{" "}
-                            {player.status === "PLAYING" ? "(on court)" : ""}
-                          </option>
-                        ))}
-                      </Select>
-                    ))}
+                        onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
+                        onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
+                      />
+                    </DraggableQueueItem>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-line/80 flex items-center justify-between border-t px-4 py-3">
+              <span className="text-muted text-[11px]">
+                Longest wait{" "}
+                <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
+              </span>
+              <Link
+                href={`/app/gamedays/${data.gameDay.id}/signups`}
+                className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+              >
+                Manage sign-ups <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </Card>
+        </div>
+
+        {/* Check-in modal */}
+        <Modal
+          open={checkOpen}
+          onClose={() => setCheckOpen(false)}
+          title="Check in arrivals"
+          description="Only checked-in players enter the pairing queue."
+          size="md"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setCheckOpen(false)}>
+                Done
+              </Button>
+              <Button
+                variant="accent"
+                onClick={() => {
+                  setCheckOpen(false);
+                  setWalkOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" /> Walk-in
+              </Button>
+            </>
+          }
+        >
+          <div className="relative mb-3">
+            <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
+            <Input
+              value={checkQuery}
+              onChange={(event) => setCheckQuery(event.target.value)}
+              placeholder="Search the sign-up list…"
+              className="pl-8"
+              autoFocus
+            />
+          </div>
+          {expected.length === 0 ? (
+            <EmptyState
+              icon={<Users className="h-5 w-5" />}
+              title="Everyone is checked in"
+              description="No expected players left. Add a walk-in if someone new arrives."
+            />
+          ) : (
+            <div className="space-y-1">
+              {expected.map((player) => (
+                <div
+                  key={player.sessionPlayerId}
+                  className="border-line/70 flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                >
+                  <Avatar name={player.nickname} level={player.levelLabel} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
+                    <p className="text-muted text-[10px]">
+                      {CATEGORY_SHORT[player.category]} · {player.gamesPlayed} games
+                    </p>
                   </div>
+                  <LevelBadge level={player.level} />
+                  <Button
+                    size="sm"
+                    variant="accent"
+                    onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
+                    loading={pending}
+                  >
+                    Check in
+                  </Button>
                 </div>
               ))}
             </div>
+          )}
+        </Modal>
+
+        {/* Walk-in modal */}
+        <Modal
+          open={walkOpen}
+          onClose={() => setWalkOpen(false)}
+          title="Add a walk-in"
+          description="Adds them to the player database if they are new, then puts them straight in the queue."
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setWalkOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={submitWalkIn} loading={pending} disabled={!walk.nickname.trim()}>
+                <UserRoundPlus className="h-4 w-4" /> Add to queue
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <Field label="Nickname">
+              <Input
+                value={walk.nickname}
+                onChange={(event) => setWalk({ ...walk, nickname: event.target.value })}
+                placeholder="e.g. Jose"
+                autoFocus
+              />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Level">
+                <Select
+                  value={walk.level}
+                  onChange={(event) => setWalk({ ...walk, level: event.target.value })}
+                >
+                  {LEVELS.map((level) => (
+                    <option key={level.key} value={level.key}>
+                      {level.label} · {level.bracket}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Player type">
+                <Select
+                  value={walk.category}
+                  onChange={(event) => setWalk({ ...walk, category: event.target.value })}
+                >
+                  <option value="ACTIVE">Active member</option>
+                  <option value="ALUMNI">Inactive / Alumni</option>
+                  <option value="APPLICANT">Applicant</option>
+                </Select>
+              </Field>
+            </div>
             <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
-              Only waiting players and the current four are listed. Players already on another court are
-              hidden to avoid double-booking.
+              If the nickname already exists, their saved level and player type will be used.
             </p>
           </div>
-        )}
-      </Modal>
-    </div>
+        </Modal>
+
+        {/* Score modal */}
+        <Modal
+          open={Boolean(scoreMatch)}
+          onClose={() => setScoreMatch(null)}
+          title={`Finish Court ${scoreMatch?.courtNumber ?? ""}`}
+          description="Enter the final score. Both players return to the queue automatically."
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setScoreMatch(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                onClick={submitScore}
+                loading={pending}
+                disabled={score1 === "" || score2 === ""}
+              >
+                <Flag className="h-4 w-4" /> Finish game
+              </Button>
+            </>
+          }
+        >
+          {scoreMatch && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2">
+                <ScorePad
+                  label="Team A"
+                  team={scoreMatch.team1}
+                  value={score1}
+                  onChange={setScore1}
+                  target={data.gameDay.targetScore}
+                />
+                <div className="grid place-items-center px-1">
+                  <span className="border-line bg-cream text-muted rounded-full border px-2 py-1 font-mono text-[10px] font-bold">
+                    VS
+                  </span>
+                </div>
+                <ScorePad
+                  label="Team B"
+                  team={scoreMatch.team2}
+                  value={score2}
+                  onChange={setScore2}
+                  target={data.gameDay.targetScore}
+                />
+              </div>
+              <p className="text-muted text-center text-[11px]">
+                First to {data.gameDay.targetScore}. Court changes after the game — update the next match when
+                you are ready.
+              </p>
+              {Number(score1) === Number(score2) && score1 !== "" && score2 !== "" && (
+                <p className="bg-coral-soft rounded-xl px-3 py-2 text-center text-[12px] font-semibold text-[#a8331a]">
+                  Scores are tied. A badminton game needs a winner.
+                </p>
+              )}
+            </div>
+          )}
+        </Modal>
+
+        {/* Edit match modal */}
+        <Modal
+          open={Boolean(editMatch)}
+          onClose={() => setEditMatch(null)}
+          title={`Edit Court ${editMatch?.courtNumber ?? ""}`}
+          description="Swap players or move the match. Keep the pairing fair."
+          size="lg"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setEditMatch(null)}>
+                Cancel
+              </Button>
+              <Button onClick={submitEdit} loading={pending}>
+                <Check className="h-4 w-4" /> Save line-up
+              </Button>
+            </>
+          }
+        >
+          {editMatch && (
+            <div className="space-y-5">
+              <Field label="Court">
+                <Select value={editCourt} onChange={(event) => setEditCourt(Number(event.target.value))}>
+                  {Array.from(
+                    { length: Math.max(1, data.stats.courtsTotal || 1) },
+                    (_, index) => index + 1,
+                  ).map((court) => (
+                    <option key={court} value={court}>
+                      Court {court}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  { label: "Team A", value: editTeam1, set: setEditTeam1, tone: "forest" as const },
+                  { label: "Team B", value: editTeam2, set: setEditTeam2, tone: "paper" as const },
+                ].map((team) => (
+                  <div
+                    key={team.label}
+                    className={cn(
+                      "rounded-2xl border p-3",
+                      team.tone === "forest"
+                        ? "border-forest/20 bg-forest/[0.03]"
+                        : "border-line bg-cream/30",
+                    )}
+                  >
+                    <p className="text-muted mb-2 text-[10px] font-bold tracking-[0.14em] uppercase">
+                      {team.label}
+                    </p>
+                    <div className="space-y-2">
+                      {[0, 1].map((slotIndexInTeam) => (
+                        <Select
+                          key={slotIndexInTeam}
+                          value={team.value[slotIndexInTeam] ?? ""}
+                          onChange={(event) => {
+                            const next = [...team.value];
+                            next[slotIndexInTeam] = event.target.value;
+                            team.set(next);
+                          }}
+                        >
+                          <option value="">Pick a player…</option>
+                          {editOptions.map((player) => (
+                            <option key={player.playerId} value={player.playerId}>
+                              {player.nickname} · {player.levelLabel}{" "}
+                              {player.status === "PLAYING" ? "(on court)" : ""}
+                            </option>
+                          ))}
+                        </Select>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
+                Only waiting players and the current four are listed. Players already on another court are
+                hidden to avoid double-booking.
+              </p>
+            </div>
+          )}
+        </Modal>
+      </div>
+      <DragOverlay dropAnimation={null}>{activeDrag ? <DragChip drag={activeDrag} /> : null}</DragOverlay>
+    </DndContext>
   );
 }
 
 function CourtCard({
   court,
   match,
+  draft,
+  playerById,
   now,
   pending,
   isCompleted,
@@ -945,9 +1121,12 @@ function CourtCard({
   onFinish,
   onEdit,
   onCancel,
+  onClearDraft,
 }: {
   court: number;
   match?: BoardMatch;
+  draft: Array<string | null>;
+  playerById: Map<string, BoardPlayer>;
   now: number;
   pending: boolean;
   isCompleted: boolean;
@@ -956,37 +1135,75 @@ function CourtCard({
   onFinish: (match: BoardMatch) => void;
   onEdit: (match: BoardMatch) => void;
   onCancel: (id: string) => void;
+  onClearDraft: (index: number) => void;
 }) {
+  const { setNodeRef: setCourtRef, isOver: courtOver } = useDroppable({
+    id: `court-${court}`,
+    data: { kind: "court", courtNumber: court, matchId: match?.id } satisfies DropTarget,
+    disabled: isCompleted,
+  });
+  const {
+    setNodeRef: setHandleRef,
+    listeners,
+    attributes,
+    isDragging,
+  } = useDraggable({
+    id: `match-${match?.id ?? `open-${court}`}`,
+    data: { kind: "match", matchId: match?.id ?? "", courtNumber: court } satisfies DragPayload,
+    disabled: !match || isCompleted,
+  });
+
   if (!match) {
     return (
       <div
+        ref={setCourtRef}
         className={cn(
-          "border-line-strong/60 bg-paper/50 flex min-h-[190px] flex-col rounded-2xl border-2 border-dashed p-4",
-          isCompleted && "opacity-60",
+          "court-surface relative overflow-hidden rounded-2xl border-2 border-dashed transition",
+          isCompleted ? "opacity-60" : "border-cream/20",
+          courtOver && "border-lime ring-lime/40 ring-2",
         )}
       >
-        <div className="flex items-center justify-between">
-          <span className="text-muted font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
-            Court {court}
-          </span>
-          <Badge tone="outline">Open</Badge>
+        <CourtLines tone="open" />
+        <div className="relative p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-cream/70 inline-flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
+              <span className="bg-cream/40 h-1.5 w-1.5 rounded-full" /> Court {court}
+            </span>
+            <span className="border-cream/25 bg-cream/10 text-cream/60 rounded-full border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase">
+              Open
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-x-8">
+            {[
+              [0, 1],
+              [2, 3],
+            ].map((column) => (
+              <div key={column[0]} className="space-y-1.5">
+                {column.map((index) => (
+                  <DraftSlot
+                    key={index}
+                    court={court}
+                    index={index}
+                    player={draft[index] ? playerById.get(draft[index]!) : undefined}
+                    onClear={onClearDraft}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="mt-2.5 flex items-center justify-between gap-2">
+            <span className="text-cream/40 text-[10px]">Drop four waiting players</span>
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={onPair}
+              disabled={pending || isCompleted}
+              className="h-8"
+            >
+              <Wand2 className="h-3.5 w-3.5" /> Pair
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center py-5 text-center">
-          <span className="bg-cream-deep text-muted grid h-10 w-10 place-items-center rounded-full">
-            <LayoutGrid className="h-4 w-4" />
-          </span>
-          <p className="text-ink-soft mt-2 text-[12px] font-semibold">Court is open</p>
-          <p className="text-muted text-[10px]">Pull the next four from the queue.</p>
-        </div>
-        <Button
-          variant="paper"
-          size="sm"
-          onClick={onPair}
-          disabled={pending || isCompleted}
-          className="w-full"
-        >
-          <Wand2 className="h-3.5 w-3.5" /> Pair this court
-        </Button>
       </div>
     );
   }
@@ -997,105 +1214,296 @@ function CourtCard({
 
   return (
     <div
+      ref={setCourtRef}
       className={cn(
-        "bg-paper relative flex min-h-[190px] flex-col overflow-hidden rounded-2xl border p-4 transition",
-        live ? "border-forest/50 shadow-card" : "border-lime-deep/50 bg-lime/[0.06]",
+        "court-surface relative overflow-hidden rounded-2xl border transition",
+        live ? "border-lime/45 shadow-gold" : "border-lime/20",
+        courtOver && "border-lime ring-lime/50 ring-2",
+        isDragging && "opacity-60",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-muted font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
-          Court {court}
-        </span>
-        <div className="flex items-center gap-1.5">
-          {live && (
-            <span className="bg-forest text-lime inline-flex items-center gap-1 rounded-full px-2 py-1 font-mono text-[9px] font-bold">
-              <span className="animate-pulse-soft bg-lime h-1.5 w-1.5 rounded-full" />
-              {formatDuration(elapsed)}
+      <CourtLines tone={live ? "live" : "suggested"} />
+      <div className="relative p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <span
+              ref={setHandleRef}
+              {...listeners}
+              {...attributes}
+              aria-label={`Move the Court ${court} match`}
+              className={cn(
+                "text-cream/45 hover:text-cream grid h-6 w-5 cursor-grab touch-none place-items-center rounded",
+                isDragging && "text-lime",
+              )}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
             </span>
-          )}
-          <Badge tone={live ? "green" : "lime"}>{live ? "Live" : "Suggested"}</Badge>
+            <span className="text-cream/75 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
+              Court {court}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {live && (
+              <span className="border-lime/30 bg-forest-deep/60 text-lime inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold">
+                <span className="animate-pulse-soft bg-lime h-1.5 w-1.5 rounded-full" />
+                {formatDuration(elapsed)}
+              </span>
+            )}
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase",
+                live ? "bg-lime text-forest-deep" : "border-lime/40 bg-lime/10 text-lime border",
+              )}
+            >
+              {live ? "Live" : "Suggested"}
+            </span>
+          </div>
         </div>
-      </div>
 
-      <div className="mt-3 grid flex-1 grid-cols-[1fr_auto_1fr] items-start gap-1.5">
-        <MatchTeam team={match.team1} align="left" />
-        <div className="grid h-full place-items-center px-0.5">
-          <span className="border-line bg-cream text-muted rounded-full border px-1.5 py-0.5 font-mono text-[9px] font-bold">
-            vs
+        <div className="mt-2.5 grid grid-cols-2 gap-x-8">
+          <div className="space-y-1.5">
+            {match.team1.map((player) => (
+              <PlayerChip
+                key={player.playerId}
+                matchId={match.id}
+                team={1}
+                player={player}
+                disabled={isCompleted}
+              />
+            ))}
+          </div>
+          <div className="space-y-1.5">
+            {match.team2.map((player) => (
+              <PlayerChip
+                key={player.playerId}
+                matchId={match.id}
+                team={2}
+                player={player}
+                disabled={isCompleted}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="border-cream/15 mt-2 flex items-center justify-between gap-2 border-t pt-1.5">
+          <span className="text-cream/50 inline-flex items-center gap-1 text-[9px] font-semibold tracking-[0.1em] uppercase">
+            <Zap className="text-lime/70 h-3 w-3" />
+            {balance === 0 ? "Level teams" : `${balance} level gap`}
           </span>
+          <span className="text-cream/40 font-mono text-[9px]">R{match.round}</span>
         </div>
-        <MatchTeam team={match.team2} align="right" />
-      </div>
 
-      <div className="border-line/60 mt-3 flex items-center justify-between gap-2 border-t pt-2.5">
-        <span className="text-muted inline-flex items-center gap-1 text-[9px] font-semibold tracking-[0.1em] uppercase">
-          <Zap className="text-lime-deep h-3 w-3" /> {balance === 0 ? "Level teams" : `${balance} level gap`}
-        </span>
-        <span className="text-muted font-mono text-[9px]">R{match.round}</span>
-      </div>
-
-      <div className="mt-2 flex items-center gap-1.5">
-        {live ? (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onFinish(match)}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          {live ? (
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => onFinish(match)}
+              disabled={pending}
+              className="h-8 flex-1"
+            >
+              <Flag className="h-3.5 w-3.5" /> Finish
+            </Button>
+          ) : (
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => onStart(match.id)}
+              disabled={pending || isCompleted}
+              className="h-8 flex-1"
+            >
+              <Play className="h-3.5 w-3.5" /> Start
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={() => onEdit(match)}
             disabled={pending}
-            className="flex-1"
+            aria-label="Edit match"
+            className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 grid h-8 w-8 place-items-center rounded-full border transition disabled:opacity-40"
           >
-            <Flag className="h-3.5 w-3.5" /> Finish
-          </Button>
-        ) : (
-          <Button
-            variant="accent"
-            size="sm"
-            onClick={() => onStart(match.id)}
-            disabled={pending || isCompleted}
-            className="flex-1"
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onCancel(match.id)}
+            disabled={pending}
+            aria-label="Cancel match"
+            className="border-cream/15 text-cream/50 hover:text-coral grid h-8 w-8 place-items-center rounded-full border border-transparent transition disabled:opacity-40"
           >
-            <Play className="h-3.5 w-3.5" /> Start
-          </Button>
-        )}
-        <Button
-          variant="paper"
-          size="icon-sm"
-          onClick={() => onEdit(match)}
-          disabled={pending}
-          aria-label="Edit match"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => onCancel(match.id)}
-          disabled={pending}
-          aria-label="Cancel match"
-        >
-          <XCircle className="text-coral h-3.5 w-3.5" />
-        </Button>
+            <XCircle className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function MatchTeam({ team, align }: { team: BoardMatch["team1"]; align: "left" | "right" }) {
+function PlayerChip({
+  matchId,
+  team,
+  player,
+  disabled,
+}: {
+  matchId: string;
+  team: number;
+  player: BoardMatch["team1"][number];
+  disabled: boolean;
+}) {
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `slot-${matchId}-${team}-${player.slot}`,
+    data: {
+      kind: "slot",
+      matchId,
+      team,
+      slot: player.slot,
+      playerId: player.playerId,
+    } satisfies DropTarget,
+    disabled,
+  });
+  const {
+    setNodeRef: setDragRef,
+    listeners,
+    attributes,
+    isDragging,
+  } = useDraggable({
+    id: `mp-${matchId}-${player.playerId}`,
+    data: {
+      kind: "match-player",
+      matchId,
+      playerId: player.playerId,
+      team,
+      slot: player.slot,
+      nickname: player.nickname,
+      level: player.level,
+    } satisfies DragPayload,
+    disabled,
+  });
+
   return (
-    <div className={cn("min-w-0 space-y-2", align === "right" && "text-right")}>
-      {team.map((player) => (
-        <div
-          key={player.playerId}
-          className={cn("flex items-center gap-1.5", align === "right" && "flex-row-reverse")}
-        >
-          <Avatar name={player.nickname} size="sm" className="shrink-0" />
-          <div className="min-w-0">
-            <p className="truncate text-[12px] leading-tight font-semibold">{player.nickname}</p>
-            <div className={cn("mt-0.5 flex", align === "right" ? "justify-end" : "justify-start")}>
-              <LevelBadge level={player.level} className="min-w-0 px-1 text-[9px]" />
-            </div>
-          </div>
+    <div
+      ref={setDropRef}
+      className={cn(
+        "rounded-lg border transition",
+        isOver ? "border-lime bg-lime/15 ring-lime/50 ring-2" : "border-cream/30 bg-forest-deep/35",
+        isDragging && "opacity-40",
+      )}
+    >
+      <div
+        ref={setDragRef}
+        {...listeners}
+        {...attributes}
+        className="flex cursor-grab touch-none items-center gap-1.5 px-1.5 py-1"
+      >
+        <Avatar name={player.nickname} size="sm" className="h-6 w-6 text-[9px]" />
+        <div className="min-w-0 flex-1">
+          <p className="text-cream truncate text-[11px] leading-tight font-semibold">{player.nickname}</p>
+          <p className="text-lime/70 font-mono text-[8px] leading-tight font-bold">
+            {levelLabel(player.level)}
+          </p>
         </div>
-      ))}
+        <GripVertical className="text-cream/25 h-3 w-3 shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+function DraftSlot({
+  court,
+  index,
+  player,
+  onClear,
+}: {
+  court: number;
+  index: number;
+  player?: BoardPlayer;
+  onClear: (index: number) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `draft-${court}-${index}`,
+    data: { kind: "draft-slot", courtNumber: court, index } satisfies DropTarget,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex h-[40px] items-center justify-center rounded-lg border border-dashed text-[10px] transition",
+        isOver ? "border-lime bg-lime/15 text-lime" : "border-cream/25 bg-forest-deep/20 text-cream/40",
+      )}
+    >
+      {player ? (
+        <button
+          type="button"
+          onClick={() => onClear(index)}
+          className="flex w-full items-center gap-1.5 px-1.5 text-left"
+        >
+          <span className="text-cream truncate text-[11px] font-semibold">{player.nickname}</span>
+          <span className="text-lime/70 ml-auto font-mono text-[9px] font-bold">
+            {levelLabel(player.level)}
+          </span>
+          <XCircle className="text-cream/40 h-3 w-3 shrink-0" />
+        </button>
+      ) : (
+        <span>{isOver ? "Drop player" : `Team ${index < 2 ? "A" : "B"} · ${(index % 2) + 1}`}</span>
+      )}
+    </div>
+  );
+}
+
+function DragChip({ drag }: { drag: DragPayload }) {
+  if (drag.kind === "match") {
+    return (
+      <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex rotate-2 items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold">
+        <GripVertical className="text-lime h-3.5 w-3.5" /> Court {drag.courtNumber}
+      </div>
+    );
+  }
+  return (
+    <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5">
+      <Avatar name={drag.nickname} size="sm" className="h-6 w-6 text-[9px]" />
+      <span className="text-[12px] font-semibold">{drag.nickname}</span>
+      <span className="text-lime/70 font-mono text-[9px] font-bold">{levelLabel(drag.level)}</span>
+    </div>
+  );
+}
+
+function DraggableQueueItem({
+  player,
+  disabled,
+  children,
+}: {
+  player: BoardPlayer;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: `queue-${player.sessionPlayerId}`,
+    data: {
+      kind: "queue-player",
+      playerId: player.playerId,
+      nickname: player.nickname,
+      level: player.level,
+    } satisfies DragPayload,
+    disabled,
+  });
+
+  return (
+    <div className={cn("flex items-stretch gap-1", isDragging && "opacity-40")}>
+      {disabled ? (
+        <span className="w-4 shrink-0" aria-hidden="true" />
+      ) : (
+        <span
+          ref={setNodeRef}
+          {...listeners}
+          {...attributes}
+          aria-label={`Drag ${player.nickname} to a court`}
+          className="text-muted/50 hover:text-ink grid w-4 shrink-0 cursor-grab touch-none place-items-center rounded"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </span>
+      )}
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

@@ -1,30 +1,38 @@
 @import "tailwindcss";
 
 @theme {
-  --color-cream: #f5f1e6;
-  --color-cream-deep: #ebe6d6;
-  --color-paper: #fffdf7;
-  --color-ink: #0f241b;
-  --color-ink-soft: #3d5147;
-  --color-forest: #0d3b2e;
-  --color-forest-deep: #06251c;
-  --color-forest-soft: #175743;
-  --color-lime: #c9f26d;
-  --color-lime-bright: #d8ff85;
-  --color-lime-deep: #9fd63a;
-  --color-coral: #ff6b4a;
-  --color-coral-soft: #ffe1d9;
+  /* UP BadAss palette — black, gold, and paper white, lifted from upbadass.carrd.co */
+  --color-cream: #fbfaf5;
+  --color-cream-deep: #f0ece0;
+  --color-paper: #ffffff;
+  --color-ink: #0a0a0a;
+  --color-ink-soft: #3b3b36;
+  --color-forest: #111110;
+  --color-forest-deep: #000000;
+  --color-forest-soft: #4a4a41;
+  --color-lime: #ffd600;
+  --color-lime-bright: #ffe45c;
+  --color-lime-deep: #c9b500;
+  --color-gold: #ffd600;
+  --color-gold-deep: #8b7d00;
+  --color-coral: #cf4527;
+  --color-coral-soft: #fbe3dc;
   --color-sky: #bfe3ff;
-  --color-line: #ddd7c7;
-  --color-line-strong: #c9c2af;
-  --color-muted: #6f7f75;
+  --color-line: #e3ded0;
+  --color-line-strong: #cec7b4;
+  --color-muted: #6f6c63;
+  --color-court: #0d3327;
+  --color-court-deep: #08241b;
+  --color-court-line: #f2efdf;
 
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--font-brand), var(--font-display), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, monospace;
 
-  --shadow-card: 0 1px 0 rgb(15 36 27 / 0.04), 0 12px 30px -18px rgb(15 36 27 / 0.28);
-  --shadow-float: 0 24px 60px -30px rgb(15 36 27 / 0.45);
+  --shadow-card: 0 1px 0 rgb(10 10 10 / 0.04), 0 12px 30px -18px rgb(10 10 10 / 0.24);
+  --shadow-float: 0 24px 60px -30px rgb(10 10 10 / 0.45);
+  --shadow-gold: 0 18px 40px -24px rgb(201 181 0 / 0.7);
   --radius-4xl: 2rem;
 }
 
@@ -89,13 +97,18 @@
   }
 
   .grain {
-    background-image: radial-gradient(rgb(15 36 27 / 0.14) 0.6px, transparent 0.6px);
+    background-image: radial-gradient(rgb(10 10 10 / 0.14) 0.6px, transparent 0.6px);
     background-size: 7px 7px;
   }
 
   .dot-grid {
-    background-image: radial-gradient(rgb(201 242 109 / 0.28) 1px, transparent 1px);
+    background-image: radial-gradient(rgb(255 214 0 / 0.3) 1px, transparent 1px);
     background-size: 18px 18px;
+  }
+
+  .font-brand {
+    font-family: var(--font-brand);
+    letter-spacing: 0.01em;
   }
 
   .court-lines {
@@ -140,6 +153,24 @@
   .animate-shimmer {
     background-size: 200% 100%;
     animation: shimmer 2.2s linear infinite;
+  }
+
+  .court-surface {
+    background:
+      radial-gradient(120% 110% at 50% -10%, rgb(255 214 0 / 0.14), transparent 58%),
+      linear-gradient(158deg, var(--color-court) 0%, var(--color-court-deep) 100%);
+  }
+
+  .court-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.35) 100%);
+  }
+
+  .gold-rule {
+    background: linear-gradient(90deg, var(--color-lime-deep), var(--color-lime), var(--color-lime-deep));
   }
 }
 

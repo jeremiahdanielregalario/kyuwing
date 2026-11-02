@@ -46,6 +46,16 @@ Player arrives → Check in → Auto-pair → Start → Finish with score → Re
 
 Stats at the top show total players, waiting, playing, games completed, busy/open courts, average wait, and longest wait. If the longest wait is climbing while courts sit open, pair.
 
+### Moving things by hand
+
+The court cards accept drag and drop:
+
+- **Move a match** — grab the grip handle in a court header and drop the card on another court. If that court already has a match, the two swap.
+- **Swap players** — drag a player chip from the queue or from another court onto a slot. Dropping a waiting player onto an occupied slot replaces that player; the replaced player stays checked in and waiting.
+- **Build a court by hand** — drop four waiting players onto the empty slots of an open court. The first two become Team A, the last two Team B, and the match appears as a suggestion for you to start.
+
+Every drop is saved immediately and every other device sees it on the next poll.
+
 ### Common situations
 
 **Someone has waited a long time.**

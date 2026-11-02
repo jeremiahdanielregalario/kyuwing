@@ -1,60 +1,69 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export function BrandMark({
-  className,
-  tone = "forest",
-}: {
-  className?: string;
-  tone?: "forest" | "lime" | "paper";
-}) {
-  const bg = tone === "forest" ? "#0d3b2e" : tone === "lime" ? "#c9f26d" : "#fffdf7";
-  const feather = tone === "lime" ? "#0d3b2e" : "#c9f26d";
-  const cork = tone === "paper" ? "#0d3b2e" : "#fffdf7";
+/**
+ * The official UP BadAss wordmark is a black/gold PNG with transparency, so it
+ * is always placed on a white "sticker" chip. That keeps it legible on the bone
+ * page background and on the black app sidebar.
+ */
+export function BrandMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className={cn("h-10 w-10", className)} aria-hidden="true">
-      <rect width="48" height="48" rx="15" fill={bg} />
-      <path d="M24 8.5 33 15l-2.7 12.5H17.7L15 15Z" fill={feather} />
-      <path
-        d="M24 8.5 21 27.5M24 8.5 27 27.5M15.8 16.5h16.4M16.8 22h14.4"
-        stroke={bg}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        opacity=".7"
+    <span
+      className={cn(
+        "inline-flex items-center justify-center rounded-xl bg-white ring-1 ring-black/5",
+        className,
+      )}
+    >
+      <img
+        src="/brand/upbadass-wordmark.png"
+        alt="UP BadAss"
+        className="h-[70%] w-auto max-w-[86%] object-contain"
       />
-      <circle cx="24" cy="33" r="4.6" fill={cork} stroke={feather} strokeWidth="2" />
-      <path d="M22.6 39.5h2.8" stroke={feather} strokeWidth="2.4" strokeLinecap="round" />
-    </svg>
+    </span>
   );
 }
 
-export function Logo({ compact = false, className }: { compact?: boolean; className?: string }) {
+export function Logo({
+  compact = false,
+  tone = "ink",
+  className,
+}: {
+  compact?: boolean;
+  tone?: "ink" | "cream";
+  className?: string;
+}) {
   return (
     <Link
       href="/"
       className={cn("group inline-flex items-center gap-2.5", className)}
       aria-label="Kyuwing home"
     >
-      <BrandMark className="h-9 w-9 transition-transform duration-300 group-hover:-rotate-6" />
+      <BrandMark className="h-10 w-[4.4rem] px-1.5 transition-transform duration-300 group-hover:-rotate-2" />
       {!compact && (
-        <span className="font-display text-ink text-[1.35rem] leading-none font-extrabold tracking-[-0.04em]">
-          kyuwing<span className="text-forest-soft">.</span>
+        <span
+          className={cn(
+            "font-brand text-[1.15rem] leading-none tracking-tight",
+            tone === "cream" ? "text-cream" : "text-ink",
+          )}
+        >
+          kyuwing<span className="text-lime-deep">.</span>
         </span>
       )}
     </Link>
   );
 }
 
-export function OrgBadge({ className }: { className?: string }) {
+export function OrgBadge({ className, tone = "ink" }: { className?: string; tone?: "ink" | "cream" }) {
   return (
     <span
       className={cn(
-        "border-line bg-paper/70 text-ink-soft inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold tracking-[0.16em] uppercase backdrop-blur",
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] uppercase",
+        tone === "cream" ? "border-cream/20 bg-cream/5 text-cream/70" : "border-line bg-paper text-ink-soft",
         className,
       )}
     >
-      <span className="bg-coral inline-block h-1.5 w-1.5 rounded-full" />
-      UP BadAss · Diliman
+      <span className="bg-lime inline-block h-1.5 w-1.5 rounded-full" />
+      UP Badminton Association · Diliman
     </span>
   );
 }

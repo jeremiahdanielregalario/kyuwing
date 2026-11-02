@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ShieldCheck, Sparkles, Timer, Trophy, Users } from "lucide-react";
 import { LoginForm } from "@/components/app/login-form";
-import { Logo, OrgBadge } from "@/components/logo";
+import { BrandMark, Logo, OrgBadge } from "@/components/logo";
 import { getSession } from "@/lib/auth";
 
 export const metadata = { title: "Queue master login" };
@@ -35,7 +35,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-12">
           <OrgBadge className="w-fit" />
-          <h1 className="font-display mt-6 text-4xl leading-[0.98] font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="font-brand mt-6 text-3xl leading-[1.02] tracking-tight uppercase sm:text-[2.6rem]">
             Run the room,
             <br />
             not the group chat.
@@ -58,10 +58,15 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
         </div>
 
-        <p className="text-muted text-[11px]">App by Danyel Regalario · Built for UP BadAss</p>
+        <div className="text-muted flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <span>App by Danyel Regalario · Built for UP BadAss</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="bg-lime h-1.5 w-1.5 rounded-full" /> Competency · Commitment · Camaraderie
+          </span>
+        </div>
       </div>
 
-      <div className="bg-forest text-cream relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between">
+      <div className="bg-forest-deep text-cream relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between">
         <div className="court-lines absolute inset-0 opacity-40" aria-hidden="true" />
         <div
           className="bg-lime/10 pointer-events-none absolute -top-20 -right-20 h-96 w-96 rounded-full blur-3xl"
@@ -78,12 +83,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="relative px-10 pb-10">
           <div className="max-w-md">
             <Sparkles className="text-lime h-7 w-7" />
-            <p className="font-display mt-5 text-4xl leading-[1.02] font-extrabold tracking-tight">
+            <p className="font-brand mt-5 text-3xl leading-[1.04] tracking-tight uppercase">
               &ldquo;Four courts. Thirty players. One queue master.&rdquo;
             </p>
             <p className="text-cream/60 mt-4 text-[13px] leading-relaxed">
               Kyuwing keeps the matches balanced, the wait times visible, and the fees honest — while you keep
-              the shuttles flying.
+              the shuttles flying. A premier youth sports organization, one game day at a time.
             </p>
           </div>
 
@@ -103,14 +108,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
 
           <div className="border-cream/12 bg-cream/[0.04] mt-10 flex items-center gap-3 rounded-2xl border p-4">
-            <img
-              src="/brand/upbadass-logo.svg"
-              alt=""
-              className="ring-cream/15 h-11 w-11 rounded-full ring-1"
-            />
+            <BrandMark className="h-11 w-[4.8rem] shrink-0 px-1.5" />
             <div>
               <p className="font-display text-sm font-bold">UP BadAss</p>
-              <p className="text-cream/45 text-[10px]">UP Badminton Association · Diliman</p>
+              <p className="text-cream/45 text-[10px]">UP Badminton Association in Diliman · Est. 2015</p>
             </div>
           </div>
         </div>

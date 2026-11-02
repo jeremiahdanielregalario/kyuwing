@@ -125,7 +125,7 @@ export function PairingDemo() {
         Auto-paired
       </div>
 
-      <div className="border-line bg-paper shadow-float relative overflow-hidden rounded-[2rem] border">
+      <div className="border-line bg-paper text-ink shadow-float relative overflow-hidden rounded-[2rem] border">
         <div className="border-line/80 bg-cream/60 flex items-center justify-between border-b px-5 py-3.5">
           <div className="flex items-center gap-2.5">
             <span className="bg-forest text-lime grid h-8 w-8 place-items-center rounded-full">
