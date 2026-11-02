@@ -1,0 +1,116 @@
+# Operations
+
+For the person holding the tablet. This is the day-of runbook; the in-app **Playbook** (`/app/guide`) is the same material with fewer words.
+
+## Before the session
+
+- [ ] Charge the tablet or phone. A power bank is not optional for a four-hour session.
+- [ ] Confirm the venue booking and the exact court numbers.
+- [ ] Open Kyuwing and log in with the queue-master PIN.
+- [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, target score (35 by default).
+- [ ] Set the court blocks to match the booking. Example: 3 courts 09:00–10:00, 4 courts 10:00–12:00, 3 courts 12:00–14:00.
+- [ ] Double-check the fee matrix in **Venues → Fees** if anything changed.
+- [ ] Build the sign-up list, or tap **Add all active players** and remove no-shows later.
+
+## Starting the day
+
+1. Open the game day and press **Start** to move it from Draft to Live.
+2. Check in only the players who are physically present. Start with the first four to eight.
+3. Confirm the target score with the group.
+4. When a court is free, press **Auto-pair**.
+
+Do not check in the whole sign-up list on faith. The queue is supposed to reflect the court, not the group chat.
+
+## During the session
+
+### The loop
+
+```
+Player arrives → Check in → Auto-pair → Start → Finish with score → Requeue
+```
+
+- Check in players as they arrive, one at a time. The wait timer starts at check-in.
+- Pair when a court is actually free. Pairing early reserves players who are still in a game.
+- Start a match only when all four are walking on court.
+- Finish a match with the final score. Both teams requeue automatically and each player's game count increments.
+- If a suggested match is wrong, press **Edit** on the court card and swap players before starting.
+
+### Reading the board
+
+| Lane | Meaning |
+| --- | --- |
+| **Expected** | Signed up, not checked in. Not pairable. |
+| **Waiting** | Checked in, in the queue, timer running. Pairable. |
+| **Playing** | On court in a live match. Not pairable. |
+| **Done** | Finished for the day. Not pairable; games and fees are kept. |
+
+Stats at the top show total players, waiting, playing, games completed, busy/open courts, average wait, and longest wait. If the longest wait is climbing while courts sit open, pair.
+
+### Common situations
+
+**Someone has waited a long time.**
+Pair normally. The engine already weights wait time. If they are about to leave, toggle **Priority** so they jump the next wave.
+
+**Someone leaves early.**
+Press **Done**. Their games and fees stay. Do not remove them from the game day — removal deletes their session record.
+
+**A player comes back after leaving.**
+Press **Requeue**. They re-enter Waiting with a fresh timer.
+
+**Two players always want to partner.**
+Set a **permanent partner** on one of them. The engine will never split them across the net and will bench them together rather than break the pair.
+
+**Two players want to play each other once.**
+Add a **Play against** request. It is honored when the match stays fair.
+
+**The queue is too thin for a fair four.**
+The board will say so. Wait for arrivals or check in someone from Expected. Do not force a three-player game.
+
+**A court is double-booked.**
+Edit the court block in **Settings**, or move the affected match to another court. Do not delete the game day.
+
+**A score was entered wrong.**
+There is no score edit in the current UI. Cancel the match if it is still live; if it is completed, note the correction in the game-day notes and in the report. Avoid editing the database during a session.
+
+### Requests
+
+Requests are soft. The board shows a badge when one was honored. If a request is not honored, it is because honoring it would have produced a lopsided game. Explain that rather than overriding the pairing; players generally accept “the engine kept it fair.”
+
+## Closing the day
+
+- [ ] Finish or cancel every live and suggested match.
+- [ ] Mark anyone who left early as **Done**.
+- [ ] Open **Fees**, record payments, and reconcile cash vs GCash.
+- [ ] Download the **Excel** and **PDF** reports.
+- [ ] Add a short note to the game day if anything unusual happened (late courts, guests, corrections).
+- [ ] Press **Complete**. This cancels leftovers and freezes the session.
+- [ ] Log out if the device is shared.
+
+## Troubleshooting
+
+| Symptom | Likely cause | What to do |
+| --- | --- | --- |
+| Board is stale | Poll failed or device asleep | Pull to refresh / reload the page |
+| “At least four players need to be checked in” | Fewer than four Waiting | Check in more arrivals |
+| “All N courts are assigned” | Every court has a suggestion or live match | Start, finish, or cancel a match |
+| “Add at least one court block in Settings first” | Empty court plan | Add a block in Settings |
+| Auto-pair produces a cross-bracket match | Queue is thin | Expected; check in more players for tighter matches |
+| Login rejected | Wrong PIN or `QUEUE_MASTER_PIN` changed | Use the current PIN; ask the operator |
+| Fees show 0 | No rule for venue/type/category | Fill the matrix in Venues → Fees |
+| Export fails | Server/database hiccup | Retry; if it persists, screenshot the error reference |
+
+## Escalation
+
+If something looks broken:
+
+1. Note the time, the game-day name, and what you pressed.
+2. Take a screenshot of the board and any error toast.
+3. Do not reset the database during a session.
+4. After the session, report with the details so the data can be inspected safely.
+
+## Device tips
+
+- Add Kyuwing to the home screen for a full-screen board.
+- Keep the device plugged in or on a power bank.
+- Use one device as the source of truth. Multiple queue masters is fine for viewing, but avoid two people pressing pair at the same time.
+- Screen brightness up; the board is designed to be readable across a court.

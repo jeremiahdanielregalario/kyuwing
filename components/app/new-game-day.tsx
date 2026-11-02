@@ -1,0 +1,266 @@
+"use client";
+
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { CalendarPlus, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { createGameDay } from "@/lib/actions/gamedays";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select, Textarea } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+
+type VenueOption = {
+  id: string;
+  name: string;
+  shortName: string;
+  defaultStart: string;
+  defaultEnd: string;
+  defaultCourts: number;
+};
+
+type Slot = { id: string; label: string; start: string; end: string; courts: number };
+
+function makeSlot(venue: VenueOption, index = 0): Slot {
+  return {
+    id: `slot-${Date.now()}-${index}`,
+    label: index === 0 ? "First block" : `Block ${index + 1}`,
+    start: venue.defaultStart,
+    end: venue.defaultEnd,
+    courts: venue.defaultCourts,
+  };
+}
+
+export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[]; defaultDate: string }) {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const firstVenue = venues[0];
+  const [venueId, setVenueId] = React.useState(firstVenue?.id ?? "");
+  const [date, setDate] = React.useState(defaultDate);
+  const [type, setType] = React.useState("REGULAR");
+  const [name, setName] = React.useState("");
+  const [targetScore, setTargetScore] = React.useState(35);
+  const [notes, setNotes] = React.useState("");
+  const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue)] : []);
+  const [pending, startTransition] = React.useTransition();
+
+  const selectedVenue = venues.find((venue) => venue.id === venueId) ?? firstVenue;
+
+  const changeVenue = (id: string) => {
+    setVenueId(id);
+    const venue = venues.find((item) => item.id === id);
+    if (venue) setSlots([makeSlot(venue)]);
+  };
+
+  const addSlot = () => {
+    if (!selectedVenue) return;
+    setSlots((current) => {
+      const previous = current[current.length - 1];
+      const nextStart = previous?.end ?? selectedVenue.defaultStart;
+      const nextEnd = nextStart === "12:00" ? "14:00" : "15:00";
+      return [
+        ...current,
+        {
+          id: `slot-${Date.now()}`,
+          label: `Block ${current.length + 1}`,
+          start: nextStart,
+          end: nextEnd,
+          courts: selectedVenue.defaultCourts,
+        },
+      ];
+    });
+  };
+
+  const submit = () => {
+    if (!selectedVenue) {
+      toast.error("Create a venue first.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await createGameDay({
+        name,
+        venueId,
+        date,
+        type,
+        targetScore,
+        notes,
+        courtPlan: slots,
+      });
+      if (result.ok && result.data) {
+        toast.success(result.message ?? "Game day created.");
+        setOpen(false);
+        router.push(`/app/gamedays/${result.data.id}/signups`);
+      } else if (!result.ok) {
+        toast.error(result.error);
+      }
+    });
+  };
+
+  if (venues.length === 0) {
+    return (
+      <Button disabled variant="paper">
+        <CalendarPlus className="h-4 w-4" /> Create a venue first
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>
+        <CalendarPlus className="h-4 w-4" /> New game day
+      </Button>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Set up a game day"
+        description="One setup, then add your sign-ups and run the board."
+        size="lg"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submit} loading={pending}>
+              <CalendarPlus className="h-4 w-4" /> Create game day
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Venue">
+              <Select value={venueId} onChange={(event) => changeVenue(event.target.value)}>
+                {venues.map((venue) => (
+                  <option key={venue.id} value={venue.id}>
+                    {venue.shortName} · {venue.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Date">
+              <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            </Field>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Game-day type">
+              <Select value={type} onChange={(event) => setType(event.target.value)}>
+                <option value="REGULAR">Regular</option>
+                <option value="TIPID">Tipid (court fee only)</option>
+                <option value="MEGA">MEGA</option>
+              </Select>
+            </Field>
+            <Field label="Target score">
+              <Input
+                type="number"
+                min={5}
+                max={99}
+                value={targetScore}
+                onChange={(event) => setTargetScore(Number(event.target.value))}
+              />
+            </Field>
+          </div>
+
+          <Field label="Name (optional)" hint="Defaults to venue + date, e.g. KBC · Monday, Nov 2.">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Monday Night Lights"
+              maxLength={80}
+            />
+          </Field>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Court blocks</p>
+              <button
+                type="button"
+                onClick={addSlot}
+                className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+              >
+                <Plus className="h-3 w-3" /> Add block
+              </button>
+            </div>
+            <div className="space-y-2">
+              {slots.map((slot, index) => (
+                <div
+                  key={slot.id}
+                  className="border-line bg-cream/30 grid grid-cols-[1fr_auto] gap-2 rounded-xl border p-2.5 sm:grid-cols-[1.2fr_0.8fr_0.8fr_0.6fr_auto]"
+                >
+                  <Input
+                    value={slot.label}
+                    onChange={(event) =>
+                      setSlots((current) =>
+                        current.map((row, i) => (i === index ? { ...row, label: event.target.value } : row)),
+                      )
+                    }
+                    className="h-9 text-[12px]"
+                    aria-label="Block label"
+                  />
+                  <Input
+                    type="time"
+                    value={slot.start}
+                    onChange={(event) =>
+                      setSlots((current) =>
+                        current.map((row, i) => (i === index ? { ...row, start: event.target.value } : row)),
+                      )
+                    }
+                    className="h-9 text-[12px]"
+                    aria-label="Start time"
+                  />
+                  <Input
+                    type="time"
+                    value={slot.end}
+                    onChange={(event) =>
+                      setSlots((current) =>
+                        current.map((row, i) => (i === index ? { ...row, end: event.target.value } : row)),
+                      )
+                    }
+                    className="h-9 text-[12px]"
+                    aria-label="End time"
+                  />
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={slot.courts}
+                    onChange={(event) =>
+                      setSlots((current) =>
+                        current.map((row, i) =>
+                          i === index ? { ...row, courts: Number(event.target.value) } : row,
+                        ),
+                      )
+                    }
+                    className="h-9 text-center text-[12px]"
+                    aria-label="Court count"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSlots((current) => current.filter((_, i) => i !== index))}
+                    disabled={slots.length === 1}
+                    className="text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-lg transition disabled:opacity-30"
+                    aria-label="Remove block"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-muted mt-1.5 text-[11px]">
+              Each block has its own court count. Example: 3 courts from 9–10, then 4 courts from 10–12.
+            </p>
+          </div>
+
+          <Field label="Notes (optional)">
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={2}
+              placeholder="Court assignments, reminders, fee notes…"
+              maxLength={500}
+            />
+          </Field>
+        </div>
+      </Modal>
+    </>
+  );
+}

@@ -1,0 +1,230 @@
+// Kyuwing — UP BadAss game-day queueing
+// Docs: docs/ARCHITECTURE.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SkillLevel {
+  E_MINUS
+  E
+  E_PLUS
+  DE
+  D_MINUS
+  D
+  D_PLUS
+  CD
+  C_MINUS
+  C
+  C_PLUS
+  BC
+  B_MINUS
+  B
+  B_PLUS
+  AB
+  A_MINUS
+  A
+  A_PLUS
+}
+
+enum PlayerCategory {
+  ACTIVE
+  ALUMNI
+  APPLICANT
+}
+
+enum GameDayType {
+  REGULAR
+  TIPID
+  MEGA
+}
+
+enum GameDayStatus {
+  DRAFT
+  LIVE
+  COMPLETED
+}
+
+enum SessionPlayerStatus {
+  EXPECTED
+  WAITING
+  PLAYING
+  DONE
+}
+
+enum MatchStatus {
+  SUGGESTED
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PairingRequestType {
+  PAIR_WITH
+  PLAY_AGAINST
+}
+
+enum PaymentMethod {
+  CASH
+  GCASH
+  BANK
+  OTHER
+}
+
+model Venue {
+  id            String    @id @default(cuid())
+  name          String
+  shortName     String    @unique
+  dayOfWeek     Int // 0 = Sunday ... 6 = Saturday
+  defaultStart  String    @default("10:00")
+  defaultEnd    String    @default("14:00")
+  defaultCourts Int       @default(3)
+  address       String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  feeRules FeeRule[]
+  gameDays GameDay[]
+}
+
+model FeeRule {
+  id          String          @id @default(cuid())
+  venueId     String
+  dayType     GameDayType     @default(REGULAR)
+  category    PlayerCategory
+  flatFee     Int // whole Philippine pesos
+  perGameFee  Int // whole Philippine pesos
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, dayType, category])
+}
+
+model Player {
+  id        String         @id @default(cuid())
+  nickname  String         @unique
+  fullName  String?
+  level     SkillLevel
+  category  PlayerCategory @default(ACTIVE)
+  contact   String?
+  notes     String?
+  active    Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  sessionPlayers   SessionPlayer[]
+  matchPlayers     MatchPlayer[]
+  pairingRequests  PairingRequest[] @relation("RequestingPlayer")
+  targetedRequests PairingRequest[] @relation("TargetPlayer")
+
+  @@index([level])
+  @@index([active])
+}
+
+model GameDay {
+  id          String         @id @default(cuid())
+  name        String
+  venueId     String
+  date        DateTime       @db.Date
+  type        GameDayType    @default(REGULAR)
+  status      GameDayStatus  @default(DRAFT)
+  targetScore Int            @default(35)
+  courtPlan   Json           @default("[]")
+  notes       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  venue    Venue            @relation(fields: [venueId], references: [id])
+  players  SessionPlayer[]
+  matches  Match[]
+  requests PairingRequest[]
+
+  @@index([date])
+  @@index([status])
+}
+
+model SessionPlayer {
+  id                 String              @id @default(cuid())
+  gameDayId          String
+  playerId           String
+  status             SessionPlayerStatus @default(EXPECTED)
+  joinedAt           DateTime?
+  queuedAt           DateTime?
+  lastPlayedAt       DateTime?
+  gamesPlayed        Int                 @default(0)
+  permanentPartnerId String?
+  priority           Boolean             @default(false)
+  paid               Boolean             @default(false)
+  amountPaid         Int                 @default(0)
+  paymentMethod      PaymentMethod?
+  note               String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  gameDay GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  player  Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([gameDayId, playerId])
+  @@index([gameDayId, status])
+}
+
+model Match {
+  id          String      @id @default(cuid())
+  gameDayId   String
+  courtNumber Int
+  round       Int         @default(1)
+  status      MatchStatus @default(SUGGESTED)
+  score1      Int?
+  score2      Int?
+  note        String?
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  gameDay GameDay       @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  players MatchPlayer[]
+
+  @@index([gameDayId, status])
+}
+
+model MatchPlayer {
+  id       String @id @default(cuid())
+  matchId  String
+  playerId String
+  team     Int // 1 or 2
+  slot     Int // 1 or 2 within the team
+
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
+}
+
+model PairingRequest {
+  id             String             @id @default(cuid())
+  gameDayId      String
+  playerId       String
+  type           PairingRequestType
+  targetPlayerId String
+  active         Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+
+  gameDay      GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  player       Player  @relation("RequestingPlayer", fields: [playerId], references: [id], onDelete: Cascade)
+  targetPlayer Player  @relation("TargetPlayer", fields: [targetPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([gameDayId, playerId, type, targetPlayerId])
+  @@index([gameDayId])
+}

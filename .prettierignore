@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+build
+dist
+coverage
+pnpm-lock.yaml
+next-env.d.ts
+*.md
+!README.md
+!CHANGELOG.md
+!AGENTS.md
+public/brand

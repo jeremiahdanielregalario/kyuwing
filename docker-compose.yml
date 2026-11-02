@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kyuwing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kyuwing
+      POSTGRES_PASSWORD: kyuwing
+      POSTGRES_DB: kyuwing
+    ports:
+      - "5433:5432"
+    volumes:
+      - kyuwing_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyuwing -d kyuwing"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kyuwing_pgdata:
