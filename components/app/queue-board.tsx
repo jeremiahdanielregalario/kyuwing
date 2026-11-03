@@ -38,6 +38,7 @@ import {
   Plus,
   Gift,
   Minus,
+  Undo2,
   Search,
   Settings2,
   Share2,
@@ -55,6 +56,7 @@ import {
   addCourt,
   removeCourt,
   renameCourt,
+  restoreMatch,
   cancelMatch,
   checkInPlayer,
   clearSuggestedMatches,
@@ -398,6 +400,32 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     setAddCourtOpen(true);
   };
 
+  // Ending a game offers Undo for a few seconds, in case it was ended by mistake.
+  const endGame = (matchId: string) => {
+    startTransition(async () => {
+      const result = await completeMatch(matchId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message ?? "Game ended.", {
+        duration: 10000,
+        action: { label: "Undo", onClick: () => act(() => restoreMatch(matchId)) },
+      });
+      await mutate();
+    });
+  };
+
+  const confirmRestore = (match: BoardMatch) =>
+    setConfirmSpec({
+      title: `Restore the game on ${courtName(slot, match.courtNumber)}?`,
+      description:
+        "It goes back on court as live and the timer keeps running from its start. Their game counts go back down until it ends again.",
+      confirmLabel: "Restore game",
+      cancelLabel: "Keep it finished",
+      onConfirm: () => act(() => restoreMatch(match.id)),
+    });
+
   const finishMatch = (match: BoardMatch) => {
     setConfirmSpec({
       title: `End the game on ${courtName(slot, match.courtNumber)}?`,
@@ -426,7 +454,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       ),
       confirmLabel: "End game",
       cancelLabel: "Keep playing",
-      onConfirm: () => act(() => completeMatch(match.id)),
+      onConfirm: () => endGame(match.id),
     });
   };
 
@@ -974,6 +1002,17 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         <CircleCheck className="text-forest inline h-3 w-3 align-[-2px]" />{" "}
                         {match.endedAt ? formatClock(match.endedAt) : "Done"}
                       </span>
+                      {!isCompleted && (
+                        <button
+                          type="button"
+                          onClick={() => confirmRestore(match)}
+                          disabled={pending}
+                          title="Ended by mistake? Put this game back on court"
+                          className="border-line text-ink-soft hover:border-forest hover:bg-lime/20 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition disabled:opacity-40"
+                        >
+                          <Undo2 className="h-3 w-3" /> Restore
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

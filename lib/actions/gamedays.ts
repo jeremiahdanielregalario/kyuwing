@@ -817,6 +817,93 @@ export async function completeMatch(matchId: string): Promise<ActionResult> {
   );
 }
 
+/**
+ * Undo an accidental "End game": the match goes back on its court as live
+ * (keeping its start time) and the four players go back on court with their
+ * game counts restored. A waiting game that was moved onto the freed court
+ * returns to the front of the waiting line. Refused when the court or any of
+ * the players has since been given to another game.
+ */
+export async function restoreMatch(matchId: string): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { players: { include: { player: true } } },
+  });
+  if (!match) return fail("Match not found.");
+  if (match.status !== "COMPLETED") return fail("Only finished games can be restored.");
+
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id: match.gameDayId },
+    select: { status: true, courtPlan: true },
+  });
+  if (!gameDay) return fail("Game day not found.");
+  if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
+
+  const name = await courtNamer(match.gameDayId);
+  const court = match.courtNumber;
+  const plan = parseCourtPlan(gameDay.courtPlan);
+  const courtsNow = plan.length ? plan[currentSlotIndex(plan)].courts : 0;
+  if (court < 1 || court > courtsNow) {
+    return fail(`${name(court)} isn't in the current block anymore, so this game can't go back on it.`);
+  }
+
+  const others = await prisma.match.findMany({
+    where: { gameDayId: match.gameDayId, status: { in: ["SUGGESTED", "LIVE"] } },
+    include: { players: { include: { player: true } } },
+  });
+  const onCourt = others.find((other) => other.courtNumber === court);
+  if (onCourt?.status === "LIVE") {
+    return fail(`${name(court)} already has another game in progress. Finish or cancel it first.`);
+  }
+
+  const playerIds = new Set(match.players.map((row) => row.playerId));
+  const taken = others.flatMap((other) =>
+    other.players
+      .filter((row) => playerIds.has(row.playerId))
+      .map((row) => `${row.player.nickname} (${name(other.courtNumber)})`),
+  );
+  if (taken.length > 0) {
+    return fail(`Already in another game: ${taken.join(", ")}. Remove them from it first.`);
+  }
+
+  const sessions = await prisma.sessionPlayer.findMany({
+    where: { gameDayId: match.gameDayId, playerId: { in: [...playerIds] } },
+    include: { player: { select: { nickname: true } } },
+  });
+  const unavailable = match.players
+    .filter((row) => sessions.find((session) => session.playerId === row.playerId)?.status !== "WAITING")
+    .map((row) => row.player.nickname);
+  if (unavailable.length > 0) {
+    return fail(`${unavailable.join(", ")} left the queue since this game ended, so it can't be restored.`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // A waiting game promoted onto this court goes back to the front of the line (it keeps its creation time).
+    if (onCourt) await tx.match.update({ where: { id: onCourt.id }, data: { courtNumber: QUEUED_COURT } });
+    await tx.match.update({ where: { id: matchId }, data: { status: "LIVE", endedAt: null } });
+    await tx.sessionPlayer.updateMany({
+      where: { gameDayId: match.gameDayId, playerId: { in: [...playerIds] } },
+      data: { status: "PLAYING" },
+    });
+    if (!match.free) {
+      await tx.sessionPlayer.updateMany({
+        where: { gameDayId: match.gameDayId, playerId: { in: [...playerIds] }, gamesPlayed: { gt: 0 } },
+        data: { gamesPlayed: { decrement: 1 } },
+      });
+    }
+  });
+
+  refreshGameDay(match.gameDayId);
+  return ok(
+    onCourt
+      ? `${name(court)} restored — the game continues. The next game went back to the waiting courts.`
+      : `${name(court)} restored — the game continues.`,
+  );
+}
+
 export async function cancelMatch(matchId: string): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;

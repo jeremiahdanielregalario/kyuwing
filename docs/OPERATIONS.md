@@ -69,6 +69,9 @@ Press the **−** button in that court's header and confirm. The court leaves th
 **The venue switches court numbers.**
 Tap a court's name on its card (it is underlined) to rename it. Type the number (`9` shows as Court 9) or a name like `Main court`. Leave **Use this name in every block** ticked to rename that court in every time block, or untick it to change just the block you are viewing. Two courts in the same block can't share a name.
 
+**A game was ended by mistake.**
+Press **Undo** on the "Court … finished" message (it stays up for about ten seconds), or **Restore** next to the game under **Recently finished**. The game goes back on its court as live with its original timer, the four players go back on court, and their game counts drop back so fees stay right. If the next waiting game had already moved onto that court, it goes back to the front of the waiting line. Restoring is refused, with the reason, when that court now has another game in progress or one of the four has been put in another game or marked done.
+
 **It is near closing time.**
 A game takes about 15 minutes. When you start a game within 15 minutes of the reservation's end, the board asks whether it is a **free game**. Free games are played with a used shuttle, show a violet **Free** tag, and do not count as a game played, so they are not added to anyone's fees.
 

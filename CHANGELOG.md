@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Restore an ended game** — ending a game shows an **Undo** for about ten seconds, and **Recently finished** has a **Restore** button. The game goes back on court as live with its timer, game counts drop back, and a waiting game moved onto that court returns to the front of the line. Refused with a reason if the court or any of the players has moved on.
 - **Court numbers up front** — when creating a game day, enter the venue's court numbers per block (`5, 6, 7, 8` or `5-8`); the court count follows. Leave blank to number courts 1, 2, 3…
 - **Rename courts from the board** — tap a court's name to rename it, in one block or every block. "Court 6", "C6", and "6" all mean Court 6, and duplicate names in a block are refused.
 - **Remove court** — remove an unavailable court (e.g. a failed reservation) from the board with the **−** button on its card. Its suggested game moves to the waiting courts, the other courts keep their names, and courts with a game in progress can't be removed until it ends.
