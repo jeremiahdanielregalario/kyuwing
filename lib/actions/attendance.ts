@@ -49,11 +49,21 @@ export async function logAttendanceEvent(
     select: { id: true, nickname: true, fullName: true },
   });
 
+  // Chat lists use nicknames, so a nickname always wins over a full name, and a
+  // full name shared by two players is too ambiguous to match on.
   const byKey = new Map<string, string>();
+  const fullNameCounts = new Map<string, number>();
   for (const player of players) {
-    byKey.set(nameKey(player.nickname), player.id);
-    if (player.fullName) byKey.set(nameKey(player.fullName), player.id);
+    if (!player.fullName) continue;
+    const key = nameKey(player.fullName);
+    fullNameCounts.set(key, (fullNameCounts.get(key) ?? 0) + 1);
   }
+  for (const player of players) {
+    if (!player.fullName) continue;
+    const key = nameKey(player.fullName);
+    if (fullNameCounts.get(key) === 1) byKey.set(key, player.id);
+  }
+  for (const player of players) byKey.set(nameKey(player.nickname), player.id);
 
   const playedIds = new Map<string, "PLAYED" | "WAITLIST">();
   const unmatched: string[] = [];
