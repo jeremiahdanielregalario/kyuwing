@@ -420,11 +420,9 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
                   setForm({ ...form, category: event.target.value as FormState["category"] })
                 }
               >
-                <option value="ACTIVE">Active member</option>
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
                 <option value="ALUMNI">Alumni</option>
-                <option value="APPLICANT">Applicant</option>
                 <option value="APPLICANT">Applicant</option>
               </Select>
             </Field>
