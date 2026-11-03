@@ -38,6 +38,13 @@ export const playerSchema = z.object({
 
 export type PlayerInput = z.infer<typeof playerSchema>;
 
+/** Extra charges on one player: grips (priced per piece) and any other amount, with a reason. */
+export const chargesSchema = z.object({
+  gripCount: z.coerce.number().int("Grips must be a whole number").min(0).max(50),
+  otherCharge: z.coerce.number().int("Enter a whole-peso amount").min(0).max(100000),
+  otherNote: z.string().trim().max(60).optional().nullable(),
+});
+
 export const courtSlotSchema = z.object({
   id: z.string().min(1),
   label: z.string().trim().min(1).max(30),

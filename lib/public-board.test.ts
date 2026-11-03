@@ -149,9 +149,15 @@ function feeRow(nickname: string, total: number, amountPaid: number, games = 2):
     flatFee: 250,
     perGameFee: 50,
     total,
+    gripCount: 0,
+    otherCharge: 0,
+    otherNote: null,
+    extras: 0,
     paid: amountPaid >= total,
     amountPaid,
     balance: Math.max(0, total - amountPaid),
+    change: Math.max(0, amountPaid - total),
+    settled: false,
     paymentMethod: "GCASH",
   };
 }

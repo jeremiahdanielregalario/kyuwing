@@ -4,9 +4,16 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Check, CircleDollarSign, Download, FileSpreadsheet, FileText, Search, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { markAllPaid, setPayment } from "@/lib/actions/gamedays";
+import { markAllPaid, setPayment, setSettled } from "@/lib/actions/gamedays";
 import type { FeeReport, FeeRow } from "@/lib/board-types";
-import { CATEGORY_SHORT, PAYMENT_METHOD_LABELS, formatPeso } from "@/lib/fees";
+import {
+  CATEGORY_SHORT,
+  GRIP_PRICE,
+  PAYMENT_METHOD_LABELS,
+  changeDue,
+  extrasTotal,
+  formatPeso,
+} from "@/lib/fees";
 import { PaymentCard } from "@/components/payment-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +36,27 @@ export function FeeLedger({ report }: { report: FeeReport }) {
   const [selected, setSelected] = React.useState<FeeRow | null>(null);
   const [amount, setAmount] = React.useState("");
   const [method, setMethod] = React.useState<"CASH" | "GCASH" | "BANK" | "OTHER">("CASH");
+  const [grips, setGrips] = React.useState("0");
+  const [otherCharge, setOtherCharge] = React.useState("");
+  const [otherNote, setOtherNote] = React.useState("");
+  /** Until the finance member types an amount received, it follows the total. */
+  const [amountTouched, setAmountTouched] = React.useState(false);
+
+  // What this player owes with the charges typed in the dialog.
+  const dialogExtras = extrasTotal({ gripCount: Number(grips) || 0, otherCharge: Number(otherCharge) || 0 });
+  const dialogTotal = selected ? selected.total - selected.extras + dialogExtras : 0;
+  const received = Number(amount) || 0;
+  const dialogChange = changeDue(dialogTotal, received);
+  const dialogBalance = Math.max(0, dialogTotal - received);
+
+  const changeCharges = (nextGrips: string, nextOther: string) => {
+    setGrips(nextGrips);
+    setOtherCharge(nextOther);
+    if (selected && !amountTouched) {
+      const extras = extrasTotal({ gripCount: Number(nextGrips) || 0, otherCharge: Number(nextOther) || 0 });
+      setAmount(String(selected.total - selected.extras + extras));
+    }
+  };
 
   const act = (fn: () => Promise<AnyResult>, onSuccess?: () => void) => {
     startTransition(async () => {
@@ -55,6 +83,10 @@ export function FeeLedger({ report }: { report: FeeReport }) {
     setSelected(row);
     setAmount(String(row.amountPaid || row.total));
     setMethod((row.paymentMethod as typeof method) || "CASH");
+    setGrips(String(row.gripCount));
+    setOtherCharge(row.otherCharge ? String(row.otherCharge) : "");
+    setOtherNote(row.otherNote ?? "");
+    setAmountTouched(row.amountPaid > 0);
   };
 
   const savePayment = () => {
@@ -67,9 +99,10 @@ export function FeeLedger({ report }: { report: FeeReport }) {
     act(
       () =>
         setPayment(selected.sessionPlayerId, {
-          paid: value >= selected.total,
+          paid: value >= dialogTotal,
           amountPaid: value,
           method,
+          charges: { gripCount: Number(grips) || 0, otherCharge: Number(otherCharge) || 0, otherNote },
         }),
       () => setSelected(null),
     );
@@ -205,19 +238,21 @@ export function FeeLedger({ report }: { report: FeeReport }) {
               <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
                 <th className="px-4 py-2.5 font-bold">Player</th>
                 <th className="px-2 py-2.5 text-center font-bold">Games</th>
-                <th className="px-2 py-2.5 text-right font-bold">Flat</th>
                 <th className="px-2 py-2.5 text-right font-bold">/ Game</th>
+                <th className="px-2 py-2.5 text-right font-bold">Extras</th>
                 <th className="px-2 py-2.5 text-right font-bold">Total</th>
                 <th className="px-2 py-2.5 text-right font-bold">Paid</th>
                 <th className="px-2 py-2.5 text-right font-bold">Balance</th>
+                <th className="px-2 py-2.5 text-right font-bold">Change</th>
                 <th className="px-3 py-2.5 text-right font-bold">Status</th>
+                <th className="px-2 py-2.5 text-center font-bold">Settled</th>
                 <th className="px-3 py-2.5 text-right font-bold">Action</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-muted px-4 py-12 text-center">
+                  <td colSpan={11} className="text-muted px-4 py-12 text-center">
                     No players match this view.
                   </td>
                 </tr>
@@ -239,14 +274,32 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                         </div>
                       </td>
                       <td className="px-2 py-2.5 text-center font-mono font-bold">{row.gamesPlayed}</td>
-                      <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.flatFee)}</td>
                       <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.perGameFee)}</td>
+                      <td
+                        className="px-2 py-2.5 text-right font-mono"
+                        title={[
+                          row.gripCount ? `${row.gripCount} grip${row.gripCount === 1 ? "" : "s"}` : "",
+                          row.otherCharge ? `${row.otherNote || "Other"} ${formatPeso(row.otherCharge)}` : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      >
+                        {row.extras ? formatPeso(row.extras) : "—"}
+                      </td>
                       <td className="px-2 py-2.5 text-right font-mono font-bold">{formatPeso(row.total)}</td>
                       <td className="text-muted px-2 py-2.5 text-right font-mono">
                         {formatPeso(row.amountPaid)}
                       </td>
                       <td className="px-2 py-2.5 text-right font-mono font-bold">
                         {row.balance ? formatPeso(row.balance) : "—"}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-2 py-2.5 text-right font-mono",
+                          row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
+                        )}
+                      >
+                        {row.change ? formatPeso(row.change) : "—"}
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         {row.paid ? (
@@ -256,6 +309,19 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                         ) : (
                           <Badge tone="neutral">Due</Badge>
                         )}
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={row.settled}
+                          disabled={pending || !row.paid}
+                          onChange={(event) =>
+                            act(() => setSettled(row.sessionPlayerId, event.target.checked))
+                          }
+                          aria-label={`${row.nickname} settled`}
+                          title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
+                          className="accent-forest h-5 w-5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                        />
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <Button size="sm" variant="paper" onClick={() => openPayment(row)} disabled={pending}>
@@ -294,7 +360,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
         onClose={() => setSelected(null)}
         title={selected ? `Record payment · ${selected.nickname}` : "Record payment"}
         description={
-          selected ? `${selected.gamesPlayed} games · total ${formatPeso(selected.total)}` : undefined
+          selected ? `${selected.gamesPlayed} games · total ${formatPeso(dialogTotal)}` : undefined
         }
         footer={
           <>
@@ -312,26 +378,67 @@ export function FeeLedger({ report }: { report: FeeReport }) {
             <div className="border-line bg-cream/40 grid grid-cols-3 gap-2 rounded-2xl border p-3 text-center">
               <div>
                 <p className="text-muted text-[9px] tracking-[0.12em] uppercase">Total</p>
-                <p className="font-mono text-sm font-bold">{formatPeso(selected.total)}</p>
+                <p className="font-mono text-sm font-bold">{formatPeso(dialogTotal)}</p>
               </div>
               <div>
-                <p className="text-muted text-[9px] tracking-[0.12em] uppercase">Paid</p>
-                <p className="font-mono text-sm font-bold">{formatPeso(selected.amountPaid)}</p>
+                <p className="text-muted text-[9px] tracking-[0.12em] uppercase">Received</p>
+                <p className="font-mono text-sm font-bold">{formatPeso(received)}</p>
               </div>
               <div>
-                <p className="text-muted text-[9px] tracking-[0.12em] uppercase">Balance</p>
-                <p className="text-coral font-mono text-sm font-bold">{formatPeso(selected.balance)}</p>
+                <p className="text-muted text-[9px] tracking-[0.12em] uppercase">
+                  {dialogChange > 0 ? "Change to give" : "Balance"}
+                </p>
+                <p className="text-coral font-mono text-sm font-bold">
+                  {formatPeso(dialogChange > 0 ? dialogChange : dialogBalance)}
+                </p>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Grips" hint={`${formatPeso(GRIP_PRICE)} each`}>
+                <Input
+                  type="number"
+                  min={0}
+                  max={50}
+                  inputMode="numeric"
+                  value={grips}
+                  onChange={(event) => changeCharges(event.target.value, otherCharge)}
+                />
+              </Field>
+              <Field label="Other charge" hint="Any extra amount, in pesos">
+                <Input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={otherCharge}
+                  placeholder="0"
+                  onChange={(event) => changeCharges(grips, event.target.value)}
+                />
+              </Field>
+            </div>
+            {(Number(otherCharge) || 0) > 0 && (
+              <Field label="What is it for?" hint="Shown on hover in the ledger.">
+                <Input
+                  value={otherNote}
+                  maxLength={60}
+                  placeholder="e.g. Shuttle tube, lost key"
+                  onChange={(event) => setOtherNote(event.target.value)}
+                />
+              </Field>
+            )}
+
             <Field
               label="Amount received"
-              hint={`Tip: use ${formatPeso(selected.total)} to mark it fully paid.`}
+              hint={`Tip: use ${formatPeso(dialogTotal)} to mark it fully paid. If a player hands over more, the change shows up in the ledger until you tick Settled.`}
             >
               <Input
                 type="number"
                 min={0}
                 value={amount}
-                onChange={(event) => setAmount(event.target.value)}
+                onChange={(event) => {
+                  setAmountTouched(true);
+                  setAmount(event.target.value);
+                }}
               />
             </Field>
             <Field label="Payment method">
@@ -344,13 +451,24 @@ export function FeeLedger({ report }: { report: FeeReport }) {
               </Select>
             </Field>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="paper" onClick={() => setAmount(String(selected.total))}>
+              <Button
+                size="sm"
+                variant="paper"
+                onClick={() => {
+                  setAmountTouched(false);
+                  setAmount(String(dialogTotal));
+                }}
+              >
                 Full amount
               </Button>
-              <Button size="sm" variant="paper" onClick={() => setAmount(String(selected.flatFee))}>
-                Flat fee only
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setAmount("0")}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setAmountTouched(true);
+                  setAmount("0");
+                }}
+              >
                 Clear
               </Button>
             </div>

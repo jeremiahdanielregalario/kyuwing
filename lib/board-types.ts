@@ -103,10 +103,20 @@ export type FeeRow = {
   gamesPlayed: number;
   flatFee: number;
   perGameFee: number;
+  /** Court + shuttle fees plus extras. */
   total: number;
+  gripCount: number;
+  otherCharge: number;
+  otherNote: string | null;
+  /** Grips and other charges, in pesos. */
+  extras: number;
   paid: boolean;
   amountPaid: number;
   balance: number;
+  /** Cash handed over beyond the total, to give back. */
+  change: number;
+  /** Paid in full and any change handed back. */
+  settled: boolean;
   paymentMethod: string | null;
 };
 

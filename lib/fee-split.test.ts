@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFeeSchedule, courtCost, courtHours } from "./fees";
+import { buildFeeSchedule, changeDue, courtCost, courtHours, extrasTotal, GRIP_PRICE } from "./fees";
 
 const plan = [
   { start: "10:00", end: "12:00", courts: 3 },
@@ -56,5 +56,26 @@ describe("venue fee schedule", () => {
     expect(schedule.mode).toBe("VENUE");
     expect(schedule.feeFor("ACTIVE", 2).total).toBe(350);
     expect(schedule.feeFor("ALUMNI", 2).total).toBe(0);
+  });
+});
+
+describe("extra charges", () => {
+  it("prices grips at 20 each and adds any other charge", () => {
+    expect(GRIP_PRICE).toBe(20);
+    expect(extrasTotal({ gripCount: 0, otherCharge: 0 })).toBe(0);
+    expect(extrasTotal({ gripCount: 2, otherCharge: 0 })).toBe(40);
+    expect(extrasTotal({ gripCount: 1, otherCharge: 75 })).toBe(95);
+  });
+
+  it("never goes negative", () => {
+    expect(extrasTotal({ gripCount: -3, otherCharge: -10 })).toBe(0);
+  });
+});
+
+describe("change due", () => {
+  it("is what was handed over beyond the total", () => {
+    expect(changeDue(168, 200)).toBe(32);
+    expect(changeDue(168, 168)).toBe(0);
+    expect(changeDue(168, 100)).toBe(0);
   });
 });

@@ -119,6 +119,17 @@ There is currently no effective-dated fee rule table. This is a known limitation
 4. Check that the Excel total matches the cash + GCash + bank received.
 5. File the export; it is the immutable record for that date.
 
+## Extras, change, and settling
+
+On the **Fees** tab, press **Record** on a player to add what they bought or owe on top of court and shuttle fees:
+
+- **Grips** — badminton grips sold on the day, ₱20 each (`GRIP_PRICE` in `lib/fees.ts`). Enter how many.
+- **Other charge** — any other amount the finance member wants to charge, with a short reason (hover the Extras cell to see it).
+
+Grips and other charges show in the **Extras** column and are included in **Total**, so Balance, the Payment list on the live view, and the PDF/Excel reports all include them. The ledger no longer shows a separate flat-fee column; the flat share appears in the split-cost summary above it.
+
+If a player hands over more than they owe (usually cash with no coins), type the amount received. The **Change** column shows what to give back, and the toast says so. When the change has been handed over, tick **Settled**. Exact payments settle themselves; **Mark all paid** also settles everyone. Settled needs the player to be paid in full first, and it resets if their charges change.
+
 ## Split-cost scheme (any venue)
 
 A game day can carry its own **Court rate per hour** instead of using the venue's fee matrix. Set it when you create the game day, or later in **Settings**. Leave it blank to keep using the venue rates.

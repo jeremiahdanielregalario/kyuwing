@@ -213,6 +213,13 @@ model SessionPlayer {
   paid               Boolean             @default(false)
   amountPaid         Int                 @default(0)
   paymentMethod      PaymentMethod?
+  /// Badminton grips bought on the day, at GRIP_PRICE each.
+  gripCount          Int                 @default(0)
+  /// Any other amount the finance member charges this player, with a short reason.
+  otherCharge        Int                 @default(0)
+  otherNote          String?
+  /// Paid in full and, if they overpaid in cash, change handed back.
+  settled            Boolean             @default(false)
   note               String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt

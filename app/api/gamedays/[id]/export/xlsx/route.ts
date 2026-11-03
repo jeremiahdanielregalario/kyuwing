@@ -102,12 +102,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     "Level",
     "Player type",
     "Games",
-    "Flat fee",
     "Per game",
+    "Extras",
     "Total",
     "Paid",
     "Balance",
+    "Change",
     "Status",
+    "Settled",
   ]);
   styleHeader(feeHeader);
   for (const row of report.rows) {
@@ -116,15 +118,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       levelLabel(row.level),
       CATEGORY_LABELS[row.category],
       row.gamesPlayed,
-      row.flatFee,
       row.perGameFee,
+      row.extras,
       row.total,
       row.amountPaid,
       row.balance,
+      row.change,
       row.paid ? "Paid" : row.amountPaid > 0 ? "Partial" : "Due",
+      row.settled ? "Yes" : "",
     ]);
-    excelRow.getCell(9).font = { bold: true };
-    if (!row.paid) excelRow.getCell(12).font = { color: { argb: "FFB53B21" }, bold: true };
+    excelRow.getCell(9).font = row.paid ? { bold: true } : { color: { argb: "FFB53B21" }, bold: true };
   }
   const totalRow = fees.addRow([
     "TOTAL",
@@ -132,17 +135,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     "",
     report.summary.totalGames,
     "",
-    "",
-    "",
-    "",
+    report.rows.reduce((sum, row) => sum + row.extras, 0),
     report.summary.totalBilled,
     report.summary.totalCollected,
     report.summary.totalOutstanding,
+    report.rows.reduce((sum, row) => sum + row.change, 0),
+    "",
     "",
   ]);
   totalRow.font = { bold: true };
   totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GOLD } };
-  [22, 9, 18, 9, 12, 12, 12, 12, 12, 12].forEach((width, index) => {
+  [22, 9, 18, 9, 12, 12, 12, 12, 12, 12, 10, 10].forEach((width, index) => {
     fees.getColumn(index + 1).width = width;
   });
 

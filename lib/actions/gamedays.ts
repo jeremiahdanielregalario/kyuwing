@@ -21,10 +21,16 @@ import {
   timeToMinutes,
   withoutCourt,
 } from "@/lib/datetime";
-import { buildFeeSchedule } from "@/lib/fees";
+import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
 import { suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
-import { gameDayCreateSchema, gameDayUpdateSchema, parseCategory, type PlayerInput } from "@/lib/validation";
+import {
+  chargesSchema,
+  gameDayCreateSchema,
+  gameDayUpdateSchema,
+  parseCategory,
+  type PlayerInput,
+} from "@/lib/validation";
 
 async function guard() {
   if (!(await isQueueMaster())) return fail("Your queue-master session expired. Sign in again.");
@@ -1281,10 +1287,15 @@ function feeScheduleFor(gameDay: {
   });
 }
 
-export async function setPayment(
-  sessionPlayerId: string,
-  input: { paid: boolean; amountPaid?: number; method?: "CASH" | "GCASH" | "BANK" | "OTHER" | null },
-): Promise<ActionResult> {
+type PaymentInput = {
+  paid: boolean;
+  amountPaid?: number;
+  method?: "CASH" | "GCASH" | "BANK" | "OTHER" | null;
+  /** Grips and any other charge for this player; omitted leaves them as they are. */
+  charges?: { gripCount: number; otherCharge: number; otherNote?: string | null };
+};
+
+export async function setPayment(sessionPlayerId: string, input: PaymentInput): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;
 
@@ -1297,20 +1308,63 @@ export async function setPayment(
   });
   if (!row) return fail("Player not found in this game day.");
 
-  const total = feeScheduleFor(row.gameDay).feeFor(row.player.category, row.gamesPlayed).total;
+  let gripCount = row.gripCount;
+  let otherCharge = row.otherCharge;
+  let otherNote = row.otherNote;
+  if (input.charges) {
+    const parsed = chargesSchema.safeParse(input.charges);
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the extra charges.");
+    gripCount = parsed.data.gripCount;
+    otherCharge = parsed.data.otherCharge;
+    otherNote = otherCharge > 0 ? parsed.data.otherNote || null : null;
+  }
+
+  const fee = feeScheduleFor(row.gameDay).feeFor(row.player.category, row.gamesPlayed);
+  const total = fee.total + extrasTotal({ gripCount, otherCharge });
   const amount = Math.max(0, Math.round(input.amountPaid ?? (input.paid ? total : 0)));
+  // The amount decides: fully covered is paid. Only a zero-total player can be marked paid outright.
+  const paid = total > 0 ? amount >= total : input.paid;
+  const kept = paid ? amount : Math.min(amount, total);
 
   await prisma.sessionPlayer.update({
     where: { id: sessionPlayerId },
     data: {
-      paid: input.paid,
-      amountPaid: input.paid ? amount : Math.min(amount, total),
-      paymentMethod: input.paid ? (input.method ?? "CASH") : null,
+      paid,
+      amountPaid: kept,
+      paymentMethod: paid ? (input.method ?? "CASH") : null,
+      gripCount,
+      otherCharge,
+      otherNote,
+      // Exact payment is settled right away; overpaying leaves it open until the change is handed back.
+      settled: paid && changeDue(total, kept) === 0,
     },
   });
 
   refreshGameDay(row.gameDayId);
-  return ok(input.paid ? `${row.player.nickname} marked paid.` : "Payment cleared.");
+  return ok(
+    paid
+      ? changeDue(total, kept) > 0
+        ? `${row.player.nickname} paid. Give back ${formatPeso(changeDue(total, kept))} change.`
+        : `${row.player.nickname} marked paid.`
+      : "Saved.",
+  );
+}
+
+/** Tick or untick "settled": paid in full and any change handed back. */
+export async function setSettled(sessionPlayerId: string, settled: boolean): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const row = await prisma.sessionPlayer.findUnique({
+    where: { id: sessionPlayerId },
+    include: { player: true },
+  });
+  if (!row) return fail("Player not found in this game day.");
+  if (settled && !row.paid) return fail(`${row.player.nickname} has not paid in full yet.`);
+
+  await prisma.sessionPlayer.update({ where: { id: sessionPlayerId }, data: { settled } });
+  refreshGameDay(row.gameDayId);
+  return ok(settled ? `${row.player.nickname} settled.` : `${row.player.nickname} reopened.`);
 }
 
 export async function markAllPaid(gameDayId: string): Promise<ActionResult<{ updated: number }>> {
@@ -1330,10 +1384,10 @@ export async function markAllPaid(gameDayId: string): Promise<ActionResult<{ upd
   let updated = 0;
   for (const row of gameDay.players) {
     if (row.paid) continue;
-    const total = schedule.feeFor(row.player.category, row.gamesPlayed).total;
+    const total = schedule.feeFor(row.player.category, row.gamesPlayed).total + extrasTotal(row);
     await prisma.sessionPlayer.update({
       where: { id: row.id },
-      data: { paid: true, amountPaid: total, paymentMethod: "CASH" },
+      data: { paid: true, amountPaid: total, paymentMethod: "CASH", settled: true },
     });
     updated += 1;
   }

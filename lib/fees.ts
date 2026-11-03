@@ -52,6 +52,19 @@ export const SPLIT_SHUTTLE_RATES: Record<PlayerCategory, number> = {
   NON_AFFILIATE: 30,
 };
 
+/** Badminton grip, sold on the day, per piece in pesos. */
+export const GRIP_PRICE = 20;
+
+/** Charges on top of court and shuttle fees: grips plus any other amount the finance member adds. */
+export function extrasTotal(extras: { gripCount: number; otherCharge: number }): number {
+  return Math.max(0, extras.gripCount) * GRIP_PRICE + Math.max(0, extras.otherCharge);
+}
+
+/** Change owed back when a player hands over more than they owe. */
+export function changeDue(total: number, amountPaid: number): number {
+  return Math.max(0, amountPaid - total);
+}
+
 function slotMinutes(slot: Pick<CourtSlot, "start" | "end">): number {
   const toMinutes = (value: string) => {
     const [hours, minutes] = value.split(":").map(Number);

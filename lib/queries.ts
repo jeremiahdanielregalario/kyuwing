@@ -12,7 +12,7 @@ import type {
   FeeRow,
 } from "./board-types";
 import { currentSlotIndex, elapsedMinutes, parseCourtPlan, QUEUED_COURT, type CourtSlot } from "./datetime";
-import { buildFeeSchedule } from "./fees";
+import { buildFeeSchedule, changeDue, extrasTotal } from "./fees";
 import { levelLabel } from "./levels";
 import { recencySummary, toRecencySnapshot, type RecencyEntry, type RecencySnapshot } from "./recency";
 
@@ -318,7 +318,10 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
     rules: gameDay.venue.feeRules,
   });
   const rows: FeeRow[] = gameDay.players.map((row) => {
-    const { flatFee, perGameFee, total } = schedule.feeFor(row.player.category, row.gamesPlayed);
+    const fee = schedule.feeFor(row.player.category, row.gamesPlayed);
+    const extras = extrasTotal(row);
+    const { flatFee, perGameFee } = fee;
+    const total = fee.total + extras;
     return {
       sessionPlayerId: row.id,
       playerId: row.playerId,
@@ -330,9 +333,15 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
       flatFee,
       perGameFee,
       total,
+      gripCount: row.gripCount,
+      otherCharge: row.otherCharge,
+      otherNote: row.otherNote,
+      extras,
       paid: row.paid,
       amountPaid: row.amountPaid,
       balance: Math.max(0, total - row.amountPaid),
+      change: changeDue(total, row.amountPaid),
+      settled: row.settled,
       paymentMethod: row.paymentMethod,
     };
   });

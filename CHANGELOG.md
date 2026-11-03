@@ -6,6 +6,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Grips and other charges per player** — Record a player's grips (₱20 each) and any other amount with a reason; both feed their total, balance, the live payment list, and the reports.
+- **Change and Settled in the Fees ledger** — a **Change** column shows what to give back when a player overpays, and a **Settled** checkbox marks paid-and-change-given. The flat fee column is gone from the ledger; reports gain Extras, Change, and Settled.
 - **Split-cost fees for any venue** — enter a game day's **court rate per hour** (per court) and the court cost (rate × hours × courts across the blocks) is divided among the players who check in, rounded up, as everyone's flat fee. Shuttles are per game: Active ₱20, Alumni/Inactive/Applicant ₱25, Non-affiliate ₱30. Set in the new game day form or Settings; the Fees tab shows the breakdown. Blank keeps the venue's fee rates.
 - **Payment list on the live view** — when a game day is completed, the shared live link adds a **Payment list**: each player's games, total, and balance (nickname only, with your own row highlighted), above the Pay online QR. Nothing about fees is public while the game day is still running.
 - **Pay online card** — game-day GCash details (account name, number, QR, one-tap Copy number) shown on the players' live view and at the top of the Fees tab, so players can pay fast. Details live in `lib/payment.ts`; the QR is `public/brand/gcash-qr.jpg`.
@@ -40,6 +42,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- Fixed the TOTAL row of the PDF and Excel fee tables, which was shifted under the wrong columns.
 - The login screen's side quote now reads the UP BadAss 3C's: Competency. Commitment. Camaraderie.
 - The queue master sign-in name field starts empty with "EJ Mallilin" as placeholder text instead of a pre-filled "Queue Master". Leaving it blank still signs in as Queue Master.
 - Tagline is now the UP BadAss motto, **Bold. Agile. Daring.**, on the landing page, the login screen, and in the site description.
