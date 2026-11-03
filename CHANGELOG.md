@@ -52,6 +52,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- Excel and PDF reports show levels as `C+`, `A-`, … instead of internal codes like `C_PLUS`.
 - Confirmation dialogs without extra details no longer show an empty strip between the message and the buttons.
 - Board messages name courts by their labels ("Court 5 is live") instead of their position ("Court 1").
 - Adding a Non-affiliate player from sign-ups or walk-ins no longer fails with "Pick a valid player type."

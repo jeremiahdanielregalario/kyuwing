@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { formatClock, formatGameDate } from "@/lib/datetime";
 import { CATEGORY_LABELS, GAMEDAY_TYPE_LABELS, formatPesoPdf } from "@/lib/fees";
+import { levelLabel } from "@/lib/levels";
 import { getFeeReport } from "@/lib/queries";
 import { slugify } from "@/lib/utils";
 
@@ -243,7 +244,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       feeColumns,
       [
         row.nickname,
-        row.level,
+        levelLabel(row.level),
         CATEGORY_LABELS[row.category],
         String(row.gamesPlayed),
         formatPesoPdf(row.flatFee),
