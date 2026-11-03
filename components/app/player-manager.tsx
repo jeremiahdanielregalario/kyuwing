@@ -408,7 +408,7 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
               >
                 {LEVELS.map((level) => (
                   <option key={level.key} value={level.key}>
-                    {level.label} · {level.bracket}
+                    {level.label}
                   </option>
                 ))}
               </Select>

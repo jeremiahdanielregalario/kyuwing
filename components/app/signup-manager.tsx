@@ -624,7 +624,7 @@ export function SignupManager({
               >
                 {LEVELS.map((level) => (
                   <option key={level.key} value={level.key}>
-                    {level.label} · {level.bracket}
+                    {level.label}
                   </option>
                 ))}
               </Select>
