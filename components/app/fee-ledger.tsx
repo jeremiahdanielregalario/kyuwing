@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { markAllPaid, setPayment } from "@/lib/actions/gamedays";
 import type { FeeReport, FeeRow } from "@/lib/board-types";
 import { CATEGORY_SHORT, PAYMENT_METHOD_LABELS, formatPeso } from "@/lib/fees";
+import { PaymentCard } from "@/components/payment-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -76,6 +77,8 @@ export function FeeLedger({ report }: { report: FeeReport }) {
 
   return (
     <div className="space-y-5">
+      <PaymentCard />
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label="Total billed"

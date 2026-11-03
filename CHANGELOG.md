@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Pay online card** — game-day GCash details (account name, number, QR, one-tap Copy number) shown on the players' live view and at the top of the Fees tab, so players can pay fast. Details live in `lib/payment.ts`; the QR is `public/brand/gcash-qr.jpg`.
 - **End of reservation** — when the reserved time runs out, the board asks whether to **extend** (until when, with how many courts) or **end the game day**, counting games still on court and going straight to Fees. It can be snoozed for 10 minutes.
 - **Restore an ended game** — ending a game shows an **Undo** for about ten seconds, and **Recently finished** has a **Restore** button. The game goes back on court as live with its timer, game counts drop back, and a waiting game moved onto that court returns to the front of the line. Refused with a reason if the court or any of the players has moved on.
 - **Court numbers up front** — when creating a game day, enter the venue's court numbers per block (`5, 6, 7, 8` or `5-8`); the court count follows. Leave blank to number courts 1, 2, 3…

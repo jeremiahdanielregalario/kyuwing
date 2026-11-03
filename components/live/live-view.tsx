@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Clock3, Gift, ListOrdered, MapPin, Search, Users, X } from "lucide-react";
 import { CourtLines } from "@/components/app/court-surface";
 import { Logo } from "@/components/logo";
+import { PaymentCard } from "@/components/payment-card";
 import { formatDuration, formatGameDate } from "@/lib/datetime";
 import { locatePlayer, type PlayerLocation, type PublicBoard, type PublicMatch } from "@/lib/public-board";
 import { cn } from "@/lib/utils";
@@ -238,6 +239,8 @@ export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; 
             </ol>
           )}
         </section>
+
+        <PaymentCard />
 
         <p className="text-muted pt-2 text-center text-[11px]">
           View only · updates every few seconds · App by Danyel Regalario
