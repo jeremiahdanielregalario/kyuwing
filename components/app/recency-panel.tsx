@@ -156,7 +156,7 @@ export function RecencyPanel({
         </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         <BandCount icon={Flame} label="Playing often" value={counts.hot} tone="hot" />
         <BandCount icon={Activity} label="Playing" value={counts.warm} tone="warm" />
         <BandCount icon={Trophy} label="Tournament only" value={counts.tournament} tone="tournament" />
