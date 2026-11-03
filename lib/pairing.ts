@@ -34,6 +34,13 @@ export type PairingOptions = {
   scarcity?: boolean;
   /** The round number the new match will use. */
   round?: number;
+  /**
+   * Asks for a different answer than the best one, for "regenerate". The seed
+   * adds a small, repeatable shake to the scores so near-equal arrangements
+   * trade places, and `avoid` lists arrangements (see `arrangementKey`) that
+   * must not come back. Without it the engine is fully deterministic.
+   */
+  variety?: { seed: number; avoid?: string[] };
 };
 
 export type PairingSuggestion = {
@@ -58,6 +65,25 @@ const REPEAT_OPPONENT_WEIGHT = 20;
 const RECENT_OPPONENT_WEIGHT = 14;
 const REPEAT_FOURSOME_WEIGHT = 260;
 const WAIT_WEIGHT = 1.15;
+/** Largest score shake `variety` adds. Under one level step, so fairness stays intact. */
+const VARIETY_SHAKE = 30;
+
+/** Who plays with whom, ignoring which side of the net is "team 1". */
+export function arrangementKey(team1: string[], team2: string[]): string {
+  const side = (ids: string[]) => [...ids].sort().join("+");
+  return [side(team1), side(team2)].sort().join("|");
+}
+
+/** Repeatable pseudo-random number in [0, 1) for a seed and a label. */
+function shake(seed: number, label: string): number {
+  let h = (seed ^ 0x9e3779b9) >>> 0;
+  for (let i = 0; i < label.length; i += 1) {
+    h = Math.imul(h ^ label.charCodeAt(i), 0x85ebca6b) >>> 0;
+    h ^= h >>> 13;
+  }
+  h = Math.imul(h ^ (h >>> 16), 0xc2b2ae35) >>> 0;
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+}
 const GAMES_WEIGHT = 17;
 const PRIORITY_WEIGHT = 90;
 const HONOR_PAIR_WEIGHT = 135;
@@ -424,6 +450,14 @@ export function findBestMatch(
       if (!valid) continue;
 
       const { suggestion } = evaluateMatch(team1, team2, historyIndex, evaluationOptions);
+      if (options.variety) {
+        const key = arrangementKey(
+          team1.map((player) => player.id),
+          team2.map((player) => player.id),
+        );
+        if (options.variety.avoid?.includes(key)) continue;
+        suggestion.cost += shake(options.variety.seed, key) * VARIETY_SHAKE;
+      }
       if (
         !best ||
         suggestion.cost < best.cost ||

@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Regenerate pairings** — if the auto-generated pairings aren't to the queue master's liking, **Regenerate** (header) redoes every suggested court and the shuffle button on a game redoes just that one, including games in Next up. Press as often as needed: rejected lineups never come back, and nothing is replaced unless a new arrangement exists.
 - **Grips and other charges per player** — Record a player's grips (₱20 each) and any other amount with a reason; both feed their total, balance, the live payment list, and the reports.
 - **Change and Settled in the Fees ledger** — a **Change** column shows what to give back when a player overpays, and a **Settled** checkbox marks paid-and-change-given. The flat fee column is gone from the ledger; reports gain Extras, Change, and Settled.
 - **Split-cost fees for any venue** — enter a game day's **court rate per hour** (per court) and the court cost (rate × hours × courts across the blocks) is divided among the players who check in, rounded up, as everyone's flat fee. Shuttles are per game: Active ₱20, Alumni/Inactive/Applicant ₱25, Non-affiliate ₱30. Set in the new game day form or Settings; the Fees tab shows the breakdown. Blank keeps the venue's fee rates.

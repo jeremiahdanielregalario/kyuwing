@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { findBestMatch, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "./pairing";
+import {
+  arrangementKey,
+  findBestMatch,
+  suggestMatches,
+  type PairingHistoryMatch,
+  type PairingPlayer,
+} from "./pairing";
 import { levelValue } from "./levels";
 
 function player(id: string, level: string, overrides: Partial<PairingPlayer> = {}): PairingPlayer {
@@ -186,5 +192,78 @@ describe("suggestMatches", () => {
   it("returns an empty list when fewer than four players are available", () => {
     const players = ["p1", "p2", "p3"].map((id) => player(id, "C"));
     expect(suggestMatches(players, [], { courts: 2 })).toEqual([]);
+  });
+});
+
+describe("regenerating with variety", () => {
+  const eight = ["C+", "C", "C", "C-", "C+", "C", "C-", "C"].map((level, index) =>
+    player(`p${index}`, level),
+  );
+  const keyOf = (suggestion: NonNullable<ReturnType<typeof findBestMatch>>) =>
+    arrangementKey(
+      suggestion.team1.map((row) => row.id),
+      suggestion.team2.map((row) => row.id),
+    );
+
+  it("is unchanged when no variety is asked for", () => {
+    expect(findBestMatch(eight, [], { scarcity: false })).toEqual(
+      findBestMatch(eight, [], { scarcity: false }),
+    );
+  });
+
+  it("never returns an arrangement it was told to avoid", () => {
+    const first = findBestMatch(eight, [], { scarcity: false })!;
+    const second = findBestMatch(eight, [], {
+      scarcity: false,
+      variety: { seed: 1, avoid: [keyOf(first)] },
+    })!;
+    expect(keyOf(second)).not.toBe(keyOf(first));
+  });
+
+  it("keeps cycling through new arrangements as each one is rejected", () => {
+    const seen: string[] = [];
+    for (let seed = 1; seed <= 6; seed += 1) {
+      const next = findBestMatch(eight, [], { scarcity: false, variety: { seed, avoid: seen } });
+      expect(next).not.toBeNull();
+      const key = keyOf(next!);
+      expect(seen).not.toContain(key);
+      seen.push(key);
+    }
+  });
+
+  it("stays reasonably fair: teams within one level step even after several rejections", () => {
+    const seen: string[] = [];
+    for (let seed = 1; seed <= 4; seed += 1) {
+      const next = findBestMatch(eight, [], { scarcity: false, variety: { seed, avoid: seen } })!;
+      seen.push(keyOf(next));
+      expect(Math.abs(teamValue(next.team1) - teamValue(next.team2))).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("is repeatable for the same seed", () => {
+    const a = findBestMatch(eight, [], { scarcity: false, variety: { seed: 7 } })!;
+    const b = findBestMatch(eight, [], { scarcity: false, variety: { seed: 7 } })!;
+    expect(keyOf(a)).toBe(keyOf(b));
+  });
+
+  it("returns null when every arrangement of the only four players was rejected", () => {
+    const four = ["C", "C+", "C-", "C"].map((level, index) => player(`q${index}`, level));
+    const avoid: string[] = [];
+    for (const [a, b] of [
+      [
+        ["q0", "q1"],
+        ["q2", "q3"],
+      ],
+      [
+        ["q0", "q2"],
+        ["q1", "q3"],
+      ],
+      [
+        ["q0", "q3"],
+        ["q1", "q2"],
+      ],
+    ])
+      avoid.push(arrangementKey(a, b));
+    expect(findBestMatch(four, [], { variety: { seed: 3, avoid } })).toBeNull();
   });
 });

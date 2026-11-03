@@ -125,6 +125,10 @@ The number of courts is the number of currently free courts in the active block,
 
 ### Next up (queued games)
 
+### Regenerate
+
+`regenerateMatches` swaps suggested games for different ones: all suggestions on the courts, or one game (on a court or in Next up) by id. It re-runs the same engine with `variety`: a repeatable pseudo-random shake of at most 30 cost points (under one level step, so fairness is not given up) plus an `avoid` list of arrangements, keyed by `arrangementKey` (who plays with whom, ignoring which side is "team 1"). Each replacement game stores what was rejected in `Match.rejected`, so successive presses never bring back an earlier lineup. The old games are deleted only in the same transaction that creates the new ones; if no other arrangement exists the suggestions stay as they were and the board says why. A regenerated Next up game keeps its place in line. Tests are in `lib/pairing.test.ts` ("regenerating with variety").
+
 When every court is busy, auto-pair still runs: it builds **one** game from the players who are waiting and not already committed to a match, and stores it as a `SUGGESTED` match with `courtNumber = 0` (`QUEUED_COURT`). Queued games form a line ordered by creation time.
 
 - Players in a queued game are committed like any other suggestion, so the next queued game is built from the rest of the queue and nobody is in two games.

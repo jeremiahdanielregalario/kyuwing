@@ -35,6 +35,7 @@ import {
   ListOrdered,
   Link2,
   Pencil,
+  Shuffle,
   Play,
   Plus,
   Gift,
@@ -67,6 +68,7 @@ import {
   completeMatch,
   createManualMatch,
   generateMatches,
+  regenerateMatches,
   markPlayerDone,
   moveMatchToCourt,
   requeuePlayer,
@@ -820,6 +822,15 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     >
                       <Play className="h-3.5 w-3.5" /> Start all ({suggested.length})
                     </Button>
+                    <Button
+                      variant="paper"
+                      size="sm"
+                      onClick={() => act(() => regenerateMatches(data.gameDay.id, slotIndex))}
+                      disabled={pending}
+                      title="Don't like these pairings? Get different ones. Press again for more."
+                    >
+                      <Shuffle className="h-3.5 w-3.5" /> Regenerate
+                    </Button>
                     <button
                       type="button"
                       className="text-muted hover:text-ink text-[11px] font-semibold transition"
@@ -893,6 +904,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         isCompleted={isCompleted}
                         onPair={() => act(() => generateMatches(data.gameDay.id, slotIndex, 1))}
                         onStart={(id) => requestStart(1, (free) => act(() => startMatch(id, { free })))}
+                        onRegenerate={(id) => act(() => regenerateMatches(data.gameDay.id, slotIndex, id))}
                         onFinish={finishMatch}
                         onEdit={openEdit}
                         onCancel={(id) =>
@@ -968,6 +980,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                             act(() => generateMatches(data.gameDay.id, slotIndex, 1, { queue: true }))
                           }
                           onStart={(id) => requestStart(1, (free) => act(() => startMatch(id, { free })))}
+                          onRegenerate={(id) => act(() => regenerateMatches(data.gameDay.id, slotIndex, id))}
                           onFinish={finishMatch}
                           onEdit={openEdit}
                           onCancel={(id) =>
@@ -1724,6 +1737,7 @@ function CourtCard({
   isCompleted,
   onPair,
   onStart,
+  onRegenerate,
   onFinish,
   onEdit,
   onCancel,
@@ -1743,6 +1757,8 @@ function CourtCard({
   isCompleted: boolean;
   onPair: () => void;
   onStart: (id: string) => void;
+  /** Swaps this suggested game for a different arrangement. */
+  onRegenerate: (id: string) => void;
   onFinish: (match: BoardMatch) => void;
   onEdit: (match: BoardMatch) => void;
   onCancel: (id: string) => void;
@@ -1956,6 +1972,18 @@ function CourtCard({
             >
               <Play className="h-3.5 w-3.5" /> Start
             </Button>
+          )}
+          {!live && (
+            <button
+              type="button"
+              onClick={() => onRegenerate(match.id)}
+              disabled={pending || isCompleted}
+              aria-label="Regenerate this pairing"
+              title="Different pairing"
+              className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 grid h-8 w-8 place-items-center rounded-full border transition disabled:opacity-40"
+            >
+              <Shuffle className="h-3.5 w-3.5" />
+            </button>
           )}
           <button
             type="button"

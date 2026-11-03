@@ -23,7 +23,7 @@ import {
 } from "@/lib/datetime";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
-import { suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
+import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import {
   chargesSchema,
   gameDayCreateSchema,
@@ -580,7 +580,12 @@ export async function generateMatches(
   gameDayId: string,
   slotIndex?: number,
   maxMatches?: number,
-  options: { queue?: boolean } = {},
+  options: {
+    queue?: boolean;
+    /** Suggested games being regenerated: treated as free, avoided, and swapped out for the new ones. */
+    replaceMatchIds?: string[];
+    seed?: number;
+  } = {},
 ): Promise<ActionResult<{ matches: number }>> {
   const authError = await guard();
   if (authError) return authError;
@@ -602,14 +607,28 @@ export async function generateMatches(
     slotIndex !== undefined && slotIndex >= 0 && slotIndex < plan.length ? slotIndex : currentSlotIndex(plan);
   const slot = plan[index];
 
-  const active = gameDay.matches.filter((match) => match.status === "SUGGESTED" || match.status === "LIVE");
+  const replacing = gameDay.matches.filter(
+    (match) => match.status === "SUGGESTED" && options.replaceMatchIds?.includes(match.id),
+  );
+  const replacingIds = new Set(replacing.map((match) => match.id));
+  if (options.replaceMatchIds && replacing.length === 0)
+    return fail("Those suggestions are gone. Press Auto-pair for new ones.");
+
+  const active = gameDay.matches.filter(
+    (match) => (match.status === "SUGGESTED" || match.status === "LIVE") && !replacingIds.has(match.id),
+  );
   const freeCourts = openCourts(
     slot.courts,
     active.map((match) => match.courtNumber),
   );
 
   // Games already waiting in the Next up line get open courts before anyone new is paired.
-  if (!options.queue && freeCourts.length > 0 && active.some((match) => match.courtNumber === QUEUED_COURT)) {
+  if (
+    !replacing.length &&
+    !options.queue &&
+    freeCourts.length > 0 &&
+    active.some((match) => match.courtNumber === QUEUED_COURT)
+  ) {
     const filled = await prisma.$transaction((tx) => promoteQueuedGames(tx, gameDayId));
     if (filled.length > 0) {
       refreshGameDay(gameDayId);
@@ -662,10 +681,25 @@ export async function generateMatches(
     }));
 
   const nextRound = Math.max(0, ...gameDay.matches.map((match) => match.round)) + 1;
+  // Everything rejected so far for these games, plus the ones being replaced now.
+  const rejected = [
+    ...new Set(
+      replacing.flatMap((match) => [
+        ...match.rejected,
+        arrangementKey(
+          match.players.filter((row) => row.team === 1).map((row) => row.playerId),
+          match.players.filter((row) => row.team === 2).map((row) => row.playerId),
+        ),
+      ]),
+    ),
+  ];
   const suggestions = suggestMatches(pairingPlayers, history, {
     courts: queueing ? 1 : Math.max(1, Math.min(freeCourts.length, maxMatches ?? freeCourts.length)),
     round: nextRound,
     scarcity: waiting.length < 10,
+    variety: replacing.length
+      ? { seed: options.seed ?? Math.floor(Math.random() * 2 ** 31), avoid: rejected }
+      : undefined,
   });
 
   const usedPlayerIds = new Set<string>();
@@ -679,13 +713,23 @@ export async function generateMatches(
   });
 
   if (disjointSuggestions.length === 0)
-    return fail("The pairing engine could not build a fair match from the current queue.");
+    return fail(
+      replacing.length
+        ? "There is no other fair arrangement with the players waiting. Edit the game by hand, or wait for more players."
+        : "The pairing engine could not build a fair match from the current queue.",
+    );
 
-  await prisma.$transaction(
-    disjointSuggestions.map((suggestion, index) =>
+  // A replaced waiting game keeps its place in line.
+  const keptCreatedAt = queueing && replacing.length === 1 ? replacing[0].createdAt : undefined;
+
+  await prisma.$transaction([
+    ...(replacing.length ? [prisma.match.deleteMany({ where: { id: { in: [...replacingIds] } } })] : []),
+    ...disjointSuggestions.map((suggestion, index) =>
       prisma.match.create({
         data: {
           gameDayId,
+          ...(keptCreatedAt ? { createdAt: keptCreatedAt } : {}),
+          ...(replacing.length ? { rejected } : {}),
           courtNumber: queueing ? QUEUED_COURT : freeCourts[index],
           round: nextRound,
           status: "SUGGESTED",
@@ -706,9 +750,21 @@ export async function generateMatches(
         },
       }),
     ),
-  );
+  ]);
 
   refreshGameDay(gameDayId);
+  if (replacing.length) {
+    const where = queueing
+      ? "in Next up"
+      : `on ${freeCourts
+          .slice(0, disjointSuggestions.length)
+          .map((court) => courtName(slot, court))
+          .join(", ")}`;
+    return ok(
+      `New ${disjointSuggestions.length === 1 ? "pairing" : "pairings"} ${where}. Not happy? Regenerate again.`,
+      { matches: disjointSuggestions.length },
+    );
+  }
   if (queueing) {
     const inLine = active.filter((match) => match.courtNumber === QUEUED_COURT).length + 1;
     return ok(
@@ -727,6 +783,37 @@ export async function generateMatches(
       .join(", ")}. Review and start.`,
     { matches: suggestions.length },
   );
+}
+
+/**
+ * "I don't like these pairings": swaps suggested games for different ones.
+ * With a `matchId`, only that game is redone (on a court or in Next up);
+ * without, every suggestion on the courts is. Each press avoids the games it
+ * is replacing, so repeated presses keep producing new arrangements, and
+ * nothing is deleted unless a new arrangement exists.
+ */
+export async function regenerateMatches(
+  gameDayId: string,
+  slotIndex?: number,
+  matchId?: string,
+): Promise<ActionResult<{ matches: number }>> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const targets = await prisma.match.findMany({
+    where: matchId
+      ? { id: matchId, gameDayId, status: "SUGGESTED" }
+      : { gameDayId, status: "SUGGESTED", courtNumber: { not: QUEUED_COURT } },
+    select: { id: true, courtNumber: true },
+  });
+  if (targets.length === 0)
+    return fail("There are no suggested pairings to regenerate. Press Auto-pair first.");
+
+  const queued = targets.length === 1 && targets[0].courtNumber === QUEUED_COURT;
+  return generateMatches(gameDayId, slotIndex, targets.length, {
+    queue: queued,
+    replaceMatchIds: targets.map((match) => match.id),
+  });
 }
 
 export async function clearSuggestedMatches(gameDayId: string): Promise<ActionResult> {

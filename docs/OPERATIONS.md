@@ -18,7 +18,7 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 
 1. Open the game day and press **Start** to move it from Draft to Live.
 2. Check in only the players who are physically present. Start with the first four to eight.
-4. When a court is free, press **Auto-pair**.
+4. When a court is free, press **Auto-pair**. Don't like what it suggests? Press **Regenerate** for different pairings on every suggested court, or the shuffle button on one game to redo just that one. Press again as often as you like: each press avoids everything you already rejected for that game, so you never see the same lineup twice. Nothing changes until a new arrangement exists. When there is no other fair option, the board says so; edit the game by hand then.
 5. Press **Share live view** and paste the link in the group chat. Players can watch the courts, the Next up line, and the waiting order from their phones, and type their nickname to see if they are next. The link is view-only and shows nicknames and levels, never full names or contacts, and no fees until the game day is completed. It also shows the **Pay online** card with the GCash QR and number, so players can pay without asking. The same card sits at the top of the **Fees** tab. Once you **complete** the game day, the same link also shows a **Payment list** (nickname, games, total, balance) so players can settle up. Record payments on the Fees tab (add grips or other charges there too) and their line changes to Paid. To change the account, edit `lib/payment.ts` and replace `public/brand/gcash-qr.jpg`, then redeploy.
 
 Do not check in the whole sign-up list on faith. The queue is supposed to reflect the court, not the group chat.

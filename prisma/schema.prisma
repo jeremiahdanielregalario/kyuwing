@@ -239,6 +239,8 @@ model Match {
   status      MatchStatus @default(SUGGESTED)
   /// Free game: played with a used shuttle near the end of the reservation, so it doesn't count as a game played.
   free        Boolean     @default(false)
+  /// Arrangements the queue master already rejected via Regenerate, so they do not come back (see arrangementKey).
+  rejected    String[]    @default([])
   note        String?
   startedAt   DateTime?
   endedAt     DateTime?
