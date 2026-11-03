@@ -110,6 +110,7 @@ How players are banded:
 | ------------- | ------------------------------------------------------------------------------ |
 | Playing often | Active in the last 30 days and plays regularly (score 55+)                     |
 | Playing       | Played or waitlisted in the last 30 days                                       |
+| Tournament only | Seen only on tournament lists in the last 90 days, never on a game-day list |
 | Cooling off   | Last seen 31–90 days ago                                                       |
 | Dormant       | Not seen in over 90 days                                                       |
 | No history    | Not on any logged list                                                         |

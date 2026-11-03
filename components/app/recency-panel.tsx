@@ -34,6 +34,11 @@ const BAND_STYLES: Record<
 > = {
   hot: { label: "Playing often", icon: Flame, className: "bg-lime/25 text-forest-deep border-lime/50" },
   warm: { label: "Playing", icon: Activity, className: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+  tournament: {
+    label: "Tournament only",
+    icon: Trophy,
+    className: "bg-violet-50 text-violet-900 border-violet-200",
+  },
   cooling: {
     label: "Cooling off",
     icon: TrendingDown,
@@ -100,7 +105,7 @@ export function RecencyPanel({
   const [waitlistText, setWaitlistText] = React.useState("");
 
   const counts = React.useMemo(() => {
-    const tally = { hot: 0, warm: 0, cooling: 0, dormant: 0, new: 0 };
+    const tally = { hot: 0, warm: 0, tournament: 0, cooling: 0, dormant: 0, new: 0 };
     for (const snapshot of Object.values(snapshots)) tally[snapshot.band] += 1;
     tally.new += Math.max(0, playerCount - Object.keys(snapshots).length);
     return tally;
@@ -151,9 +156,10 @@ export function RecencyPanel({
         </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <BandCount icon={Flame} label="Playing often" value={counts.hot} tone="hot" />
         <BandCount icon={Activity} label="Playing" value={counts.warm} tone="warm" />
+        <BandCount icon={Trophy} label="Tournament only" value={counts.tournament} tone="tournament" />
         <BandCount icon={TrendingDown} label="Cooling off" value={counts.cooling} tone="cooling" />
         <BandCount icon={Snowflake} label="Dormant" value={counts.dormant} tone="dormant" />
         <BandCount icon={History} label="No history" value={counts.new} tone="new" />

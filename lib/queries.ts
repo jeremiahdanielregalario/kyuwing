@@ -255,7 +255,7 @@ export async function getAttendanceOverview(): Promise<AttendanceOverview> {
   for (const event of events) {
     for (const entry of event.entries) {
       const rows = rowsByPlayer.get(entry.playerId) ?? [];
-      rows.push({ date: event.date, status: entry.status });
+      rows.push({ date: event.date, status: entry.status, kind: event.kind });
       rowsByPlayer.set(entry.playerId, rows);
     }
   }

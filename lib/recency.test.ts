@@ -46,6 +46,27 @@ describe("recencySummary", () => {
     expect(summary.band).toBe("cooling");
   });
 
+  it("marks players seen only at a recent tournament as tournament only", () => {
+    const summary = recencySummary([{ date: daysAgo(23), status: "PLAYED", kind: "TOURNAMENT" }], NOW);
+    expect(summary.band).toBe("tournament");
+  });
+
+  it("drops the tournament-only label once they also play a game day", () => {
+    const summary = recencySummary(
+      [
+        { date: daysAgo(23), status: "PLAYED", kind: "TOURNAMENT" },
+        { date: daysAgo(5), status: "PLAYED", kind: "GAMEDAY" },
+      ],
+      NOW,
+    );
+    expect(summary.band).toBe("warm");
+  });
+
+  it("still lets tournament-only players go dormant", () => {
+    const summary = recencySummary([{ date: daysAgo(120), status: "PLAYED", kind: "TOURNAMENT" }], NOW);
+    expect(summary.band).toBe("dormant");
+  });
+
   it("counts a waitlist place for less than playing", () => {
     const played = recencySummary([{ date: daysAgo(10), status: "PLAYED" }], NOW);
     const waitlisted = recencySummary([{ date: daysAgo(10), status: "WAITLIST" }], NOW);

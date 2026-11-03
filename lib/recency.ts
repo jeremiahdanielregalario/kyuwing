@@ -15,9 +15,11 @@ export type RecencyStatus = "PLAYED" | "WAITLIST";
 export type RecencyEntry = {
   date: Date;
   status: RecencyStatus;
+  /** Defaults to a game day when omitted. */
+  kind?: "GAMEDAY" | "TOURNAMENT";
 };
 
-export type RecencyBand = "hot" | "warm" | "cooling" | "dormant" | "new";
+export type RecencyBand = "hot" | "warm" | "tournament" | "cooling" | "dormant" | "new";
 
 export type RecencySummary = {
   score: number;
@@ -80,6 +82,7 @@ const DAY_MS = 86_400_000;
 export const RECENCY_BAND_LABELS: Record<RecencyBand, string> = {
   hot: "Playing often",
   warm: "Playing",
+  tournament: "Tournament only",
   cooling: "Cooling off",
   dormant: "Dormant",
   new: "No history",
@@ -92,10 +95,18 @@ function daysBetween(from: Date, to: Date): number {
 /**
  * Bands follow the last time someone showed up (played or waitlisted), so a
  * single game last week reads as "Playing", not "Cooling off". The score,
- * which also rewards frequency, decides who is playing often.
+ * which also rewards frequency, decides who is playing often. Players seen
+ * only at tournaments (never on a game-day list) are kept apart until they
+ * go dormant.
  */
-export function recencyBand(score: number, daysSinceActive: number | null): RecencyBand {
+export function recencyBand(
+  score: number,
+  daysSinceActive: number | null,
+  tournamentOnly = false,
+): RecencyBand {
   if (daysSinceActive === null) return "new";
+  if (daysSinceActive > RECENCY_COUNT_DAYS) return "dormant";
+  if (tournamentOnly) return "tournament";
   if (daysSinceActive <= RECENCY_ACTIVE_DAYS) return score >= RECENCY_HOT_SCORE ? "hot" : "warm";
   if (daysSinceActive <= RECENCY_COUNT_DAYS) return "cooling";
   return "dormant";
@@ -145,7 +156,8 @@ export function recencySummary(entries: RecencyEntry[], now: Date = new Date()):
 
   const score = entries.length > 0 ? Math.round((100 * weighted) / (weighted + SCORE_SCALE)) : 0;
   const daysSinceActive = daysSince(lastActive);
-  const band = recencyBand(score, daysSinceActive);
+  const tournamentOnly = entries.length > 0 && entries.every((entry) => entry.kind === "TOURNAMENT");
+  const band = recencyBand(score, daysSinceActive, tournamentOnly);
 
   return {
     score,
