@@ -125,6 +125,12 @@ The number of courts is the number of currently free courts in the active block,
 
 ### Next up (queued games)
 
+### Planning ahead (waiting courts)
+
+`lib/planning.ts` estimates when courts free up (`GAME_MINUTES` = 15 per game) and when each game in the waiting line should start: every game takes the court that frees first and holds it for a game's length. A player's `availableAt` is the end of their live game or of the latest waiting game they are in. When fewer than four idle players are waiting, `generateMatches` (queueing) widens the pool to anyone whose `availableAt` is at or before the new game's start and passes everyone idle as `mustInclude`, so idle players always play first and players on court only fill the gaps. Live and planned games count as history so the same four are not repeated.
+
+Rules: waiting-court games can contain players on court or in other waiting games; real-court games still take waiting players only. At `startMatch`, only a **live** game blocks a player (`PLAYER_STILL_PLAYING`, with the expected finish time), and the board offers to re-pair. `promoteQueuedGames` moves only planned games whose four players are all free onto a freed court. Tests: `lib/planning.test.ts`, and "must include" in `lib/pairing.test.ts`.
+
 ### Regenerate
 
 `regenerateMatches` swaps suggested games for different ones: all suggestions on the courts, or one game (on a court or in Next up) by id. It re-runs the same engine with `variety`: a repeatable pseudo-random shake of at most 30 cost points (under one level step, so fairness is not given up) plus an `avoid` list of arrangements, keyed by `arrangementKey` (who plays with whom, ignoring which side is "team 1"). Each replacement game stores what was rejected in `Match.rejected`, so successive presses never bring back an earlier lineup. The old games are deleted only in the same transaction that creates the new ones; if no other arrangement exists the suggestions stay as they were and the board says why. A regenerated Next up game keeps its place in line. Tests are in `lib/pairing.test.ts` ("regenerating with variety").

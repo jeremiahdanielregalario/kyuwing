@@ -12,6 +12,7 @@ import {
   dateOnlyFromKey,
   extendedPlan,
   elapsedMinutes,
+  formatClock,
   formatGameDate,
   openCourts,
   parseCourtPlan,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/datetime";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
+import { GAME_MINUTES, isFreeBy, planTimeline, playerAvailableAt } from "@/lib/planning";
 import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import {
   chargesSchema,
@@ -70,11 +72,21 @@ async function promoteQueuedGames(
   preferCourt?: number,
   slotIndex?: number,
 ): Promise<number[]> {
-  const queued = await tx.match.findMany({
+  const waitingLine = await tx.match.findMany({
     where: { gameDayId, status: "SUGGESTED", courtNumber: QUEUED_COURT },
     orderBy: { createdAt: "asc" },
-    select: { id: true },
+    select: { id: true, players: { select: { playerId: true } } },
   });
+  if (waitingLine.length === 0) return [];
+
+  // A planned game can include players still on court. Only games whose four are
+  // all free move onto a court; the rest keep waiting for their turn.
+  const playing = await tx.matchPlayer.findMany({
+    where: { match: { gameDayId, status: "LIVE" } },
+    select: { playerId: true },
+  });
+  const playingIds = new Set(playing.map((row) => row.playerId));
+  const queued = waitingLine.filter((game) => !game.players.some((row) => playingIds.has(row.playerId)));
   if (queued.length === 0) return [];
 
   const gameDay = await tx.gameDay.findUnique({ where: { id: gameDayId }, select: { courtPlan: true } });
@@ -714,10 +726,70 @@ export async function generateMatches(
   // A player queued for a suggested or live match is committed to that court —
   // never re-pair them, or the same foursome can end up on two courts at once.
   const busyPlayerIds = new Set(active.flatMap((match) => match.players.map((row) => row.playerId)));
-  const waiting = gameDay.players.filter(
+  const uncommitted = gameDay.players.filter(
     (row) => row.status === "WAITING" && !busyPlayerIds.has(row.playerId),
   );
-  if (waiting.length < 4) return fail("At least four players need to be checked in and waiting.");
+
+  // Planning ahead: when too few players are free, a waiting-court game can also use players who
+  // are on court or in an earlier waiting game, as long as they are expected to be done by the
+  // time this game would start. Nobody is on two playing courts at once; that is checked at Start.
+  const nowMs = Date.now();
+  const waitingLine = gameDay.matches
+    .filter((match) => match.status === "SUGGESTED" && match.courtNumber === QUEUED_COURT)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const timeline = planTimeline({
+    now: nowMs,
+    totalCourts: slot.courts,
+    busy: active
+      .filter((match) => match.courtNumber !== QUEUED_COURT)
+      .map((match) => ({
+        courtNumber: match.courtNumber,
+        startedAt: match.status === "LIVE" ? (match.startedAt?.getTime() ?? nowMs) : null,
+      })),
+    queuedGames: waitingLine.length,
+  });
+  // A replaced game keeps its turn; a new one goes to the end of the line.
+  const replacedAt =
+    replacing.length === 1 ? waitingLine.findIndex((match) => match.id === replacing[0].id) : -1;
+  const gameStart = replacedAt >= 0 ? timeline.starts[replacedAt] : timeline.nextStart;
+
+  const widened = queueing && uncommitted.length < 4;
+  const planned = widened
+    ? gameDay.players.filter((row) => {
+        if (row.status !== "WAITING" && row.status !== "PLAYING") return false;
+        const inGame = (match: (typeof gameDay.matches)[number]) =>
+          match.players.some((entry) => entry.playerId === row.playerId);
+        const live = active.find((match) => match.status === "LIVE" && inGame(match));
+        const plannedStarts = [
+          // Assigned to a court but not started: expected to start now.
+          ...active
+            .filter(
+              (match) => match.status === "SUGGESTED" && match.courtNumber !== QUEUED_COURT && inGame(match),
+            )
+            .map(() => nowMs),
+          ...waitingLine
+            .filter((match) => !replacingIds.has(match.id) && inGame(match))
+            .map((match) => timeline.starts[waitingLine.indexOf(match)]),
+        ];
+        return isFreeBy(
+          playerAvailableAt({
+            now: nowMs,
+            liveStartedAt: live ? (live.startedAt?.getTime() ?? nowMs) : null,
+            plannedStarts,
+          }),
+          gameStart,
+        );
+      })
+    : uncommitted;
+  const waiting = planned;
+
+  if (waiting.length < 4) {
+    return fail(
+      widened
+        ? `Not enough players will be free by about ${formatClock(new Date(gameStart))} to plan another game. ${waiting.length} of 4 so far. Check in more players, or plan it later.`
+        : "At least four players need to be checked in and waiting.",
+    );
+  }
 
   const requestsByPlayer = new Map<string, PairingPlayer["requests"]>();
   for (const request of gameDay.requests) {
@@ -730,15 +802,21 @@ export async function generateMatches(
     id: row.playerId,
     nickname: row.player.nickname,
     level: row.player.level,
-    waitMinutes: elapsedMinutes(row.queuedAt ?? row.joinedAt),
+    // Someone still on court has not been waiting, whatever their old queue time says.
+    waitMinutes: row.status === "WAITING" ? elapsedMinutes(row.queuedAt ?? row.joinedAt) : 0,
     gamesPlayed: row.gamesPlayed,
     priority: row.priority,
     permanentPartnerId: row.permanentPartnerId,
     requests: requestsByPlayer.get(row.playerId) ?? [],
   }));
 
+  // Planned and live games count as history too when planning ahead, so the same four are not repeated.
   const history: PairingHistoryMatch[] = gameDay.matches
-    .filter((match) => match.status === "COMPLETED")
+    .filter(
+      (match) =>
+        match.status === "COMPLETED" ||
+        (widened && !replacingIds.has(match.id) && (match.status === "LIVE" || match.status === "SUGGESTED")),
+    )
     .map((match) => ({
       round: match.round,
       playerIds: match.players.map((row) => row.playerId),
@@ -763,6 +841,8 @@ export async function generateMatches(
     courts: queueing ? 1 : Math.max(1, Math.min(freeCourts.length, maxMatches ?? freeCourts.length)),
     round: nextRound,
     scarcity: waiting.length < 10,
+    // Planning ahead: everyone who is free right now plays first; players still on court only fill the gaps.
+    mustInclude: widened ? uncommitted.map((row) => row.playerId) : undefined,
     variety: replacing.length
       ? { seed: options.seed ?? Math.floor(Math.random() * 2 ** 31), avoid: rejected }
       : undefined,
@@ -920,13 +1000,32 @@ export async function startMatch(matchId: string, options: { free?: boolean } = 
       },
       include: { players: { include: { player: true } } },
     });
-    const claimed = new Map<string, number>();
+    // Planning ahead lets a player sit in several waiting or suggested games. The one
+    // thing that cannot happen is being on two playing courts at once, so only a
+    // live game blocks the start.
+    const playingNow = new Map<string, { court: number; startedAt: Date | null }>();
     for (const other of others) {
-      for (const row of other.players) claimed.set(row.playerId, other.courtNumber);
+      if (other.status !== "LIVE") continue;
+      for (const row of other.players) {
+        playingNow.set(row.playerId, { court: other.courtNumber, startedAt: other.startedAt });
+      }
     }
+    // Group by court: "Paolo and Rica are still playing on Court 5 (expected to finish about 3:23 AM)".
+    const byCourt = new Map<number, { startedAt: Date | null; nicknames: string[] }>();
     for (const row of match.players) {
-      const other = claimed.get(row.playerId);
-      if (other !== undefined) clashed.push(`${row.player.nickname} (${name(other)})`);
+      const live = playingNow.get(row.playerId);
+      if (!live) continue;
+      const entry = byCourt.get(live.court) ?? { startedAt: live.startedAt, nicknames: [] };
+      entry.nicknames.push(row.player.nickname);
+      byCourt.set(live.court, entry);
+    }
+    for (const [liveCourt, entry] of byCourt) {
+      const until = entry.startedAt
+        ? ` (expected to finish about ${formatClock(new Date(entry.startedAt.getTime() + GAME_MINUTES * 60_000))})`
+        : "";
+      clashed.push(
+        `${entry.nicknames.join(" and ")} ${entry.nicknames.length === 1 ? "is" : "are"} still playing on ${name(liveCourt)}${until}`,
+      );
     }
     if (clashed.length > 0) return;
 
@@ -960,7 +1059,10 @@ export async function startMatch(matchId: string, options: { free?: boolean } = 
 
   if (clashed.length > 0) {
     refreshGameDay(match.gameDayId);
-    return fail(`Already queued for another court: ${clashed.join(", ")}. Cancel that match first.`);
+    return fail(
+      `${clashed.join("; ")}. Nobody can be on two playing courts at once. Re-pair this game with someone else, or wait for that game to finish.`,
+      "PLAYER_STILL_PLAYING",
+    );
   }
   if (noCourt) return fail("Every court is in use. This game starts when a court frees up.");
 
@@ -1222,14 +1324,22 @@ export async function updateMatchPlayers(
   });
   const committed = new Map<string, { nickname: string; court: number }>();
   for (const other of otherActive) {
+    if (other.courtNumber === QUEUED_COURT) continue;
     for (const row of other.players) {
       committed.set(row.playerId, { nickname: row.player.nickname, court: other.courtNumber });
     }
   }
-  const taken = all.find((playerId) => committed.has(playerId));
-  if (taken) {
-    const entry = committed.get(taken)!;
-    return fail(`${entry.nickname} is already queued for ${name(entry.court)}.`);
+  // Games in the waiting line are plans, so they never block a lineup, and a planned game can
+  // use players already elsewhere. Only real courts claim a player.
+  if (match.courtNumber !== QUEUED_COURT) {
+    const taken = all.find((playerId) => committed.has(playerId));
+    if (taken) {
+      const entry = committed.get(taken)!;
+      return fail(`${entry.nickname} is already queued for ${name(entry.court)}.`);
+    }
+  } else {
+    const notIn = sessionRows.find((row) => row.status === "EXPECTED" || row.status === "DONE");
+    if (notIn) return fail(`${notIn.player.nickname} is not on the board (${notIn.status.toLowerCase()}).`);
   }
 
   const oldIds = match.players.map((row) => row.playerId);
@@ -1613,11 +1723,20 @@ export async function createManualMatch(
   if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
   const name = await courtNamer(gameDayId);
 
-  const waiting = new Set(
-    gameDay.players.filter((row) => row.status === "WAITING").map((row) => row.playerId),
+  // A waiting-court game is planned ahead, so players still on court can be in it. A real court
+  // starts soon, so it takes only players who are waiting.
+  const planning = courtNumber === QUEUED_COURT;
+  const eligible = new Set(
+    gameDay.players
+      .filter((row) => row.status === "WAITING" || (planning && row.status === "PLAYING"))
+      .map((row) => row.playerId),
   );
-  if (playerIds.some((playerId) => !waiting.has(playerId)))
-    return fail("Only checked-in, waiting players can be placed on a court.");
+  if (playerIds.some((playerId) => !eligible.has(playerId)))
+    return fail(
+      planning
+        ? "Only checked-in players who are waiting or playing can be planned into a waiting game."
+        : "Only checked-in, waiting players can be placed on a court.",
+    );
 
   const clash =
     courtNumber === QUEUED_COURT
@@ -1631,6 +1750,8 @@ export async function createManualMatch(
   const nicknameById = new Map(gameDay.players.map((row) => [row.playerId, row.player.nickname]));
   for (const match of gameDay.matches) {
     if (match.status !== "SUGGESTED" && match.status !== "LIVE") continue;
+    // Planned (waiting-court) games never block, and do not count against a real court.
+    if (planning || match.courtNumber === QUEUED_COURT) continue;
     for (const row of match.players) {
       if (playerIds.includes(row.playerId)) {
         return fail(

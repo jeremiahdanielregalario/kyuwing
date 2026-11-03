@@ -160,7 +160,7 @@ There are no player accounts. Players never log in, and no personal data beyond 
 - **PDF** (`app/api/gamedays/[id]/export/pdf/route.ts`) draws a print-ready summary with pdf-lib. Standard fonts lack `₱`, so amounts render as `PHP 250`.
 - **Roster export** (`app/api/players/export/route.ts`) produces a CSV of the player database.
 
-Playing time per player (`lib/play-time.ts`, from each finished match's `startedAt` to `endedAt`) appears on the in-app Reports page only. It is deliberately absent from both exports; a test in `lib/play-time.test.ts` fails if either export route starts using it.
+Playing time per player (`lib/play-time.ts`, from each finished match's `startedAt` to `endedAt`) appears on the in-app Reports page only, in the Player leaderboard. It is deliberately absent from both exports; a test in `lib/play-time.test.ts` fails if either export route starts using it.
 
 Both report routes authenticate, stream the file with a `Content-Disposition` filename, and never write to disk.
 

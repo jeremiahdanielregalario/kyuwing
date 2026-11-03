@@ -32,6 +32,7 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 ```
 
 - Check in players as they arrive, one at a time. The wait timer starts at check-in.
+- **Planning ahead.** A waiting game can include players who are still on court or already in an earlier waiting game, as long as they should be done by the time it would start (about 15 minutes a game). Example: 6 players, 4 on court: queue the next game now with the 2 who are waiting plus 2 of the 4 finishing. Press **Queue next game** or **Pair** and the board fills the idle players first, then the ones finishing in time. You can add as many waiting games as you like, even beyond the courts you reserved, and a player can be in several of them. Each planned game shows who it is waiting on and when it should start. The one rule: nobody can be on two **playing** courts at once. When a court frees up, the first planned game whose four players are all free moves onto it; if you press **Start** while someone is still on another court, the board says who and when they should finish, and offers **Re-pair this game**. Drag players who are playing from the **Playing** list into a waiting game; the board refuses to put them on a court to start now.
 - **Waiting courts** under the courts hold games set ahead of time. Drop four waiting players on the empty waiting court, or press its **Pair**, to set the next game, even while courts are open. When every court is busy, the Auto-pair button becomes **Queue next game** and does the same.
 - Waiting games line up in order (**Up next**, Waiting 2, …). When a game ends, the first one moves onto that court automatically; press **Start** once the four are on court. If a court is already open, **Start** on a waiting game sends it there.
 - Queued games can be edited, removed with ✕, or dragged onto an open court.
@@ -117,7 +118,7 @@ When the reservation runs out (the end of the last block, on the game day itself
 - [ ] Mark anyone who left early as **Done**.
 - [ ] Open **Fees**, record payments, and reconcile cash vs GCash.
 - [ ] Download the **Excel** and **PDF** reports.
-- [ ] Check the **Playing time** card on the **Reports** page: each player's total time on court, from the start to the finish of every game they played (free games included). It is for your eyes only and is not in the Excel or PDF. If one player's time looks far too long, a game was probably left running; check Match history.
+- [ ] Check the **Player leaderboard** on the **Reports** page, which ranks players by games and shows each one's total time on court, from the start to the finish of every game they played (free games included). It is for your eyes only and is not in the Excel or PDF. If one player's time looks far too long, a game was probably left running; check Match history.
 - [ ] Add a short note to the game day if anything unusual happened (late courts, guests, corrections).
 - [ ] Press **Complete**. This cancels leftovers and freezes the session.
 - [ ] Log out if the device is shared.

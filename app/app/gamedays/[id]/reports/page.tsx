@@ -26,21 +26,22 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
   const report = await getFeeReport(id);
   if (!report) notFound();
 
-  const leaderboard = [...report.rows].sort(
-    (a, b) => b.gamesPlayed - a.gamesPlayed || a.nickname.localeCompare(b.nickname),
-  );
   const matches = report.matches;
 
-  // Time on court per player, from finished games. On-screen only: not in the PDF or Excel downloads.
+  // One ranking: most games first, then most time on court. Playing time is on screen only,
+  // not in the PDF or Excel downloads.
   const playTime = playTimeByPlayer(report.matches);
-  const timed = report.rows
-    .map((row) => ({ row, time: playTime.get(row.playerId) }))
-    .filter((entry): entry is { row: (typeof report.rows)[number]; time: NonNullable<typeof entry.time> } =>
-      Boolean(entry.time),
-    )
-    .sort((a, b) => b.time.seconds - a.time.seconds || a.row.nickname.localeCompare(b.row.nickname));
-  const longestTime = timed[0]?.time.seconds ?? 0;
-  const totalTime = timed.reduce((sum, entry) => sum + entry.time.seconds, 0);
+  const ranked = report.rows
+    .map((row) => ({ row, time: playTime.get(row.playerId) ?? { seconds: 0, games: 0 } }))
+    .filter((entry) => entry.row.gamesPlayed > 0 || entry.time.seconds > 0)
+    .sort(
+      (a, b) =>
+        b.row.gamesPlayed - a.row.gamesPlayed ||
+        b.time.seconds - a.time.seconds ||
+        a.row.nickname.localeCompare(b.row.nickname),
+    );
+  const longestTime = Math.max(0, ...ranked.map((entry) => entry.time.seconds));
+  const totalTime = ranked.reduce((sum, entry) => sum + entry.time.seconds, 0);
 
   return (
     <>
@@ -199,52 +200,38 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
             <Card className="overflow-hidden">
               <div className="border-line/80 border-b px-4 py-3">
                 <h2 className="font-display text-base font-bold">Player leaderboard</h2>
-                <p className="text-muted text-[11px]">Most games first.</p>
-              </div>
-              <div className="divide-line/50 divide-y">
-                {leaderboard.slice(0, 10).map((row, index) => (
-                  <div key={row.sessionPlayerId} className="flex items-center gap-2.5 px-4 py-2.5">
-                    <span className="text-muted w-4 font-mono text-[10px] font-bold">{index + 1}</span>
-                    <LevelBadge level={row.level} />
-                    <span className="min-w-0 flex-1 truncate text-[12px] font-semibold">{row.nickname}</span>
-                    <span className="text-muted font-mono text-[10px]">{row.gamesPlayed} games</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="overflow-hidden">
-              <div className="border-line/80 border-b px-4 py-3">
-                <h2 className="font-display text-base font-bold">Playing time</h2>
                 <p className="text-muted text-[11px]">
-                  Time on court per player, from each finished game&apos;s start to finish
-                  {timed.length > 0 && ` · ${formatPlayTime(totalTime)} in total`}. On screen only; the PDF
-                  and Excel downloads leave it out.
+                  Most games first, with each player&apos;s time on court (start to finish of every game they
+                  played{ranked.length > 0 && `, ${formatPlayTime(totalTime)} in total`}). Time is on screen
+                  only; the PDF and Excel downloads leave it out.
                 </p>
               </div>
-              {timed.length === 0 ? (
+              {ranked.length === 0 ? (
                 <p className="text-muted px-4 py-8 text-center text-[12px]">No finished games yet.</p>
               ) : (
-                <div className="divide-line/50 max-h-[420px] divide-y overflow-y-auto">
-                  {timed.map(({ row, time }) => (
+                <div className="divide-line/50 max-h-[520px] divide-y overflow-y-auto">
+                  {ranked.map(({ row, time }, index) => (
                     <div key={row.sessionPlayerId} className="px-4 py-2.5">
                       <div className="flex items-center gap-2.5">
+                        <span className="text-muted w-4 font-mono text-[10px] font-bold">{index + 1}</span>
                         <LevelBadge level={row.level} />
                         <span className="min-w-0 flex-1 truncate text-[12px] font-semibold">
                           {row.nickname}
                         </span>
                         <span className="text-muted font-mono text-[10px]">
-                          {time.games} {time.games === 1 ? "game" : "games"} · avg{" "}
-                          {formatPlayTime(time.seconds / time.games)}
+                          {row.gamesPlayed} {row.gamesPlayed === 1 ? "game" : "games"}
+                          {time.games > 0 && ` · avg ${formatPlayTime(time.seconds / time.games)}`}
                         </span>
                         <span className="w-14 text-right font-mono text-[12px] font-bold">
                           {formatPlayTime(time.seconds)}
                         </span>
                       </div>
-                      <div className="bg-cream-deep mt-1.5 h-1 overflow-hidden rounded-full">
+                      <div className="bg-cream-deep mt-1.5 ml-6 h-1 overflow-hidden rounded-full">
                         <div
                           className="bg-gold h-full rounded-full"
-                          style={{ width: `${Math.max(4, (time.seconds / longestTime) * 100)}%` }}
+                          style={{
+                            width: `${longestTime ? Math.max(4, (time.seconds / longestTime) * 100) : 0}%`,
+                          }}
                         />
                       </div>
                     </div>

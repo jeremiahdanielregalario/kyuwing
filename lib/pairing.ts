@@ -34,6 +34,8 @@ export type PairingOptions = {
   scarcity?: boolean;
   /** The round number the new match will use. */
   round?: number;
+  /** Players who must be in the match, e.g. everyone already waiting when planning ahead. */
+  mustInclude?: string[];
   /**
    * Asks for a different answer than the best one, for "regenerate". The seed
    * adds a small, repeatable shake to the scores so near-equal arrangements
@@ -427,6 +429,7 @@ export function findBestMatch(
   let best: PairingSuggestion | null = null;
 
   for (const combo of combos) {
+    if (options.mustInclude?.some((id) => !combo.some((candidate) => candidate.id === id))) continue;
     for (const [left, right] of partitions) {
       const team1 = left.map((index) => combo[index]);
       const team2 = right.map((index) => combo[index]);

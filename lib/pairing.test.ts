@@ -267,3 +267,30 @@ describe("regenerating with variety", () => {
     expect(findBestMatch(four, [], { variety: { seed: 3, avoid } })).toBeNull();
   });
 });
+
+describe("must include", () => {
+  const players = [
+    player("w1", "C"),
+    player("w2", "C+"),
+    player("o1", "C"),
+    player("o2", "C"),
+    player("o3", "C-"),
+    player("o4", "C"),
+  ];
+
+  it("always puts the required players in the match", () => {
+    const suggestion = findBestMatch(players, [], { scarcity: false, mustInclude: ["w1", "w2"] })!;
+    expect(suggestion.playerIds).toEqual(expect.arrayContaining(["w1", "w2"]));
+    expect(suggestion.playerIds).toHaveLength(4);
+  });
+
+  it("returns null when the required players cannot all fit", () => {
+    expect(findBestMatch(players, [], { mustInclude: ["w1", "w2", "o1", "o2", "o3"] })).toBeNull();
+  });
+
+  it("is unchanged when nobody is required", () => {
+    expect(findBestMatch(players, [], { scarcity: false, mustInclude: [] })).toEqual(
+      findBestMatch(players, [], { scarcity: false }),
+    );
+  });
+});

@@ -86,6 +86,7 @@ import {
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
+import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
   formatClock,
@@ -170,7 +171,7 @@ type DragPayload =
       nickname: string;
       level: string;
     }
-  | { kind: "queue-player"; playerId: string; nickname: string; level: string };
+  | { kind: "queue-player"; playerId: string; nickname: string; level: string; status: string };
 
 type DropTarget =
   | { kind: "court"; courtNumber: number; matchId?: string }
@@ -304,6 +305,17 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     }
 
     if (active.kind === "queue-player") {
+      // Someone still on court can only be planned into a waiting game, never put on a court to start now.
+      if (active.status === "PLAYING") {
+        const target =
+          over.kind === "slot" || (over.kind === "court" && over.matchId)
+            ? data.activeMatches.find((item) => item.id === over.matchId)?.courtNumber
+            : over.courtNumber;
+        if (target !== QUEUED_COURT) {
+          toast.error(`${active.nickname} is still playing. Drop them into a waiting game to plan ahead.`);
+          return;
+        }
+      }
       if (over.kind === "draft-slot") {
         placeInDraft(over.courtNumber, over.index, active.playerId);
         return;
@@ -365,6 +377,46 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // Next up line: paired games waiting for a court, oldest first (the board query orders by creation).
   const queued = data.activeMatches.filter((match) => match.courtNumber === QUEUED_COURT);
   const courtsFull = data.stats.courtsTotal > 0 && data.stats.courtsOpen === 0;
+
+  // Planned games can include players still on court. Say who each one is waiting on, and when.
+  const planNotes = (() => {
+    if (!now || queued.length === 0) return new Map<string, string>();
+    const liveByPlayer = new Map<string, BoardMatch>();
+    for (const match of data.activeMatches) {
+      if (match.status !== "LIVE") continue;
+      for (const row of [...match.team1, ...match.team2]) liveByPlayer.set(row.playerId, match);
+    }
+    const timeline = planTimeline({
+      now,
+      totalCourts: data.stats.courtsTotal,
+      busy: data.activeMatches
+        .filter((match) => match.courtNumber !== QUEUED_COURT)
+        .map((match) => ({
+          courtNumber: match.courtNumber,
+          startedAt: match.status === "LIVE" && match.startedAt ? Date.parse(match.startedAt) : null,
+        })),
+      queuedGames: queued.length,
+    });
+    const notes = new Map<string, string>();
+    queued.forEach((match, index) => {
+      const still = [...match.team1, ...match.team2].filter((row) => liveByPlayer.has(row.playerId));
+      if (still.length === 0) return;
+      // "Paolo and Rica (Court 5)": names grouped by the court they are finishing on.
+      const byCourt = new Map<number, string[]>();
+      for (const row of still) {
+        const court = liveByPlayer.get(row.playerId)!.courtNumber;
+        byCourt.set(court, [...(byCourt.get(court) ?? []), row.nickname]);
+      }
+      const names = [...byCourt.entries()]
+        .map(([court, nicknames]) => `${nicknames.join(" and ")} (${courtName(slot, court)})`)
+        .join(", ");
+      notes.set(
+        match.id,
+        `Plans around ${names}. Starts about ${formatClock(new Date(timeline.starts[index]))}, once they finish (~${GAME_MINUTES} min a game).`,
+      );
+    });
+    return notes;
+  })();
   const live = data.activeMatches.filter((match) => match.status === "LIVE");
   const courtCount = Math.max(
     data.stats.courtsTotal,
@@ -427,6 +479,27 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   // Near closing time a game may not finish, so ask whether it is a free game
   // (used shuttle, not counted) before it starts.
+  // Starting a game whose player is still on another court is refused; offer to re-pair it instead.
+  const startGame = (matchId: string, free: boolean) => {
+    startTransition(async () => {
+      const result = await startMatch(matchId, { free });
+      if (result.ok) {
+        toast.success(result.message ?? "Started.");
+      } else if (result.code === "PLAYER_STILL_PLAYING") {
+        setConfirmSpec({
+          title: "Someone is still on court",
+          description: result.error,
+          confirmLabel: "Re-pair this game",
+          cancelLabel: "Keep it for now",
+          onConfirm: () => act(() => regenerateMatches(data.gameDay.id, slotIndex, matchId)),
+        });
+      } else {
+        toast.error(result.error);
+      }
+      await mutate();
+    });
+  };
+
   const requestStart = (count: number, run: (free: boolean) => void) => {
     const minutesLeft = minutesLeftInReservation(plan, data.gameDay.date, new Date());
     if (offersFreeGame(minutesLeft)) setFreePrompt({ count, minutesLeft: minutesLeft!, run });
@@ -966,7 +1039,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         pending={pending}
                         isCompleted={isCompleted}
                         onPair={() => act(() => generateMatches(data.gameDay.id, slotIndex, 1))}
-                        onStart={(id) => requestStart(1, (free) => act(() => startMatch(id, { free })))}
+                        onStart={(id) => requestStart(1, (free) => startGame(id, free))}
                         onRegenerate={(id) => act(() => regenerateMatches(data.gameDay.id, slotIndex, id))}
                         onFinish={finishMatch}
                         onEdit={openEdit}
@@ -1022,49 +1095,59 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         )}
                       </h3>
                       <span data-trim-id="board.waiting-hint" className="text-muted text-[11px]">
-                        Set games ahead. Each takes the next court that frees up, in order.
+                        Plan ahead, even with players still on court. Each game takes the next court that
+                        frees up, in order. Add as many as you like, beyond the reserved courts. A player can
+                        sit in several planned games but can&apos;t be on two playing courts at once.
                       </span>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {[...queued, undefined].map((match, index) => (
-                        <CourtCard
-                          key={match?.id ?? "waiting-new"}
-                          court={QUEUED_COURT}
-                          name={match ? `Waiting ${index + 1}` : "Waiting court"}
-                          match={match}
-                          queuePosition={match ? index + 1 : undefined}
-                          canStart={!courtsFull}
-                          draft={drafts[QUEUED_COURT] ?? EMPTY_DRAFT}
-                          playerById={playerById}
-                          now={now}
-                          pending={pending}
-                          isCompleted={isCompleted}
-                          onPair={() =>
-                            act(() => generateMatches(data.gameDay.id, slotIndex, 1, { queue: true }))
-                          }
-                          onStart={(id) => requestStart(1, (free) => act(() => startMatch(id, { free })))}
-                          onRegenerate={(id) => act(() => regenerateMatches(data.gameDay.id, slotIndex, id))}
-                          onFinish={finishMatch}
-                          onEdit={openEdit}
-                          onCancel={(id) =>
-                            setConfirmSpec({
-                              title: "Remove this waiting game?",
-                              description: "The four players stay in the queue.",
-                              confirmLabel: "Remove game",
-                              cancelLabel: "Keep it",
-                              tone: "danger",
-                              onConfirm: () => act(() => cancelMatch(id)),
-                            })
-                          }
-                          onClearDraft={(slotPosition) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [QUEUED_COURT]: (prev[QUEUED_COURT] ?? EMPTY_DRAFT).map((id, position) =>
-                                position === slotPosition ? null : id,
-                              ),
-                            }))
-                          }
-                        />
+                        <div key={match?.id ?? "waiting-new"} className="space-y-1.5">
+                          <CourtCard
+                            court={QUEUED_COURT}
+                            name={match ? `Waiting ${index + 1}` : "Waiting court"}
+                            match={match}
+                            queuePosition={match ? index + 1 : undefined}
+                            canStart={!courtsFull}
+                            draft={drafts[QUEUED_COURT] ?? EMPTY_DRAFT}
+                            playerById={playerById}
+                            now={now}
+                            pending={pending}
+                            isCompleted={isCompleted}
+                            onPair={() =>
+                              act(() => generateMatches(data.gameDay.id, slotIndex, 1, { queue: true }))
+                            }
+                            onStart={(id) => requestStart(1, (free) => startGame(id, free))}
+                            onRegenerate={(id) =>
+                              act(() => regenerateMatches(data.gameDay.id, slotIndex, id))
+                            }
+                            onFinish={finishMatch}
+                            onEdit={openEdit}
+                            onCancel={(id) =>
+                              setConfirmSpec({
+                                title: "Remove this waiting game?",
+                                description: "The four players stay in the queue.",
+                                confirmLabel: "Remove game",
+                                cancelLabel: "Keep it",
+                                tone: "danger",
+                                onConfirm: () => act(() => cancelMatch(id)),
+                              })
+                            }
+                            onClearDraft={(slotPosition) =>
+                              setDrafts((prev) => ({
+                                ...prev,
+                                [QUEUED_COURT]: (prev[QUEUED_COURT] ?? EMPTY_DRAFT).map((id, position) =>
+                                  position === slotPosition ? null : id,
+                                ),
+                              }))
+                            }
+                          />
+                          {match && planNotes.get(match.id) && (
+                            <p className="border-gold/60 bg-gold/15 text-ink rounded-xl border px-3 py-2 text-[11px] leading-snug">
+                              {planNotes.get(match.id)}
+                            </p>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1183,7 +1266,11 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   {visible.map((player) => (
                     <QueueRow
                       key={player.sessionPlayerId}
-                      draggable={player.status === "WAITING" && !pending && !isCompleted}
+                      draggable={
+                        (player.status === "WAITING" || player.status === "PLAYING") &&
+                        !pending &&
+                        !isCompleted
+                      }
                       player={player}
                       now={now}
                       pending={pending}
@@ -2213,7 +2300,7 @@ function QueueRow({
   onPriority,
 }: {
   player: BoardPlayer;
-  /** Waiting players can be dragged by their name box onto a court or waiting court. */
+  /** Waiting players can be dragged onto a court or waiting court; players on court only into a waiting court, to plan ahead. */
   draggable: boolean;
   now: number;
   pending: boolean;
@@ -2233,6 +2320,7 @@ function QueueRow({
       playerId: player.playerId,
       nickname: player.nickname,
       level: player.level,
+      status: player.status,
     } satisfies DragPayload,
     disabled: !draggable,
   });
@@ -2249,7 +2337,13 @@ function QueueRow({
         {...(draggable ? listeners : {})}
         {...(draggable && mounted ? attributes : {})}
         aria-label={draggable ? `Drag ${player.nickname} to a court` : undefined}
-        title={draggable ? "Drag onto a court or the waiting court" : undefined}
+        title={
+          draggable
+            ? player.status === "PLAYING"
+              ? "Still playing: drag into a waiting game to plan ahead"
+              : "Drag onto a court or the waiting court"
+            : undefined
+        }
         className={cn(
           "flex min-w-0 flex-1 items-center gap-2 rounded-xl",
           draggable &&
