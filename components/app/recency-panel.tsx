@@ -25,6 +25,9 @@ import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
+/** Logged lists shown before "Show all". */
+const RECENT_LISTS = 6;
+
 const BAND_STYLES: Record<
   RecencySnapshot["band"],
   { label: string; icon: React.ComponentType<{ className?: string }>; className: string }
@@ -87,6 +90,7 @@ export function RecencyPanel({
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [open, setOpen] = React.useState(false);
+  const [showAllLists, setShowAllLists] = React.useState(false);
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
 
   const [date, setDate] = React.useState(today);
@@ -166,7 +170,7 @@ export function RecencyPanel({
           </p>
         ) : (
           <ul className="mt-2 space-y-1.5">
-            {events.slice(0, 6).map((event) => (
+            {(showAllLists ? events : events.slice(0, RECENT_LISTS)).map((event) => (
               <li
                 key={event.id}
                 className="border-line/70 bg-cream/40 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-3 py-2"
@@ -216,6 +220,15 @@ export function RecencyPanel({
               </li>
             ))}
           </ul>
+        )}
+        {events.length > RECENT_LISTS && (
+          <button
+            type="button"
+            onClick={() => setShowAllLists((value) => !value)}
+            className="text-muted hover:text-ink mt-2 text-[11px] font-semibold transition"
+          >
+            {showAllLists ? "Show recent only" : `Show all ${events.length} lists`}
+          </button>
         )}
       </div>
 
