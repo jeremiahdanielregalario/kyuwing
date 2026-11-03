@@ -22,6 +22,7 @@ import {
 import {
   Activity,
   AlertCircle,
+  LogOut,
   Check,
   ChevronRight,
   CircleCheck,
@@ -69,6 +70,8 @@ import {
   createManualMatch,
   generateMatches,
   regenerateMatches,
+  confirmLeaveRequest,
+  declineLeaveRequest,
   markPlayerDone,
   moveMatchToCourt,
   requeuePlayer,
@@ -255,6 +258,18 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       }
     });
   };
+
+  // "I'm leaving" requests from the live link: tell the queue master the moment one arrives.
+  const announcedLeaves = React.useRef(new Set<string>());
+  React.useEffect(() => {
+    for (const request of data.leaveRequests) {
+      if (announcedLeaves.current.has(request.id)) continue;
+      announcedLeaves.current.add(request.id);
+      toast.warning(`${request.nickname} wants to leave. Confirm or keep them on the board.`, {
+        duration: 15000,
+      });
+    }
+  }, [data.leaveRequests]);
 
   const placeInDraft = (court: number, index: number, playerId: string) => {
     const current = drafts[court] ?? EMPTY_DRAFT;
@@ -553,6 +568,54 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       onDragCancel={() => setActiveDrag(null)}
     >
       <div className="space-y-5">
+        {data.leaveRequests.length > 0 && (
+          <section aria-live="assertive" className="border-gold/60 bg-gold/15 rounded-2xl border-2 p-4">
+            <h2 className="font-display inline-flex items-center gap-2 text-base font-bold">
+              <LogOut className="h-4 w-4" /> Leaving the game day · {data.leaveRequests.length}
+            </h2>
+            <p className="text-muted text-[12px]">
+              Players asked from the live link to be taken out. Confirm to mark them done.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {data.leaveRequests.map((request) => (
+                <li
+                  key={request.id}
+                  className="border-line flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5"
+                >
+                  <div>
+                    <p className="text-[15px] font-bold">{request.nickname}</p>
+                    <p className="text-muted text-[11px]">
+                      {request.playerStatus === "PLAYING"
+                        ? "In a live game. Confirm after it finishes."
+                        : request.playerStatus === "WAITING"
+                          ? "Waiting in the queue"
+                          : request.playerStatus}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={pending}
+                      onClick={() => act(() => confirmLeaveRequest(request.id))}
+                    >
+                      <Check className="h-3.5 w-3.5" /> Confirm
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="paper"
+                      disabled={pending}
+                      onClick={() => act(() => declineLeaveRequest(request.id))}
+                    >
+                      Keep in queue
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-muted flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.14em] uppercase">

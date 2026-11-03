@@ -449,6 +449,72 @@ export async function checkInPlayer(sessionPlayerId: string): Promise<ActionResu
   return ok(`${row.player.nickname} is in the queue.`);
 }
 
+/**
+ * Confirms a player's "I'm leaving" request: marks them done and, if they were
+ * lined up in a suggested game, removes that game so the other three go back to
+ * waiting. A player in a live game cannot be confirmed until it finishes.
+ */
+export async function confirmLeaveRequest(requestId: string): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const request = await prisma.leaveRequest.findUnique({
+    where: { id: requestId },
+    include: { sessionPlayer: { include: { player: true } } },
+  });
+  if (!request || request.status !== "PENDING") return fail("That request was already handled.");
+
+  const row = request.sessionPlayer;
+  const nickname = row.player.nickname;
+  if (row.status === "PLAYING") {
+    return fail(`${nickname} is in a live game. Finish it first, then confirm.`);
+  }
+
+  const lined = await prisma.match.findMany({
+    where: {
+      gameDayId: request.gameDayId,
+      status: "SUGGESTED",
+      players: { some: { playerId: row.playerId } },
+    },
+    select: { id: true },
+  });
+  await prisma.$transaction([
+    ...(lined.length
+      ? [prisma.match.deleteMany({ where: { id: { in: lined.map((match) => match.id) } } })]
+      : []),
+    prisma.sessionPlayer.update({ where: { id: row.id }, data: { status: "DONE", queuedAt: null } }),
+    prisma.leaveRequest.updateMany({
+      where: { sessionPlayerId: row.id, status: "PENDING" },
+      data: { status: "CONFIRMED", resolvedAt: new Date() },
+    }),
+  ]);
+
+  refreshGameDay(request.gameDayId);
+  return ok(
+    lined.length
+      ? `${nickname} is out. Their suggested game was removed; the others are waiting again.`
+      : `${nickname} is out for the day.`,
+  );
+}
+
+export async function declineLeaveRequest(requestId: string): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const request = await prisma.leaveRequest.findUnique({
+    where: { id: requestId },
+    include: { sessionPlayer: { include: { player: true } } },
+  });
+  if (!request || request.status !== "PENDING") return fail("That request was already handled.");
+
+  await prisma.leaveRequest.update({
+    where: { id: requestId },
+    data: { status: "DECLINED", resolvedAt: new Date() },
+  });
+  refreshGameDay(request.gameDayId);
+  return ok(`${request.sessionPlayer.player.nickname} stays in the queue.`);
+}
+
 export async function markPlayerDone(sessionPlayerId: string): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;

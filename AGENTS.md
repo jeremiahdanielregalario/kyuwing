@@ -75,6 +75,7 @@ docs/                     Long-form documentation
 - `lib/queries.ts` owns Prisma includes and DTO mapping. Keep the board DTO (`lib/board-types.ts`) stable — the client and the polling route share it.
 - Board polling is a single route: `GET /api/gamedays/[id]/board`. It is authenticated; do not expose player contact details there.
 - The public live view (`/live/[id]/[key]`, `GET /api/live/[id]/[key]`) is unauthenticated. It must only ever return `getPublicBoard()` / `toPublicBoard()` output (fees appear only once the game day is COMPLETED, as nickname, games, total, balance); add fields there deliberately and keep the leak test in `lib/public-board.test.ts` passing.
+- The one public write is `POST /api/live/[id]/[key]/leave` (a player's "I'm leaving" request). It needs the link's key, creates a `LeaveRequest` only, and changes nothing on the board until the queue master confirms. Keep it that way, and never return full names or other private fields from it.
 
 ### UI
 

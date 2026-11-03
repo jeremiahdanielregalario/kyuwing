@@ -126,7 +126,7 @@ export async function getBoardData(gameDayId: string, slotParam?: number | null)
       : currentSlotIndex(plan);
   const activeSlot = plan[planIndex];
 
-  const [activeMatches, recentMatches] = await Promise.all([
+  const [activeMatches, recentMatches, pendingLeaves] = await Promise.all([
     prisma.match.findMany({
       where: { gameDayId, status: { in: ["SUGGESTED", "LIVE"] } },
       include: { players: { include: { player: true } } },
@@ -137,6 +137,11 @@ export async function getBoardData(gameDayId: string, slotParam?: number | null)
       include: { players: { include: { player: true } } },
       orderBy: { endedAt: "desc" },
       take: 8,
+    }),
+    prisma.leaveRequest.findMany({
+      where: { gameDayId, status: "PENDING", sessionPlayer: { status: { not: "DONE" } } },
+      include: { sessionPlayer: { include: { player: true } } },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
@@ -161,6 +166,13 @@ export async function getBoardData(gameDayId: string, slotParam?: number | null)
 
   return {
     gameDay: toGameDayDto(gameDay),
+    leaveRequests: pendingLeaves.map((request) => ({
+      id: request.id,
+      sessionPlayerId: request.sessionPlayerId,
+      nickname: request.sessionPlayer.player.nickname,
+      playerStatus: request.sessionPlayer.status,
+      createdAt: request.createdAt.toISOString(),
+    })),
     players: toBoardPlayers(gameDay),
     activeMatches: mappedActive,
     recentMatches: mappedRecent,

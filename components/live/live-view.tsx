@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
-import { Clock3, Gift, ListOrdered, MapPin, Search, Users, Wallet, X } from "lucide-react";
+import { Clock3, Gift, ListOrdered, LogOut, MapPin, Search, Users, Wallet, X } from "lucide-react";
 import { CourtLines } from "@/components/app/court-surface";
 import { Logo } from "@/components/logo";
 import { PaymentCard } from "@/components/payment-card";
@@ -294,6 +294,8 @@ export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; 
 
         {!completed && payment}
 
+        {data.gameDay.status === "LIVE" && <LeaveForm endpoint={endpoint} defaultName={saved} />}
+
         <p className="text-muted pt-2 text-center text-[11px]">
           View only · updates every few seconds · App by Danyel Regalario
         </p>
@@ -342,6 +344,72 @@ function MyStatus({ location }: { location: PlayerLocation }) {
   };
   const { tone, text } = content[location.kind];
   return <p className={cn("mt-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold", tone)}>{text}</p>;
+}
+
+/** "Leaving already?": a player enters their official nickname and the queue master is notified to confirm. */
+function LeaveForm({ endpoint, defaultName }: { endpoint: string; defaultName: string }) {
+  const [name, setName] = React.useState<string | null>(null);
+  const value = name ?? defaultName;
+  const [sending, setSending] = React.useState(false);
+  const [result, setResult] = React.useState<{ ok: boolean; message: string } | null>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (sending) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const response = await fetch(`${endpoint}/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname: value }),
+      });
+      setResult(await response.json());
+    } catch {
+      setResult({ ok: false, message: "Could not reach the queue master. Check your signal and try again." });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="border-line bg-paper rounded-2xl border p-4">
+      <h2 className="font-display inline-flex items-center gap-1.5 text-base font-bold">
+        <LogOut className="h-4 w-4" /> Leaving already?
+      </h2>
+      <p className="text-muted text-[11px]">
+        Type your official nickname. The queue master is notified right away and confirms.
+      </p>
+      <form onSubmit={submit} className="mt-3 flex items-center gap-2">
+        <input
+          value={value}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Official nickname"
+          maxLength={40}
+          autoComplete="off"
+          className="border-line focus:border-ink h-11 min-w-0 flex-1 rounded-full border bg-white px-4 text-[14px] outline-none"
+        />
+        <button
+          type="submit"
+          disabled={sending || !value.trim()}
+          className="bg-ink text-cream h-11 shrink-0 rounded-full px-5 text-[13px] font-semibold disabled:opacity-40"
+        >
+          {sending ? "Sending…" : "I'm leaving"}
+        </button>
+      </form>
+      {result && (
+        <p
+          role="status"
+          className={cn(
+            "mt-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold",
+            result.ok ? "bg-lime/30 text-ink" : "bg-amber-50 text-amber-900",
+          )}
+        >
+          {result.message}
+        </p>
+      )}
+    </section>
+  );
 }
 
 function SectionTitle({ icon, title, hint }: { icon: React.ReactNode; title: string; hint?: string }) {

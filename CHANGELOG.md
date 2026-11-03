@@ -6,6 +6,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Leave requests from the live link** — a player on the shared link can type their official nickname under **Leaving already?** and the queue master is notified within seconds: a pop-up plus a **Leaving the game day** banner with **Confirm** and **Keep in queue**. Confirming marks them done and removes any suggested game they were lined up for. Duplicate requests are folded together and a declined player waits five minutes before asking again.
+- **Download QR** on the Pay online card, so the GCash QR can be saved and scanned from a phone's gallery.
 - **Regenerate pairings** — if the auto-generated pairings aren't to the queue master's liking, **Regenerate** (header) redoes every suggested court and the shuffle button on a game redoes just that one, including games in Next up. Press as often as needed: rejected lineups never come back, and nothing is replaced unless a new arrangement exists.
 - **Grips and other charges per player** — Record a player's grips (₱20 each) and any other amount with a reason; both feed their total, balance, the live payment list, and the reports.
 - **Change and Settled in the Fees ledger** — a **Change** column shows what to give back when a player overpays, and a **Settled** checkbox marks paid-and-change-given. The flat fee column is gone from the ledger; reports gain Extras, Change, and Settled.

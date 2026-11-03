@@ -83,6 +83,12 @@ enum PairingRequestType {
   PLAY_AGAINST
 }
 
+enum LeaveRequestStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
 enum PaymentMethod {
   CASH
   GCASH
@@ -194,6 +200,7 @@ model GameDay {
   players  SessionPlayer[]
   matches  Match[]
   requests PairingRequest[]
+  leaveRequests LeaveRequest[]
 
   @@index([date])
   @@index([status])
@@ -226,6 +233,7 @@ model SessionPlayer {
 
   gameDay GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
   player  Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  leaveRequests LeaveRequest[]
 
   @@unique([gameDayId, playerId])
   @@index([gameDayId, status])
@@ -282,6 +290,22 @@ model PairingRequest {
 
   @@unique([gameDayId, playerId, type, targetPlayerId])
   @@index([gameDayId])
+}
+
+/// A player asking, from the public live link, to be taken out of the game day. The queue master confirms or declines.
+model LeaveRequest {
+  id              String             @id @default(cuid())
+  gameDayId       String
+  sessionPlayerId String
+  status          LeaveRequestStatus @default(PENDING)
+  createdAt       DateTime           @default(now())
+  resolvedAt      DateTime?
+
+  gameDay       GameDay       @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  sessionPlayer SessionPlayer @relation(fields: [sessionPlayerId], references: [id], onDelete: Cascade)
+
+  @@index([gameDayId, status])
+  @@index([sessionPlayerId])
 }
 
 /// Global app settings, including which optional UI pieces the developer hid.

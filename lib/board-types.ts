@@ -83,8 +83,19 @@ export type BoardStats = {
   totalGamesPlayed: number;
 };
 
+/** A player's "I'm leaving" request from the live link, waiting for the queue master. */
+export type LeaveRequestDto = {
+  id: string;
+  sessionPlayerId: string;
+  nickname: string;
+  /** The player's status now, so the queue master can see if they are mid-game. */
+  playerStatus: "EXPECTED" | "WAITING" | "PLAYING" | "DONE";
+  createdAt: string;
+};
+
 export type BoardData = {
   gameDay: BoardGameDay;
+  leaveRequests: LeaveRequestDto[];
   players: BoardPlayer[];
   activeMatches: BoardMatch[];
   recentMatches: BoardMatch[];

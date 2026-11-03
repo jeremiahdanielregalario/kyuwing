@@ -102,6 +102,15 @@ const DATA: BoardData = {
     longestWaitMinutes: 0,
     totalGamesPlayed: 0,
   },
+  leaveRequests: [
+    {
+      id: "lr-secret",
+      sessionPlayerId: "sp-Ana",
+      nickname: "Ana",
+      playerStatus: "WAITING",
+      createdAt: "2026-11-02T03:00:00.000Z",
+    },
+  ],
   activeSlotIndex: 0,
   serverNow: "2026-11-02T04:00:00.000Z",
 };
@@ -113,6 +122,8 @@ describe("toPublicBoard", () => {
     const json = JSON.stringify(board);
     for (const secret of [
       "Officer",
+      "lr-secret",
+      "leaveRequests",
       "SECRET",
       "private note",
       "internal",

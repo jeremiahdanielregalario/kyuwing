@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy, Smartphone } from "lucide-react";
+import { Check, Copy, Download, Smartphone } from "lucide-react";
 import { ONLINE_PAYMENT, ONLINE_PAYMENT_MOBILE_DIGITS } from "@/lib/payment";
 
 /** Game-day online payment details with the GCash QR and a one-tap copy of the number. */
@@ -42,6 +42,13 @@ export function PaymentCard() {
             {ONLINE_PAYMENT.method} number
           </p>
           <p className="font-mono text-xl font-bold tracking-wide">{ONLINE_PAYMENT.mobileDisplay}</p>
+          <a
+            href={ONLINE_PAYMENT.qrSrc}
+            download="UP-BadAss-GCash-QR.jpg"
+            className="border-line bg-cream hover:bg-cream-deep mr-2 inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold"
+          >
+            <Download className="h-4 w-4" /> Download QR
+          </a>
           <button
             type="button"
             onClick={copy}
