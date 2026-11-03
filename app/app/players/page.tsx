@@ -50,9 +50,9 @@ export default async function PlayersPage() {
 
       <div data-trim-id="players.stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
-          label="Total players"
-          value={players.length}
-          hint={`${active} active in the roster`}
+          label="Active players"
+          value={active}
+          hint={`${players.length} total in the roster`}
           icon={<Users className="h-4 w-4" />}
           tone="forest"
         />
