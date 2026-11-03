@@ -120,6 +120,8 @@ Client components invoke actions inside `React.startTransition` and surface the 
 
 The live board is the only frequently refreshed surface. `components/app/queue-board.tsx` uses SWR against `GET /api/gamedays/[id]/board`, which returns the same `BoardData` DTO as the server-rendered page. The route is authenticated and returns `401` when the session is missing.
 
+Players get a separate, public, view-only board at `/live/[id]/[key]`, polled from `GET /api/live/[id]/[key]`. The key is an HMAC of the game-day id with `AUTH_SECRET` (`lib/share.ts`), so links can't be guessed or pointed at another game day, and nothing is stored. Both routes return `toPublicBoard(data)` (`lib/public-board.ts`), which strips everything private: full names, contacts, categories, fees, payments, notes, and requests.
+
 Polling keeps multiple devices (queue master tablet, spare phone) in sync without websockets. The interval is short enough to feel live and long enough not to hammer the database on a hobby deployment.
 
 ## Pairing engine boundary

@@ -38,6 +38,9 @@ import {
   Gift,
   Search,
   Settings2,
+  Share2,
+  Copy,
+  ExternalLink,
   Star,
   UserCheck,
   UserRoundPlus,
@@ -165,7 +168,7 @@ function lineupOf(match: BoardMatch) {
   return { team1: order(match.team1), team2: order(match.team2) };
 }
 
-export function QueueBoard({ initialData }: { initialData: BoardData }) {
+export function QueueBoard({ initialData, livePath }: { initialData: BoardData; livePath: string }) {
   const [slotIndex, setSlotIndex] = React.useState(initialData.activeSlotIndex);
   const key = `/api/gamedays/${initialData.gameDay.id}/board?slot=${slotIndex}`;
   const {
@@ -188,6 +191,8 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
   const [checkQuery, setCheckQuery] = React.useState("");
   const [walkOpen, setWalkOpen] = React.useState(false);
   const [addCourtOpen, setAddCourtOpen] = React.useState(false);
+  const [shareOpen, setShareOpen] = React.useState(false);
+  const [shareUrl, setShareUrl] = React.useState(livePath);
   const [newCourtLabel, setNewCourtLabel] = React.useState("");
   const [freePrompt, setFreePrompt] = React.useState<{
     count: number;
@@ -528,6 +533,16 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => {
+                setShareUrl(`${window.location.origin}${livePath}`);
+                setShareOpen(true);
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5" /> Share live view
+            </Button>
             <Link href={`/app/gamedays/${data.gameDay.id}/reports`} className="hidden sm:inline-flex">
               <Button variant="paper" size="sm">
                 <Download className="h-3.5 w-3.5" /> Reports
@@ -1198,6 +1213,47 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
           <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[12px]">
             A free game is played with a used shuttle. It does not count as a game played, so it is not added
             to anyone&apos;s fees.
+          </p>
+        </Modal>
+
+        {/* Share live view modal */}
+        <Modal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title="Share the live queue"
+          description="Anyone with this link can watch the courts, the Next up line, and the waiting order. They can't change anything."
+          size="sm"
+          footer={
+            <>
+              <a href={shareUrl} target="_blank" rel="noreferrer">
+                <Button variant="ghost">
+                  <ExternalLink className="h-4 w-4" /> Open
+                </Button>
+              </a>
+              <Button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(shareUrl);
+                    toast.success("Link copied. Paste it in the group chat.");
+                  } catch {
+                    toast.error("Copy failed. Select the link and copy it.");
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4" /> Copy link
+              </Button>
+            </>
+          }
+        >
+          <Input
+            value={shareUrl}
+            readOnly
+            onFocus={(event) => event.currentTarget.select()}
+            className="font-mono text-[12px]"
+          />
+          <p className="text-muted mt-3 text-[11px]">
+            Players see nicknames and levels only, never full names, contacts, or fees. They can type their
+            nickname to see if they are next.
           </p>
         </Modal>
 

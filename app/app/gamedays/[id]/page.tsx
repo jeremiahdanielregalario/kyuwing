@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { GameDayTabs } from "@/components/app/game-day-tabs";
 import { QueueBoard } from "@/components/app/queue-board";
 import { getBoardData } from "@/lib/queries";
+import { liveViewPath } from "@/lib/share";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function GameDayBoardPage({
   return (
     <>
       <GameDayTabs gameDayId={id} counts={{ signups: data.stats.expected }} />
-      <QueueBoard initialData={data} />
+      <QueueBoard initialData={data} livePath={liveViewPath(id)} />
     </>
   );
 }

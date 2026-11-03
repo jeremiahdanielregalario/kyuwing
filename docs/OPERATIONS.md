@@ -17,6 +17,7 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 1. Open the game day and press **Start** to move it from Draft to Live.
 2. Check in only the players who are physically present. Start with the first four to eight.
 4. When a court is free, press **Auto-pair**.
+5. Press **Share live view** and paste the link in the group chat. Players can watch the courts, the Next up line, and the waiting order from their phones, and type their nickname to see if they are next. The link is view-only and shows nicknames and levels, never full names, contacts, or fees.
 
 Do not check in the whole sign-up list on faith. The queue is supposed to reflect the court, not the group chat.
 
