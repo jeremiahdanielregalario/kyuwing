@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { toPublicBoard } from "@/lib/public-board";
-import { getBoardData } from "@/lib/queries";
+import { getPublicBoard } from "@/lib/public-board-data";
 import { verifyLiveViewKey } from "@/lib/share";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +9,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id, key } = await params;
   if (!verifyLiveViewKey(id, key)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const data = await getBoardData(id);
-  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const board = await getPublicBoard(id);
+  if (!board) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(toPublicBoard(data), { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(board, { headers: { "Cache-Control": "no-store" } });
 }

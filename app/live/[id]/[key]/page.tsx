@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LiveView } from "@/components/live/live-view";
-import { toPublicBoard } from "@/lib/public-board";
+import { getPublicBoard } from "@/lib/public-board-data";
 import { getBoardData } from "@/lib/queries";
 import { verifyLiveViewKey } from "@/lib/share";
 
@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function LiveViewPage({ params }: Params) {
   const { id, key } = await params;
   if (!verifyLiveViewKey(id, key)) notFound();
-  const data = await getBoardData(id);
-  if (!data) notFound();
+  const board = await getPublicBoard(id);
+  if (!board) notFound();
 
-  return <LiveView initialData={toPublicBoard(data)} endpoint={`/api/live/${id}/${key}`} />;
+  return <LiveView initialData={board} endpoint={`/api/live/${id}/${key}`} />;
 }

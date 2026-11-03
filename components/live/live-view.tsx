@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import useSWR from "swr";
-import { Clock3, Gift, ListOrdered, MapPin, Search, Users, X } from "lucide-react";
+import { Clock3, Gift, ListOrdered, MapPin, Search, Users, Wallet, X } from "lucide-react";
 import { CourtLines } from "@/components/app/court-surface";
 import { Logo } from "@/components/logo";
 import { PaymentCard } from "@/components/payment-card";
 import { formatDuration, formatGameDate } from "@/lib/datetime";
+import { formatPeso } from "@/lib/fees";
 import { locatePlayer, type PlayerLocation, type PublicBoard, type PublicMatch } from "@/lib/public-board";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,55 @@ export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; 
   const since = (iso: string | null) =>
     iso && now ? formatDuration(Math.max(0, Math.floor((now - Date.parse(iso)) / 1000))) : "--:--";
 
+  const completed = data.gameDay.status === "COMPLETED";
+  const payment = (
+    <>
+      {data.fees && (
+        <section>
+          <SectionTitle
+            icon={<Wallet className="h-4 w-4" />}
+            title="Payment list"
+            hint="What each player owes for the day. Pay with the QR below, then tell the finance member your nickname."
+          />
+          {data.fees.length === 0 ? (
+            <p className="border-line bg-paper text-muted rounded-2xl border px-4 py-3 text-[13px]">
+              No fees to settle for this game day.
+            </p>
+          ) : (
+            <ul className="border-line bg-paper divide-line/60 divide-y overflow-hidden rounded-2xl border">
+              {data.fees.map((fee) => (
+                <li
+                  key={fee.nickname}
+                  className={cn("flex items-center gap-3 px-3 py-2.5", isMe(fee.nickname) && "bg-lime/20")}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-semibold">{fee.nickname}</p>
+                    <p className="text-muted text-[11px]">
+                      {fee.games} {fee.games === 1 ? "game" : "games"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-[14px] font-bold">{formatPeso(fee.total)}</p>
+                    <p
+                      className={cn(
+                        "text-[11px] font-semibold",
+                        fee.balance > 0 ? "text-[#a8331a]" : "text-muted",
+                      )}
+                    >
+                      {fee.balance > 0 ? `Balance ${formatPeso(fee.balance)}` : "Paid"}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      <PaymentCard />
+    </>
+  );
+
   return (
     <div className="min-h-dvh pb-12">
       <header className="bg-forest-deep text-cream">
@@ -84,7 +134,7 @@ export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; 
             <span
               className={cn("h-1.5 w-1.5 rounded-full", error ? "bg-coral" : "bg-lime animate-pulse-soft")}
             />
-            {error ? "Reconnecting" : "Live"}
+            {error ? "Reconnecting" : completed ? "Game over" : "Live"}
           </span>
         </div>
         <div className="mx-auto max-w-3xl px-4 pb-5">
@@ -111,6 +161,8 @@ export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; 
               : "The queue opens when the game day starts. Check back at the venue."}
           </p>
         )}
+
+        {completed && payment}
 
         <section className="border-line bg-paper rounded-2xl border p-4">
           <form
@@ -240,7 +292,7 @@ export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; 
           )}
         </section>
 
-        <PaymentCard />
+        {!completed && payment}
 
         <p className="text-muted pt-2 text-center text-[11px]">
           View only · updates every few seconds · App by Danyel Regalario

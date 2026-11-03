@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BoardData, BoardMatch, BoardPlayer } from "./board-types";
+import type { BoardData, BoardMatch, BoardPlayer, FeeRow } from "./board-types";
 import { locatePlayer, toPublicBoard } from "./public-board";
 import { liveViewKey, liveViewPath, verifyLiveViewKey } from "./share";
 
@@ -133,6 +133,70 @@ describe("toPublicBoard", () => {
 
   it("lists waiting players by priority, then longest wait, without anyone already in a game", () => {
     expect(board.waiting.map((row) => row.nickname)).toEqual(["Vip", "Early", "Late"]);
+  });
+});
+
+function feeRow(nickname: string, total: number, amountPaid: number, games = 2): FeeRow {
+  return {
+    sessionPlayerId: `sp-${nickname}`,
+    playerId: `p-${nickname}`,
+    nickname,
+    level: "C",
+    category: "ACTIVE",
+    status: "DONE",
+    gamesPlayed: games,
+    flatFee: 250,
+    perGameFee: 50,
+    total,
+    paid: amountPaid >= total,
+    amountPaid,
+    balance: Math.max(0, total - amountPaid),
+    paymentMethod: "GCASH",
+  };
+}
+
+describe("payment list", () => {
+  const rows = [
+    feeRow("Zed", 350, 350),
+    feeRow("Ana", 350, 0),
+    feeRow("Bo", 300, 100),
+    feeRow("Idle", 0, 0, 0),
+  ];
+  const completed: BoardData = { ...DATA, gameDay: { ...DATA.gameDay, status: "COMPLETED" } };
+
+  it("is hidden until the game day is completed, even if fee rows are passed", () => {
+    expect(toPublicBoard(DATA, rows).fees).toBeNull();
+    expect(toPublicBoard(completed).fees).toBeNull();
+  });
+
+  it("lists unsettled players first, skips no-fee players, and settled players show a zero balance", () => {
+    const fees = toPublicBoard(completed, rows).fees;
+    expect(fees?.map((fee) => [fee.nickname, fee.balance])).toEqual([
+      ["Ana", 350],
+      ["Bo", 200],
+      ["Zed", 0],
+    ]);
+  });
+
+  it("carries only nickname, games, total, and balance", () => {
+    const json = JSON.stringify(toPublicBoard(completed, rows));
+    for (const secret of [
+      "SECRET",
+      "fullName",
+      "category",
+      "amountPaid",
+      "paymentMethod",
+      "GCASH",
+      "p-Ana",
+    ]) {
+      expect(json).not.toContain(secret);
+    }
+    expect(toPublicBoard(completed, rows).fees?.[0]).toEqual({
+      nickname: "Ana",
+      games: 2,
+      total: 350,
+      balance: 350,
+    });
   });
 });
 

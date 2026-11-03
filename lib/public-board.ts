@@ -3,10 +3,12 @@
  *
  * Built from the queue master's BoardData but carries only what players need
  * to know where they stand: nicknames, levels, courts, the Next up line, and
- * the waiting order. No full names, contacts, categories, fees, payments,
- * notes, or requests. Pure, so it can be unit-tested.
+ * the waiting order. No full names, contacts, categories, notes, or requests.
+ * Once the game day is COMPLETED it also carries each player's fee (nickname,
+ * games, total, balance) so everyone can settle up; before that, no fees.
+ * Pure, so it can be unit-tested.
  */
-import type { BoardData, BoardMatch } from "./board-types";
+import type { BoardData, BoardMatch, FeeRow } from "./board-types";
 import { courtName, QUEUED_COURT } from "./datetime";
 
 export type PublicPlayer = { nickname: string; levelLabel: string };
@@ -27,6 +29,9 @@ export type PublicWaiting = PublicPlayer & {
   priority: boolean;
 };
 
+/** One line of the end-of-day payment list. */
+export type PublicFee = { nickname: string; games: number; total: number; balance: number };
+
 export type PublicBoard = {
   gameDay: {
     name: string;
@@ -40,10 +45,12 @@ export type PublicBoard = {
   waiting: PublicWaiting[];
   /** Everyone signed up, for "find me". */
   roster: Array<{ nickname: string; status: "EXPECTED" | "WAITING" | "PLAYING" | "DONE" }>;
+  /** Payment list, only once the game day is COMPLETED. */
+  fees: PublicFee[] | null;
   serverNow: string;
 };
 
-export function toPublicBoard(data: BoardData): PublicBoard {
+export function toPublicBoard(data: BoardData, feeRows: FeeRow[] | null = null): PublicBoard {
   const slot = data.gameDay.courtPlan[data.activeSlotIndex] ?? data.gameDay.courtPlan[0];
   const toMatch = (match: BoardMatch): PublicMatch => ({
     id: match.id,
@@ -96,8 +103,22 @@ export function toPublicBoard(data: BoardData): PublicBoard {
     nextUp: data.activeMatches.filter((match) => match.courtNumber === QUEUED_COURT).map(toMatch),
     waiting,
     roster: data.players.map((player) => ({ nickname: player.nickname, status: player.status })),
+    fees: data.gameDay.status === "COMPLETED" && feeRows ? toPublicFees(feeRows) : null,
     serverNow: data.serverNow,
   };
+}
+
+/** Who owes what: unsettled players first (largest balance), then settled, by nickname. */
+export function toPublicFees(rows: FeeRow[]): PublicFee[] {
+  return rows
+    .filter((row) => row.total > 0)
+    .map((row) => ({
+      nickname: row.nickname,
+      games: row.gamesPlayed,
+      total: row.total,
+      balance: row.balance,
+    }))
+    .sort((a, b) => b.balance - a.balance || a.nickname.localeCompare(b.nickname));
 }
 
 export type PlayerLocation =
