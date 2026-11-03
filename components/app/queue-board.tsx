@@ -30,6 +30,7 @@ import {
   GripVertical,
   HeartHandshake,
   LayoutGrid,
+  ListOrdered,
   Link2,
   Pencil,
   Play,
@@ -65,7 +66,7 @@ import {
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
-import { courtName,  formatClock, formatDuration, formatGameDate } from "@/lib/datetime";
+import { courtName, formatClock, formatDuration, formatGameDate, QUEUED_COURT } from "@/lib/datetime";
 import { CourtLines } from "@/components/app/court-surface";
 import { Avatar } from "@/components/ui/avatar";
 import { Dot } from "@/components/ui/badge";
@@ -296,7 +297,12 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
 
   const plan = data.gameDay.courtPlan;
   const slot = plan[data.activeSlotIndex] ?? plan[0];
-  const suggested = data.activeMatches.filter((match) => match.status === "SUGGESTED");
+  const suggested = data.activeMatches.filter(
+    (match) => match.status === "SUGGESTED" && match.courtNumber !== QUEUED_COURT,
+  );
+  // Next up line: paired games waiting for a court, oldest first (the board query orders by creation).
+  const queued = data.activeMatches.filter((match) => match.courtNumber === QUEUED_COURT);
+  const courtsFull = data.stats.courtsTotal > 0 && data.stats.courtsOpen === 0;
   const live = data.activeMatches.filter((match) => match.status === "LIVE");
   const courtCount = Math.max(
     data.stats.courtsTotal,
@@ -354,15 +360,15 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             ["Team B", match.team2],
           ].map(([label, team]) => (
             <p key={label as string} className="flex items-center justify-between gap-3 text-[12px]">
-              <span className="text-muted shrink-0 font-semibold tracking-wide uppercase">{label as string}</span>
+              <span className="text-muted shrink-0 font-semibold tracking-wide uppercase">
+                {label as string}
+              </span>
               <span className="truncate font-semibold">
                 {(team as BoardMatch["team1"]).map((player) => player.nickname).join(" & ")}
               </span>
             </p>
           ))}
-          <p className="text-muted pt-0.5 text-[11px]">
-            Round {match.round} · doubles · fee counts on end
-          </p>
+          <p className="text-muted pt-0.5 text-[11px]">Round {match.round} · doubles · fee counts on end</p>
         </div>
       ),
       confirmLabel: "End game",
@@ -644,13 +650,31 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             disabled={pending || isCompleted}
             className="flex-1 sm:flex-none"
           >
-            <Wand2 className="h-4 w-4" /> Auto-pair
-            {slot ? ` (${Math.min(data.stats.waiting, slot.courts * 4)} max)` : ""}
+            {courtsFull ? (
+              <>
+                <ListOrdered className="h-4 w-4" /> Queue next game
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4" /> Auto-pair
+                {slot ? ` (${Math.min(data.stats.waiting, slot.courts * 4)} max)` : ""}
+              </>
+            )}
           </Button>
-          <Button variant="accent" onClick={() => setCheckOpen(true)} disabled={isCompleted} className="flex-1 sm:flex-none">
+          <Button
+            variant="accent"
+            onClick={() => setCheckOpen(true)}
+            disabled={isCompleted}
+            className="flex-1 sm:flex-none"
+          >
             <UserCheck className="h-4 w-4" /> Check in
           </Button>
-          <Button variant="paper" onClick={() => setWalkOpen(true)} disabled={isCompleted} className="flex-1 sm:flex-none">
+          <Button
+            variant="paper"
+            onClick={() => setWalkOpen(true)}
+            disabled={isCompleted}
+            className="flex-1 sm:flex-none"
+          >
             <UserRoundPlus className="h-4 w-4" /> Walk-in
           </Button>
         </div>
@@ -767,6 +791,44 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                     );
                   })}
                 </div>
+                {queued.length > 0 && (
+                  <div className="border-line bg-paper rounded-2xl border p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h3 className="text-muted inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.16em] uppercase">
+                        <ListOrdered className="h-3.5 w-3.5" /> Next up · {queued.length}
+                      </h3>
+                      <span className="text-muted text-[10px]">
+                        {courtsFull
+                          ? "Takes the next court that frees up"
+                          : "A court is open — start the first game"}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {queued.map((match, index) => (
+                        <NextUpGame
+                          key={match.id}
+                          match={match}
+                          position={index + 1}
+                          canStart={!courtsFull}
+                          pending={pending}
+                          isCompleted={isCompleted}
+                          onStart={(id) => act(() => startMatch(id))}
+                          onEdit={openEdit}
+                          onCancel={(id) =>
+                            setConfirmSpec({
+                              title: "Remove this game from Next up?",
+                              description: "The four players stay in the queue.",
+                              confirmLabel: "Remove game",
+                              cancelLabel: "Keep it",
+                              tone: "danger",
+                              onConfirm: () => act(() => cancelMatch(id)),
+                            })
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -789,7 +851,9 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                       key={match.id}
                       className="border-line/60 bg-cream/30 flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-[11px]"
                     >
-                      <span className="text-muted max-w-[8rem] truncate font-mono font-bold">{courtName(slot, match.courtNumber)}</span>
+                      <span className="text-muted max-w-[8rem] truncate font-mono font-bold">
+                        {courtName(slot, match.courtNumber)}
+                      </span>
                       <span className="min-w-0 flex-1 truncate font-semibold">
                         {match.team1.map((player) => player.nickname).join(" & ")}
                         <span className="text-muted mx-1.5">vs</span>
@@ -1045,7 +1109,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
         <Modal
           open={Boolean(editMatch)}
           onClose={() => setEditMatch(null)}
-          title={`Edit Court ${editMatch?.courtNumber ?? ""}`}
+          title={`Edit ${editMatch ? courtName(slot, editMatch.courtNumber) : ""}`}
           description="Swap players or move the match. Keep the pairing fair."
           size="lg"
           footer={
@@ -1063,6 +1127,9 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             <div className="space-y-5">
               <Field label="Court">
                 <Select value={editCourt} onChange={(event) => setEditCourt(Number(event.target.value))}>
+                  {editMatch.courtNumber === QUEUED_COURT && (
+                    <option value={QUEUED_COURT}>Next up (no court yet)</option>
+                  )}
                   {Array.from(
                     { length: Math.max(1, data.stats.courtsTotal || 1) },
                     (_, index) => index + 1,
@@ -1131,6 +1198,96 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
         ) : null}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+function NextUpGame({
+  match,
+  position,
+  canStart,
+  pending,
+  isCompleted,
+  onStart,
+  onEdit,
+  onCancel,
+}: {
+  match: BoardMatch;
+  position: number;
+  canStart: boolean;
+  pending: boolean;
+  isCompleted: boolean;
+  onStart: (id: string) => void;
+  onEdit: (match: BoardMatch) => void;
+  onCancel: (id: string) => void;
+}) {
+  const mounted = useMounted();
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: `match-${match.id}`,
+    data: { kind: "match", matchId: match.id, courtNumber: QUEUED_COURT } satisfies DragPayload,
+    disabled: isCompleted,
+  });
+  const names = (team: BoardMatch["team1"]) => team.map((player) => player.nickname).join(" & ");
+
+  return (
+    <div
+      className={cn(
+        "border-line/70 bg-cream/40 flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-2",
+        isDragging && "opacity-60",
+      )}
+    >
+      <span
+        ref={setNodeRef}
+        {...listeners}
+        {...(mounted ? attributes : {})}
+        aria-label={`Drag Next up game ${position} onto an open court`}
+        className="text-muted hover:text-ink grid h-8 w-5 cursor-grab touch-none place-items-center rounded"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </span>
+      <span className="bg-forest text-lime grid h-7 w-7 shrink-0 place-items-center rounded-full font-mono text-[11px] font-bold">
+        {position}
+      </span>
+      <div className="min-w-0 flex-1 text-[12px]">
+        <p className="truncate font-semibold">
+          {names(match.team1)}
+          <span className="text-muted mx-1.5 font-normal">vs</span>
+          {names(match.team2)}
+        </p>
+        <p className="text-muted font-mono text-[9px]">
+          {[...match.team1, ...match.team2].map((player) => player.levelLabel).join(" · ")} · R{match.round}
+        </p>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => onStart(match.id)}
+          disabled={pending || isCompleted || !canStart}
+          title={canStart ? "Start on the first open court" : "Every court is in use"}
+          className="h-8"
+        >
+          <Play className="h-3.5 w-3.5" /> Start
+        </Button>
+        <button
+          type="button"
+          onClick={() => onEdit(match)}
+          disabled={pending}
+          aria-label="Edit Next up game"
+          className="border-line text-muted hover:bg-cream-deep hover:text-ink grid h-8 w-8 place-items-center rounded-full border transition disabled:opacity-40"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onCancel(match.id)}
+          disabled={pending}
+          aria-label="Remove Next up game"
+          className="text-muted hover:text-coral grid h-8 w-8 place-items-center rounded-full transition disabled:opacity-40"
+        >
+          <XCircle className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1238,7 +1395,8 @@ function CourtCard({
   }
 
   const live = match.status === "LIVE";
-  const elapsed = match.startedAt && now ? Math.max(0, Math.floor((now - Date.parse(match.startedAt)) / 1000)) : 0;
+  const elapsed =
+    match.startedAt && now ? Math.max(0, Math.floor((now - Date.parse(match.startedAt)) / 1000)) : 0;
   const balance = Math.abs(teamValue(match.team1) - teamValue(match.team2));
 
   return (

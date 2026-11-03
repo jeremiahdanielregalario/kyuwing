@@ -154,7 +154,21 @@ export function parseCourtPlan(value: unknown): CourtSlot[] {
 }
 
 /** Display name for a court position, e.g. "Court 5" or the master's own label. */
+/**
+ * Court number of a game waiting in the "Next up" line. Queued games are
+ * suggested matches without a court; they take the next court that frees up,
+ * oldest first.
+ */
+export const QUEUED_COURT = 0;
+
+/** Courts 1..total that no active match is using, lowest first. */
+export function openCourts(total: number, busy: Iterable<number>): number[] {
+  const taken = new Set(busy);
+  return Array.from({ length: total }, (_, index) => index + 1).filter((court) => !taken.has(court));
+}
+
 export function courtName(slot: CourtSlot | undefined, court: number): string {
+  if (court === QUEUED_COURT) return "Next up";
   const label = slot?.courtLabels?.[court - 1]?.trim();
   if (!label) return `Court ${court}`;
   // A master who types just "5" gets "Court 5"; full names pass through as typed.

@@ -14,7 +14,9 @@ import {
   manilaWeekday,
   minutesToLabel,
   courtName,
+  openCourts,
   parseCourtPlan,
+  QUEUED_COURT,
   timeToMinutes,
   weekdayFromKey,
   weekdayLabel,
@@ -26,6 +28,17 @@ const SLOTS: CourtSlot[] = [
   { id: "b", label: "Midday", start: "10:00", end: "12:00", courts: 4 },
   { id: "c", label: "Afternoon", start: "12:00", end: "14:00", courts: 2 },
 ];
+
+describe("queued games", () => {
+  it("names the queue slot Next up", () => {
+    expect(courtName(SLOTS[0], QUEUED_COURT)).toBe("Next up");
+  });
+
+  it("lists open courts lowest first, ignoring the queue", () => {
+    expect(openCourts(4, [2, QUEUED_COURT, 3])).toEqual([1, 4]);
+    expect(openCourts(2, [1, 2])).toEqual([]);
+  });
+});
 
 describe("courtName", () => {
   it("falls back to the position number", () => {
@@ -78,7 +91,14 @@ describe("parseCourtPlan", () => {
 
   it("keeps court labels when provided", () => {
     const plan = parseCourtPlan([
-      { id: "a", label: "Block", start: "10:00", end: "12:00", courts: 2, courtLabels: ["Court 5", " Court 6 "] },
+      {
+        id: "a",
+        label: "Block",
+        start: "10:00",
+        end: "12:00",
+        courts: 2,
+        courtLabels: ["Court 5", " Court 6 "],
+      },
     ]);
     expect(plan[0].courtLabels).toEqual(["Court 5", "Court 6"]);
     const blank = parseCourtPlan([{ start: "10:00", end: "12:00", courts: 2, courtLabels: ["", " "] }]);

@@ -29,7 +29,8 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 ```
 
 - Check in players as they arrive, one at a time. The wait timer starts at check-in.
-- Pair when a court is actually free. Pairing early reserves players who are still in a game.
+- When every court is busy, the Auto-pair button becomes **Queue next game**. Each tap adds one game to the **Next up** line under the courts. When a game ends, the first game in line moves onto that court automatically; press **Start** once the four are on court.
+- Queued games can be edited, removed with ✕, or dragged onto an open court.
 - Start a match only when all four are walking on court.
 - End a match with one tap. Both teams requeue automatically and each player's game count increments.
 - If a suggested match is wrong, press **Edit** on the court card and swap players before starting.

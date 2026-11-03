@@ -11,7 +11,7 @@ import type {
   FeeReport,
   FeeRow,
 } from "./board-types";
-import { currentSlotIndex, elapsedMinutes, parseCourtPlan, type CourtSlot } from "./datetime";
+import { currentSlotIndex, elapsedMinutes, parseCourtPlan, QUEUED_COURT, type CourtSlot } from "./datetime";
 import { computeFee } from "./fees";
 import { levelLabel } from "./levels";
 import { recencySummary, toRecencySnapshot, type RecencyEntry, type RecencySnapshot } from "./recency";
@@ -145,10 +145,9 @@ export async function getBoardData(gameDayId: string, slotParam?: number | null)
     row.queuedAt ? elapsedMinutes(row.queuedAt) : elapsedMinutes(row.joinedAt),
   );
   const courtsTotal = activeSlot?.courts ?? 0;
+  // Games in the Next up line hold no court.
   const busyCourtNumbers = new Set(
-    mappedActive
-      .filter((match) => match.status === "LIVE" || match.status === "SUGGESTED")
-      .map((match) => match.courtNumber),
+    mappedActive.filter((match) => match.courtNumber !== QUEUED_COURT).map((match) => match.courtNumber),
   );
   const openCourtNumbers = Array.from({ length: courtsTotal }, (_, index) => index + 1).filter(
     (court) => !busyCourtNumbers.has(court),

@@ -123,6 +123,15 @@ This guarantees no player appears on two courts in the same wave. It also means 
 
 The number of courts is the number of currently free courts in the active block, capped at 12. A court is “busy” if it has a `SUGGESTED` or `LIVE` match.
 
+### Next up (queued games)
+
+When every court is busy, auto-pair still runs: it builds **one** game from the players who are waiting and not already committed to a match, and stores it as a `SUGGESTED` match with `courtNumber = 0` (`QUEUED_COURT`). Queued games form a line ordered by creation time.
+
+- Players in a queued game are committed like any other suggestion, so the next queued game is built from the rest of the queue and nobody is in two games.
+- When a court frees up (a game ends or a court’s match is cancelled or moved), the oldest queued game moves onto it as a suggestion. The queue master still presses **Start** when the four are on court.
+- Auto-pair with open courts serves the line first: queued games take the open courts before any new pairing happens.
+- Queued games count as waiting time for their players, so fairness weights keep working while they wait.
+
 ## Worked examples
 
 ### Balanced mixed bracket
