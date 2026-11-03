@@ -4,7 +4,10 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   Check,
+  ChevronsUpDown,
   Download,
   FileJson,
   FileSpreadsheet,
@@ -16,6 +19,7 @@ import {
   Upload,
   UserRoundPlus,
   Users,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -26,7 +30,7 @@ import {
   updatePlayer,
 } from "@/lib/actions/players";
 import { CATEGORY_SHORT } from "@/lib/fees";
-import { LEVELS, levelLabel } from "@/lib/levels";
+import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,6 +75,11 @@ const EMPTY_FORM: FormState = {
 type ImportSummary = { created: number; updated: number; total: number; errors: string[] };
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
+type SortKey = "nickname" | "level" | "category" | "contact" | "status";
+type SortDir = "asc" | "desc";
+
+const CATEGORY_ORDER: Record<string, number> = { ACTIVE: 0, INACTIVE: 1, ALUMNI: 2, APPLICANT: 3 };
+
 export function PlayerManager({ players }: { players: PlayerRecord[] }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -79,6 +88,8 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
   const [levelFilter, setLevelFilter] = React.useState("ALL");
   const [categoryFilter, setCategoryFilter] = React.useState("ALL");
   const [statusFilter, setStatusFilter] = React.useState("active");
+  const [sortKey, setSortKey] = React.useState<SortKey>("nickname");
+  const [sortDir, setSortDir] = React.useState<SortDir>("asc");
   const [formOpen, setFormOpen] = React.useState(false);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -108,9 +119,55 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
     .filter((player) => categoryFilter === "ALL" || player.category === categoryFilter)
     .filter((player) => {
       const haystack =
-        `${player.nickname} ${player.fullName ?? ""} ${player.contact ?? ""} ${levelLabel(player.level)}`.toLowerCase();
-      return haystack.includes(query.toLowerCase());
+        `${player.nickname} ${player.fullName ?? ""} ${player.contact ?? ""} ${player.notes ?? ""} ${levelLabel(player.level)}`.toLowerCase();
+      return haystack.includes(query.trim().toLowerCase());
+    })
+    .sort((a, b) => {
+      let diff = 0;
+      switch (sortKey) {
+        case "level":
+          diff = levelValue(a.level) - levelValue(b.level);
+          break;
+        case "category":
+          diff = (CATEGORY_ORDER[a.category] ?? 99) - (CATEGORY_ORDER[b.category] ?? 99);
+          break;
+        case "contact":
+          diff = (a.contact ?? "").localeCompare(b.contact ?? "", undefined, { sensitivity: "base" });
+          break;
+        case "status":
+          // Active players first when ascending.
+          diff = Number(b.active) - Number(a.active);
+          break;
+        default:
+          diff = a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" });
+      }
+      if (diff === 0) diff = a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" });
+      return sortDir === "asc" ? diff : -diff;
     });
+
+  const filtersActive =
+    query.trim() !== "" || levelFilter !== "ALL" || categoryFilter !== "ALL" || statusFilter !== "active";
+
+  const clearFilters = () => {
+    setQuery("");
+    setLevelFilter("ALL");
+    setCategoryFilter("ALL");
+    setStatusFilter("active");
+  };
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ChevronsUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
@@ -218,6 +275,37 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
           <option value="archived">Archived</option>
           <option value="all">Everyone</option>
         </Select>
+        <div className="flex items-center gap-1">
+          <Select
+            value={sortKey}
+            onChange={(event) => {
+              setSortKey(event.target.value as SortKey);
+              setSortDir("asc");
+            }}
+            className="h-9 w-auto min-w-[8.5rem] text-[12px]"
+            aria-label="Sort players by"
+          >
+            <option value="nickname">Sort: Name</option>
+            <option value="level">Sort: Level</option>
+            <option value="category">Sort: Type</option>
+            <option value="contact">Sort: Contact</option>
+            <option value="status">Sort: Status</option>
+          </Select>
+          <button
+            type="button"
+            onClick={() => setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))}
+            className="border-line text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-lg border transition"
+            title={sortDir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"}
+            aria-label={sortDir === "asc" ? "Sort ascending" : "Sort descending"}
+          >
+            {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+        {filtersActive && (
+          <Button size="sm" variant="ghost" onClick={clearFilters}>
+            <X className="h-3.5 w-3.5" /> Clear
+          </Button>
+        )}
         <div className="ml-auto flex flex-wrap gap-2">
           <a href="/api/players/export?template=1" className="inline-flex">
             <Button size="sm" variant="ghost">
@@ -276,11 +364,51 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
             <table className="w-full min-w-[760px] text-left text-[12px]">
               <thead>
                 <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
-                  <th className="px-4 py-2.5 font-bold">Player</th>
-                  <th className="px-2 py-2.5 font-bold">Level</th>
-                  <th className="px-2 py-2.5 font-bold">Type</th>
-                  <th className="px-2 py-2.5 font-bold">Contact</th>
-                  <th className="px-2 py-2.5 font-bold">Status</th>
+                  <th className="px-4 py-2.5 font-bold">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("nickname")}
+                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                    >
+                      Player {sortIcon("nickname")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2.5 font-bold">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("level")}
+                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                    >
+                      Level {sortIcon("level")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2.5 font-bold">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("category")}
+                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                    >
+                      Type {sortIcon("category")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2.5 font-bold">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("contact")}
+                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                    >
+                      Contact {sortIcon("contact")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2.5 font-bold">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("status")}
+                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                    >
+                      Status {sortIcon("status")}
+                    </button>
+                  </th>
                   <th className="px-4 py-2.5 text-right font-bold">Actions</th>
                 </tr>
               </thead>
