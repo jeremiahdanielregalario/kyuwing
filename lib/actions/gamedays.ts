@@ -455,7 +455,14 @@ export async function generateMatches(
     return fail(`All ${slot.courts} courts are assigned. Start or cancel a match first.`);
   }
 
-  const waiting = gameDay.players.filter((row) => row.status === "WAITING");
+  // A player queued for a suggested or live match is committed to that court —
+  // never re-pair them, or the same foursome can end up on two courts at once.
+  const busyPlayerIds = new Set(
+    active.flatMap((match) => match.players.map((row) => row.playerId)),
+  );
+  const waiting = gameDay.players.filter(
+    (row) => row.status === "WAITING" && !busyPlayerIds.has(row.playerId),
+  );
   if (waiting.length < 4) return fail("At least four players need to be checked in and waiting.");
 
   const requestsByPlayer = new Map<string, PairingPlayer["requests"]>();
@@ -492,11 +499,21 @@ export async function generateMatches(
     scarcity: waiting.length < 10,
   });
 
-  if (suggestions.length === 0)
+  const usedPlayerIds = new Set<string>();
+  const disjointSuggestions = suggestions.filter((suggestion) => {
+    const ids = suggestion.team1
+      .map((player) => player.id)
+      .concat(suggestion.team2.map((player) => player.id));
+    if (ids.some((id) => usedPlayerIds.has(id))) return false;
+    ids.forEach((id) => usedPlayerIds.add(id));
+    return true;
+  });
+
+  if (disjointSuggestions.length === 0)
     return fail("The pairing engine could not build a fair match from the current queue.");
 
   await prisma.$transaction(
-    suggestions.map((suggestion, index) =>
+    disjointSuggestions.map((suggestion, index) =>
       prisma.match.create({
         data: {
           gameDayId,
@@ -524,8 +541,8 @@ export async function generateMatches(
 
   refreshGameDay(gameDayId);
   return ok(
-    `${suggestions.length} ${suggestions.length === 1 ? "match" : "matches"} suggested on ${freeCourts
-      .slice(0, suggestions.length)
+    `${disjointSuggestions.length} ${disjointSuggestions.length === 1 ? "match" : "matches"} suggested on ${freeCourts
+      .slice(0, disjointSuggestions.length)
       .map((court) => `Court ${court}`)
       .join(", ")}. Review and start.`,
     { matches: suggestions.length },
@@ -545,20 +562,49 @@ export async function startMatch(matchId: string): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;
 
-  const match = await prisma.match.findUnique({ where: { id: matchId }, include: { players: true } });
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { players: { include: { player: true } } },
+  });
   if (!match) return fail("Match not found.");
   if (match.status !== "SUGGESTED") return fail("This match is not waiting to start.");
 
-  await prisma.$transaction([
-    prisma.match.update({
+  const clashed: string[] = [];
+  await prisma.$transaction(async (tx) => {
+    // Re-check inside the transaction so two taps cannot start the same
+    // four players on two courts.
+    const others = await tx.match.findMany({
+      where: {
+        gameDayId: match.gameDayId,
+        status: { in: ["SUGGESTED", "LIVE"] },
+        id: { not: matchId },
+      },
+      include: { players: { include: { player: true } } },
+    });
+    const claimed = new Map<string, number>();
+    for (const other of others) {
+      for (const row of other.players) claimed.set(row.playerId, other.courtNumber);
+    }
+    for (const row of match.players) {
+      const court = claimed.get(row.playerId);
+      if (court !== undefined) clashed.push(`${row.player.nickname} (Court ${court})`);
+    }
+    if (clashed.length > 0) return;
+
+    await tx.match.update({
       where: { id: matchId },
       data: { status: "LIVE", startedAt: new Date() },
-    }),
-    prisma.sessionPlayer.updateMany({
+    });
+    await tx.sessionPlayer.updateMany({
       where: { gameDayId: match.gameDayId, playerId: { in: match.players.map((row) => row.playerId) } },
       data: { status: "PLAYING" },
-    }),
-  ]);
+    });
+  });
+
+  if (clashed.length > 0) {
+    refreshGameDay(match.gameDayId);
+    return fail(`Already queued for another court: ${clashed.join(", ")}. Cancel that match first.`);
+  }
 
   refreshGameDay(match.gameDayId);
   return ok(`Court ${match.courtNumber} is live.`);
@@ -570,9 +616,30 @@ export async function startAllSuggested(gameDayId: string): Promise<ActionResult
 
   const matches = await prisma.match.findMany({
     where: { gameDayId, status: "SUGGESTED" },
-    include: { players: true },
+    include: { players: { include: { player: true } } },
   });
   if (matches.length === 0) return fail("There are no suggested matches to start.");
+
+  // Guard against stale duplicate suggestions: one player cannot start twice.
+  const live = await prisma.match.findMany({
+    where: { gameDayId, status: "LIVE" },
+    include: { players: { include: { player: true } } },
+  });
+  const claimed = new Map<string, number>();
+  for (const other of live) {
+    for (const row of other.players) claimed.set(row.playerId, other.courtNumber);
+  }
+  const duplicates: string[] = [];
+  for (const match of matches) {
+    for (const row of match.players) {
+      const court = claimed.get(row.playerId);
+      if (court !== undefined) duplicates.push(`${row.player.nickname} (Court ${court})`);
+      else claimed.set(row.playerId, match.courtNumber);
+    }
+  }
+  if (duplicates.length > 0) {
+    return fail(`Suggestions share players: ${duplicates.join(", ")}. Clear suggestions, then auto-pair again.`);
+  }
 
   const now = new Date();
   await prisma.$transaction([
@@ -672,8 +739,30 @@ export async function updateMatchPlayers(
 
   const sessionRows = await prisma.sessionPlayer.findMany({
     where: { gameDayId: match.gameDayId, playerId: { in: all } },
+    include: { player: true },
   });
   if (sessionRows.length !== 4) return fail("All four players must be checked into this game day.");
+
+  // A player standing on another court cannot be pulled into this one.
+  const otherActive = await prisma.match.findMany({
+    where: {
+      gameDayId: match.gameDayId,
+      status: { in: ["SUGGESTED", "LIVE"] },
+      id: { not: matchId },
+    },
+    include: { players: { include: { player: true } } },
+  });
+  const committed = new Map<string, { nickname: string; court: number }>();
+  for (const other of otherActive) {
+    for (const row of other.players) {
+      committed.set(row.playerId, { nickname: row.player.nickname, court: other.courtNumber });
+    }
+  }
+  const taken = all.find((playerId) => committed.has(playerId));
+  if (taken) {
+    const entry = committed.get(taken)!;
+    return fail(`${entry.nickname} is already queued for Court ${entry.court}.`);
+  }
 
   const oldIds = match.players.map((row) => row.playerId);
   const now = new Date();
@@ -840,7 +929,17 @@ export async function createManualMatch(
 
   const gameDay = await prisma.gameDay.findUnique({
     where: { id: gameDayId },
-    include: { players: true, matches: { select: { round: true, courtNumber: true, status: true } } },
+    include: {
+      players: { include: { player: true } },
+      matches: {
+        select: {
+          round: true,
+          courtNumber: true,
+          status: true,
+          players: { select: { playerId: true } },
+        },
+      },
+    },
   });
   if (!gameDay) return fail("Game day not found.");
   if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
@@ -855,6 +954,18 @@ export async function createManualMatch(
     (match) => match.courtNumber === courtNumber && (match.status === "SUGGESTED" || match.status === "LIVE"),
   );
   if (clash) return fail(`Court ${courtNumber} already has a match.`);
+
+  const nicknameById = new Map(gameDay.players.map((row) => [row.playerId, row.player.nickname]));
+  for (const match of gameDay.matches) {
+    if (match.status !== "SUGGESTED" && match.status !== "LIVE") continue;
+    for (const row of match.players) {
+      if (playerIds.includes(row.playerId)) {
+        return fail(
+          `${nicknameById.get(row.playerId) ?? "A player"} is already queued for Court ${match.courtNumber}.`,
+        );
+      }
+    }
+  }
 
   const round = Math.max(0, ...gameDay.matches.map((match) => match.round)) + 1;
   const match = await prisma.match.create({
