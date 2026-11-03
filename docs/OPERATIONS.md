@@ -30,7 +30,8 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 ```
 
 - Check in players as they arrive, one at a time. The wait timer starts at check-in.
-- When every court is busy, the Auto-pair button becomes **Queue next game**. Each tap adds one game to the **Next up** line under the courts. When a game ends, the first game in line moves onto that court automatically; press **Start** once the four are on court.
+- **Waiting courts** under the courts hold games set ahead of time. Drop four waiting players on the empty waiting court, or press its **Pair**, to set the next game, even while courts are open. When every court is busy, the Auto-pair button becomes **Queue next game** and does the same.
+- Waiting games line up in order (**Up next**, Waiting 2, …). When a game ends, the first one moves onto that court automatically; press **Start** once the four are on court. If a court is already open, **Start** on a waiting game sends it there.
 - Queued games can be edited, removed with ✕, or dragged onto an open court.
 - Start a match only when all four are walking on court.
 - End a match with one tap. Both teams requeue automatically and each player's game count increments.
@@ -51,8 +52,8 @@ Stats at the top show total players, waiting, playing, games completed, busy/ope
 
 The court cards accept drag and drop:
 
-- **Move a match** — grab the grip handle in a court header and drop the card on another court. If that court already has a match, the two swap.
-- **Swap players** — drag a player chip from the queue or from another court onto a slot. Dropping a waiting player onto an occupied slot replaces that player; the replaced player stays checked in and waiting.
+- **Move a match** — grab the grip handle in a court header and drop the card on another court. If that court already has a match, the two swap. Drag a waiting court's game onto a free court to send it there.
+- **Swap players** — drag a player from the queue (grab the outlined name box; on a tablet, press and hold it for a moment) or from another court onto a slot. Dropping a waiting player onto an occupied slot replaces that player; the replaced player stays checked in and waiting.
 - **Build a court by hand** — drop four waiting players onto the empty slots of an open court. The first two become Team A, the last two Team B, and the match appears as a suggestion for you to start.
 
 Every drop is saved immediately and every other device sees it on the next poll.

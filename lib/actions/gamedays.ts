@@ -37,9 +37,16 @@ function refreshGameDay(id: string) {
   revalidatePath(`/app/gamedays/${id}/settings`);
 }
 
-/** "Court 2", or "the Next up line" for a queued game. */
-function courtLabel(court: number) {
-  return court === QUEUED_COURT ? "the Next up line" : `Court ${court}`;
+/**
+ * Display names for a game day's courts in its current block ("Court 5" when
+ * the block's courts are labelled 5-8, "Next up" for the waiting line), so
+ * messages match what the queue master sees on the board.
+ */
+async function courtNamer(gameDayId: string): Promise<(court: number) => string> {
+  const gameDay = await prisma.gameDay.findUnique({ where: { id: gameDayId }, select: { courtPlan: true } });
+  const plan = parseCourtPlan(gameDay?.courtPlan ?? []);
+  const slot = plan.length ? plan[currentSlotIndex(plan)] : undefined;
+  return (court) => courtName(slot, court);
 }
 
 /**
@@ -475,6 +482,7 @@ export async function generateMatches(
   gameDayId: string,
   slotIndex?: number,
   maxMatches?: number,
+  options: { queue?: boolean } = {},
 ): Promise<ActionResult<{ matches: number }>> {
   const authError = await guard();
   if (authError) return authError;
@@ -503,21 +511,22 @@ export async function generateMatches(
   );
 
   // Games already waiting in the Next up line get open courts before anyone new is paired.
-  if (freeCourts.length > 0 && active.some((match) => match.courtNumber === QUEUED_COURT)) {
+  if (!options.queue && freeCourts.length > 0 && active.some((match) => match.courtNumber === QUEUED_COURT)) {
     const filled = await prisma.$transaction((tx) => promoteQueuedGames(tx, gameDayId));
     if (filled.length > 0) {
       refreshGameDay(gameDayId);
       return ok(
         `${filled.length === 1 ? "Next up game" : `${filled.length} Next up games`} moved onto ${filled
-          .map((court) => `Court ${court}`)
+          .map((court) => courtName(slot, court))
           .join(", ")}. Review and start.`,
         { matches: filled.length },
       );
     }
   }
 
-  // With every court taken, auto-pair builds the next game and puts it in line.
-  const queueing = freeCourts.length === 0;
+  // With every court taken (or when the queue master pairs into the waiting
+  // court), auto-pair builds the next game and puts it in line.
+  const queueing = Boolean(options.queue) || freeCourts.length === 0;
 
   // A player queued for a suggested or live match is committed to that court —
   // never re-pair them, or the same foursome can end up on two courts at once.
@@ -604,14 +613,19 @@ export async function generateMatches(
   refreshGameDay(gameDayId);
   if (queueing) {
     const inLine = active.filter((match) => match.courtNumber === QUEUED_COURT).length + 1;
-    return ok(`All courts are busy. Game queued as #${inLine} in Next up — it takes the next free court.`, {
-      matches: 1,
-    });
+    return ok(
+      options.queue
+        ? `Game set in the waiting court as #${inLine} — it takes the next free court.`
+        : `All courts are busy. Game queued as #${inLine} in Next up — it takes the next free court.`,
+      {
+        matches: 1,
+      },
+    );
   }
   return ok(
     `${disjointSuggestions.length} ${disjointSuggestions.length === 1 ? "match" : "matches"} suggested on ${freeCourts
       .slice(0, disjointSuggestions.length)
-      .map((court) => `Court ${court}`)
+      .map((court) => courtName(slot, court))
       .join(", ")}. Review and start.`,
     { matches: suggestions.length },
   );
@@ -638,6 +652,7 @@ export async function startMatch(matchId: string, options: { free?: boolean } = 
     include: { players: { include: { player: true } } },
   });
   if (!match) return fail("Match not found.");
+  const name = await courtNamer(match.gameDayId);
   if (match.status !== "SUGGESTED") return fail("This match is not waiting to start.");
 
   let court = match.courtNumber;
@@ -660,7 +675,7 @@ export async function startMatch(matchId: string, options: { free?: boolean } = 
     }
     for (const row of match.players) {
       const other = claimed.get(row.playerId);
-      if (other !== undefined) clashed.push(`${row.player.nickname} (${courtLabel(other)})`);
+      if (other !== undefined) clashed.push(`${row.player.nickname} (${name(other)})`);
     }
     if (clashed.length > 0) return;
 
@@ -699,7 +714,7 @@ export async function startMatch(matchId: string, options: { free?: boolean } = 
   if (noCourt) return fail("Every court is in use. This game starts when a court frees up.");
 
   refreshGameDay(match.gameDayId);
-  return ok(options.free ? `Court ${court} is live — free game, not counted.` : `Court ${court} is live.`);
+  return ok(options.free ? `${name(court)} is live — free game, not counted.` : `${name(court)} is live.`);
 }
 
 export async function startAllSuggested(
@@ -708,6 +723,7 @@ export async function startAllSuggested(
 ): Promise<ActionResult<{ started: number }>> {
   const authError = await guard();
   if (authError) return authError;
+  const name = await courtNamer(gameDayId);
 
   const matches = await prisma.match.findMany({
     where: { gameDayId, status: "SUGGESTED", courtNumber: { not: QUEUED_COURT } },
@@ -728,7 +744,7 @@ export async function startAllSuggested(
   for (const match of matches) {
     for (const row of match.players) {
       const court = claimed.get(row.playerId);
-      if (court !== undefined) duplicates.push(`${row.player.nickname} (${courtLabel(court)})`);
+      if (court !== undefined) duplicates.push(`${row.player.nickname} (${name(court)})`);
       else claimed.set(row.playerId, match.courtNumber);
     }
   }
@@ -768,6 +784,7 @@ export async function completeMatch(matchId: string): Promise<ActionResult> {
 
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { players: true } });
   if (!match) return fail("Match not found.");
+  const name = await courtNamer(match.gameDayId);
   if (match.status !== "LIVE") return fail("Start the match before finishing it.");
 
   const now = new Date();
@@ -792,8 +809,8 @@ export async function completeMatch(matchId: string): Promise<ActionResult> {
   refreshGameDay(match.gameDayId);
   return ok(
     filled.length > 0
-      ? `Court ${match.courtNumber} finished. Next up game moved onto Court ${filled[0]} — start it when they're ready.`
-      : `Court ${match.courtNumber} finished${match.free ? " (free game, not counted)" : ""}. Players are back in the queue.`,
+      ? `${name(match.courtNumber)} finished. Next up game moved onto ${name(filled[0])} — start it when they're ready.`
+      : `${name(match.courtNumber)} finished${match.free ? " (free game, not counted)" : ""}. Players are back in the queue.`,
   );
 }
 
@@ -803,6 +820,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
 
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { players: true } });
   if (!match) return fail("Match not found.");
+  const name = await courtNamer(match.gameDayId);
   if (match.status === "COMPLETED") return fail("Completed matches cannot be cancelled.");
 
   const now = new Date();
@@ -822,7 +840,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
   refreshGameDay(match.gameDayId);
   return ok(
     filled.length > 0
-      ? `Match cancelled. Next up game moved onto Court ${filled[0]}.`
+      ? `Match cancelled. Next up game moved onto ${name(filled[0])}.`
       : "Match cancelled. Players stay in the queue.",
   );
 }
@@ -844,6 +862,7 @@ export async function updateMatchPlayers(
     include: { players: true },
   });
   if (!match) return fail("Match not found.");
+  const name = await courtNamer(match.gameDayId);
   if (match.status === "COMPLETED" || match.status === "CANCELLED") {
     return fail("This match can no longer be edited.");
   }
@@ -872,7 +891,7 @@ export async function updateMatchPlayers(
   const taken = all.find((playerId) => committed.has(playerId));
   if (taken) {
     const entry = committed.get(taken)!;
-    return fail(`${entry.nickname} is already queued for ${courtLabel(entry.court)}.`);
+    return fail(`${entry.nickname} is already queued for ${name(entry.court)}.`);
   }
 
   const oldIds = match.players.map((row) => row.playerId);
@@ -913,6 +932,7 @@ export async function updateMatchCourt(matchId: string, courtNumber: number): Pr
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return fail("Match not found.");
+  const name = await courtNamer(match.gameDayId);
   if (match.status === "COMPLETED") return fail("Completed matches cannot be moved.");
 
   const clash = await prisma.match.findFirst({
@@ -923,11 +943,11 @@ export async function updateMatchCourt(matchId: string, courtNumber: number): Pr
       id: { not: matchId },
     },
   });
-  if (clash) return fail(`Court ${courtNumber} already has a match.`);
+  if (clash) return fail(`${name(courtNumber)} already has a match.`);
 
   await prisma.match.update({ where: { id: matchId }, data: { courtNumber } });
   refreshGameDay(match.gameDayId);
-  return ok(`Moved to Court ${courtNumber}.`);
+  return ok(`Moved to ${name(courtNumber)}.`);
 }
 
 /**
@@ -1078,7 +1098,8 @@ export async function createManualMatch(
   const authError = await guard();
   if (authError) return authError;
 
-  if (!Number.isInteger(courtNumber) || courtNumber < 1 || courtNumber > 20)
+  // QUEUED_COURT (0) builds the game in the waiting court instead of on a court.
+  if (!Number.isInteger(courtNumber) || courtNumber < QUEUED_COURT || courtNumber > 20)
     return fail("Pick a valid court.");
   if (playerIds.length !== 4 || new Set(playerIds).size !== 4)
     return fail("A court needs four different players.");
@@ -1099,6 +1120,7 @@ export async function createManualMatch(
   });
   if (!gameDay) return fail("Game day not found.");
   if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
+  const name = await courtNamer(gameDayId);
 
   const waiting = new Set(
     gameDay.players.filter((row) => row.status === "WAITING").map((row) => row.playerId),
@@ -1106,10 +1128,14 @@ export async function createManualMatch(
   if (playerIds.some((playerId) => !waiting.has(playerId)))
     return fail("Only checked-in, waiting players can be placed on a court.");
 
-  const clash = gameDay.matches.find(
-    (match) => match.courtNumber === courtNumber && (match.status === "SUGGESTED" || match.status === "LIVE"),
-  );
-  if (clash) return fail(`Court ${courtNumber} already has a match.`);
+  const clash =
+    courtNumber === QUEUED_COURT
+      ? undefined
+      : gameDay.matches.find(
+          (match) =>
+            match.courtNumber === courtNumber && (match.status === "SUGGESTED" || match.status === "LIVE"),
+        );
+  if (clash) return fail(`${name(courtNumber)} already has a match.`);
 
   const nicknameById = new Map(gameDay.players.map((row) => [row.playerId, row.player.nickname]));
   for (const match of gameDay.matches) {
@@ -1117,7 +1143,7 @@ export async function createManualMatch(
     for (const row of match.players) {
       if (playerIds.includes(row.playerId)) {
         return fail(
-          `${nicknameById.get(row.playerId) ?? "A player"} is already queued for ${courtLabel(match.courtNumber)}.`,
+          `${nicknameById.get(row.playerId) ?? "A player"} is already queued for ${name(match.courtNumber)}.`,
         );
       }
     }
@@ -1148,7 +1174,15 @@ export async function createManualMatch(
   });
 
   refreshGameDay(gameDayId);
-  return ok(`Court ${courtNumber} set by hand.`, { matchId: match.id });
+  if (courtNumber === QUEUED_COURT) {
+    const inLine =
+      gameDay.matches.filter((row) => row.courtNumber === QUEUED_COURT && row.status === "SUGGESTED").length +
+      1;
+    return ok(`Game set in the waiting court as #${inLine} — it takes the next free court.`, {
+      matchId: match.id,
+    });
+  }
+  return ok(`${name(courtNumber)} set by hand.`, { matchId: match.id });
 }
 
 /**
@@ -1164,6 +1198,7 @@ export async function moveMatchToCourt(matchId: string, courtNumber: number): Pr
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return fail("Match not found.");
+  const name = await courtNamer(match.gameDayId);
   if (match.status === "COMPLETED" || match.status === "CANCELLED")
     return fail("This match can no longer be moved.");
   if (match.courtNumber === courtNumber) return ok("Match is already on that court.");
@@ -1178,7 +1213,7 @@ export async function moveMatchToCourt(matchId: string, courtNumber: number): Pr
   });
 
   if (occupant && match.courtNumber === QUEUED_COURT) {
-    return fail(`Court ${courtNumber} is in use. Finish or cancel that game first.`);
+    return fail(`${name(courtNumber)} is in use. Finish or cancel that game first.`);
   }
 
   if (occupant) {
@@ -1187,7 +1222,7 @@ export async function moveMatchToCourt(matchId: string, courtNumber: number): Pr
       prisma.match.update({ where: { id: occupant.id }, data: { courtNumber: match.courtNumber } }),
     ]);
     refreshGameDay(match.gameDayId);
-    return ok(`Swapped Court ${match.courtNumber} and Court ${courtNumber}.`);
+    return ok(`Swapped ${name(match.courtNumber)} and ${name(courtNumber)}.`);
   }
 
   await prisma.$transaction(async (tx) => {
@@ -1197,8 +1232,8 @@ export async function moveMatchToCourt(matchId: string, courtNumber: number): Pr
   refreshGameDay(match.gameDayId);
   return ok(
     match.courtNumber === QUEUED_COURT
-      ? `Next up game sent to Court ${courtNumber}.`
-      : `Moved to Court ${courtNumber}.`,
+      ? `Next up game sent to ${name(courtNumber)}.`
+      : `Moved to ${name(courtNumber)}.`,
   );
 }
 

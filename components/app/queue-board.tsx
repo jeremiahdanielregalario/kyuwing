@@ -9,7 +9,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -209,7 +210,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [activeDrag, setActiveDrag] = React.useState<DragPayload | null>(null);
   const creatingDrafts = React.useRef<Set<number>>(new Set());
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Press and hold to pick up on a tablet, so a quick swipe still scrolls the queue.
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -257,7 +260,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     if (!active || !over || isCompleted) return;
 
     if (active.kind === "match") {
-      if (over.kind === "court") {
+      if (over.kind === "court" && over.courtNumber !== QUEUED_COURT) {
         act(() => moveMatchToCourt(active.matchId, over.courtNumber));
       }
       return;
@@ -854,38 +857,58 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     );
                   })}
                 </div>
-                {queued.length > 0 && (
-                  <div className="border-line bg-paper rounded-2xl border p-3">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <h3 className="text-muted inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.16em] uppercase">
-                        <ListOrdered className="h-3.5 w-3.5" /> Next up · {queued.length}
+                {!isCompleted && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 className="font-display inline-flex items-center gap-1.5 text-base font-bold">
+                        <ListOrdered className="h-4 w-4" /> Waiting courts
+                        {queued.length > 0 && (
+                          <span className="text-muted font-mono text-[11px] font-bold">
+                            · {queued.length} in line
+                          </span>
+                        )}
                       </h3>
-                      <span className="text-muted text-[10px]">
-                        {courtsFull
-                          ? "Takes the next court that frees up"
-                          : "A court is open — start the first game"}
+                      <span data-trim-id="board.waiting-hint" className="text-muted text-[11px]">
+                        Set games ahead. Each takes the next court that frees up, in order.
                       </span>
                     </div>
-                    <div className="space-y-2">
-                      {queued.map((match, index) => (
-                        <NextUpGame
-                          key={match.id}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {[...queued, undefined].map((match, index) => (
+                        <CourtCard
+                          key={match?.id ?? "waiting-new"}
+                          court={QUEUED_COURT}
+                          name={match ? `Waiting ${index + 1}` : "Waiting court"}
                           match={match}
-                          position={index + 1}
+                          queuePosition={match ? index + 1 : undefined}
                           canStart={!courtsFull}
+                          draft={drafts[QUEUED_COURT] ?? EMPTY_DRAFT}
+                          playerById={playerById}
+                          now={now}
                           pending={pending}
                           isCompleted={isCompleted}
+                          onPair={() =>
+                            act(() => generateMatches(data.gameDay.id, slotIndex, 1, { queue: true }))
+                          }
                           onStart={(id) => requestStart(1, (free) => act(() => startMatch(id, { free })))}
+                          onFinish={finishMatch}
                           onEdit={openEdit}
                           onCancel={(id) =>
                             setConfirmSpec({
-                              title: "Remove this game from Next up?",
+                              title: "Remove this waiting game?",
                               description: "The four players stay in the queue.",
                               confirmLabel: "Remove game",
                               cancelLabel: "Keep it",
                               tone: "danger",
                               onConfirm: () => act(() => cancelMatch(id)),
                             })
+                          }
+                          onClearDraft={(slotPosition) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [QUEUED_COURT]: (prev[QUEUED_COURT] ?? EMPTY_DRAFT).map((id, position) =>
+                                position === slotPosition ? null : id,
+                              ),
+                            }))
                           }
                         />
                       ))}
@@ -993,29 +1016,25 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               ) : (
                 <div className="space-y-1">
                   {visible.map((player) => (
-                    <DraggableQueueItem
+                    <QueueRow
                       key={player.sessionPlayerId}
+                      draggable={player.status === "WAITING" && !pending && !isCompleted}
                       player={player}
-                      disabled={player.status !== "WAITING" || pending || isCompleted}
-                    >
-                      <QueueRow
-                        player={player}
-                        now={now}
-                        pending={pending}
-                        onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                        onDone={() =>
-                          setConfirmSpec({
-                            title: `Mark ${player.nickname} done for the day?`,
-                            description: "They leave the board and stop receiving games.",
-                            confirmLabel: "Mark done",
-                            cancelLabel: "Not yet",
-                            onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
-                          })
-                        }
-                        onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
-                        onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
-                      />
-                    </DraggableQueueItem>
+                      now={now}
+                      pending={pending}
+                      onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
+                      onDone={() =>
+                        setConfirmSpec({
+                          title: `Mark ${player.nickname} done for the day?`,
+                          description: "They leave the board and stop receiving games.",
+                          confirmLabel: "Mark done",
+                          cancelLabel: "Not yet",
+                          onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
+                        })
+                      }
+                      onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
+                      onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
+                    />
                   ))}
                 </div>
               )}
@@ -1403,96 +1422,6 @@ function FreeTag() {
   );
 }
 
-function NextUpGame({
-  match,
-  position,
-  canStart,
-  pending,
-  isCompleted,
-  onStart,
-  onEdit,
-  onCancel,
-}: {
-  match: BoardMatch;
-  position: number;
-  canStart: boolean;
-  pending: boolean;
-  isCompleted: boolean;
-  onStart: (id: string) => void;
-  onEdit: (match: BoardMatch) => void;
-  onCancel: (id: string) => void;
-}) {
-  const mounted = useMounted();
-  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
-    id: `match-${match.id}`,
-    data: { kind: "match", matchId: match.id, courtNumber: QUEUED_COURT } satisfies DragPayload,
-    disabled: isCompleted,
-  });
-  const names = (team: BoardMatch["team1"]) => team.map((player) => player.nickname).join(" & ");
-
-  return (
-    <div
-      className={cn(
-        "border-line/70 bg-cream/40 flex flex-wrap items-center gap-2 rounded-xl border px-2.5 py-2",
-        isDragging && "opacity-60",
-      )}
-    >
-      <span
-        ref={setNodeRef}
-        {...listeners}
-        {...(mounted ? attributes : {})}
-        aria-label={`Drag Next up game ${position} onto an open court`}
-        className="text-muted hover:text-ink grid h-8 w-5 cursor-grab touch-none place-items-center rounded"
-      >
-        <GripVertical className="h-3.5 w-3.5" />
-      </span>
-      <span className="bg-forest text-lime grid h-7 w-7 shrink-0 place-items-center rounded-full font-mono text-[11px] font-bold">
-        {position}
-      </span>
-      <div className="min-w-0 flex-1 text-[12px]">
-        <p className="truncate font-semibold">
-          {names(match.team1)}
-          <span className="text-muted mx-1.5 font-normal">vs</span>
-          {names(match.team2)}
-        </p>
-        <p className="text-muted font-mono text-[9px]">
-          {[...match.team1, ...match.team2].map((player) => player.levelLabel).join(" · ")} · R{match.round}
-        </p>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => onStart(match.id)}
-          disabled={pending || isCompleted || !canStart}
-          title={canStart ? "Start on the first open court" : "Every court is in use"}
-          className="h-8"
-        >
-          <Play className="h-3.5 w-3.5" /> Start
-        </Button>
-        <button
-          type="button"
-          onClick={() => onEdit(match)}
-          disabled={pending}
-          aria-label="Edit Next up game"
-          className="border-line text-muted hover:bg-cream-deep hover:text-ink grid h-8 w-8 place-items-center rounded-full border transition disabled:opacity-40"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onCancel(match.id)}
-          disabled={pending}
-          aria-label="Remove Next up game"
-          className="text-muted hover:text-coral grid h-8 w-8 place-items-center rounded-full transition disabled:opacity-40"
-        >
-          <XCircle className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function CourtCard({
   court,
   name,
@@ -1508,6 +1437,8 @@ function CourtCard({
   onEdit,
   onCancel,
   onClearDraft,
+  queuePosition,
+  canStart = true,
 }: {
   court: number;
   name: string;
@@ -1523,9 +1454,15 @@ function CourtCard({
   onEdit: (match: BoardMatch) => void;
   onCancel: (id: string) => void;
   onClearDraft: (index: number) => void;
+  /** Place in the Next up line when this card is a waiting court holding a game. */
+  queuePosition?: number;
+  /** False when a waiting court's game has no free court to start on. */
+  canStart?: boolean;
 }) {
+  // A waiting court (court 0) holds a game ahead of time; it is not a real court.
+  const waiting = court === QUEUED_COURT;
   const { setNodeRef: setCourtRef, isOver: courtOver } = useDroppable({
-    id: `court-${court}`,
+    id: waiting ? `waiting-${match?.id ?? "new"}` : `court-${court}`,
     data: { kind: "court", courtNumber: court, matchId: match?.id } satisfies DropTarget,
     disabled: isCompleted,
   });
@@ -1580,7 +1517,9 @@ function CourtCard({
             ))}
           </div>
           <div className="mt-2.5 flex items-center justify-between gap-2">
-            <span className="text-cream/40 text-[10px]">Drop four waiting players</span>
+            <span className="text-cream/40 text-[10px]">
+              {waiting ? "Drop four players to set the next game" : "Drop four waiting players"}
+            </span>
             <Button
               variant="accent"
               size="sm"
@@ -1606,7 +1545,7 @@ function CourtCard({
       ref={setCourtRef}
       className={cn(
         "court-surface relative overflow-hidden rounded-2xl border transition",
-        live ? "border-lime/45 shadow-gold" : "border-lime/20",
+        live ? "border-lime/45 shadow-gold" : waiting ? "border-lime/30 border-dashed" : "border-lime/20",
         courtOver && "border-lime ring-lime/50 ring-2",
         isDragging && "opacity-60",
       )}
@@ -1619,7 +1558,7 @@ function CourtCard({
               ref={setHandleRef}
               {...listeners}
               {...(mounted ? attributes : {})}
-              aria-label={`Move the Court ${court} match`}
+              aria-label={waiting ? `Drag ${name} onto a free court` : `Move the ${name} match`}
               className={cn(
                 "text-cream/45 hover:text-cream grid h-6 w-5 cursor-grab touch-none place-items-center rounded",
                 isDragging && "text-lime",
@@ -1641,10 +1580,12 @@ function CourtCard({
             <span
               className={cn(
                 "rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase",
-                live ? "bg-lime text-forest-deep" : "border-lime/40 bg-lime/10 text-lime border",
+                live || queuePosition === 1
+                  ? "bg-lime text-forest-deep"
+                  : "border-lime/40 bg-lime/10 text-lime border",
               )}
             >
-              {live ? "Live" : "Suggested"}
+              {live ? "Live" : waiting ? (queuePosition === 1 ? "Up next" : "Waiting") : "Suggested"}
             </span>
             {match.free && <FreeTag />}
           </div>
@@ -1699,7 +1640,10 @@ function CourtCard({
               variant="accent"
               size="sm"
               onClick={() => onStart(match.id)}
-              disabled={pending || isCompleted}
+              disabled={pending || isCompleted || !canStart}
+              title={
+                canStart ? undefined : "Every court is in use — this game takes the next one that frees up"
+              }
               className="h-8 flex-1"
             >
               <Play className="h-3.5 w-3.5" /> Start
@@ -1859,49 +1803,9 @@ function DragChip({ drag, courtLabel }: { drag: DragPayload; courtLabel?: string
   );
 }
 
-function DraggableQueueItem({
-  player,
-  disabled,
-  children,
-}: {
-  player: BoardPlayer;
-  disabled: boolean;
-  children: React.ReactNode;
-}) {
-  const mounted = useMounted();
-  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
-    id: `queue-${player.sessionPlayerId}`,
-    data: {
-      kind: "queue-player",
-      playerId: player.playerId,
-      nickname: player.nickname,
-      level: player.level,
-    } satisfies DragPayload,
-    disabled,
-  });
-
-  return (
-    <div className={cn("flex items-stretch gap-1", isDragging && "opacity-40")}>
-      {disabled ? (
-        <span className="w-4 shrink-0" aria-hidden="true" />
-      ) : (
-        <span
-          ref={setNodeRef}
-          {...listeners}
-          {...(mounted ? attributes : {})}
-          aria-label={`Drag ${player.nickname} to a court`}
-          className="text-muted/50 hover:text-ink grid w-4 shrink-0 cursor-grab touch-none place-items-center rounded"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </span>
-      )}
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  );
-}
-
 function QueueRow({
   player,
+  draggable,
   now,
   pending,
   onCheckIn,
@@ -1910,6 +1814,8 @@ function QueueRow({
   onPriority,
 }: {
   player: BoardPlayer;
+  /** Waiting players can be dragged by their name box onto a court or waiting court. */
+  draggable: boolean;
   now: number;
   pending: boolean;
   onCheckIn: () => void;
@@ -1920,6 +1826,17 @@ function QueueRow({
   const wait = waitSeconds(player.queuedAt, now);
   const pairRequest = player.requests.find((request) => request.type === "PAIR_WITH");
   const againstRequest = player.requests.find((request) => request.type === "PLAY_AGAINST");
+  const mounted = useMounted();
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: `queue-${player.sessionPlayerId}`,
+    data: {
+      kind: "queue-player",
+      playerId: player.playerId,
+      nickname: player.nickname,
+      level: player.level,
+    } satisfies DragPayload,
+    disabled: !draggable,
+  });
 
   return (
     <div
@@ -1928,38 +1845,53 @@ function QueueRow({
         player.priority && "border-lime-deep/30 bg-lime/[0.07]",
       )}
     >
-      <Avatar name={player.nickname} level={player.levelLabel} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
-          {player.priority && <Star className="fill-lime-deep text-lime-deep h-3 w-3" />}
-        </div>
-        <div className="text-muted flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
-          <span>{player.gamesPlayed} games</span>
-          {player.permanentPartnerNickname && (
-            <span
-              className="text-forest inline-flex items-center gap-0.5"
-              title={`Permanent pair: ${player.permanentPartnerNickname}`}
-            >
-              <Link2 className="h-2.5 w-2.5" /> {player.permanentPartnerNickname}
-            </span>
-          )}
-          {pairRequest && (
-            <span
-              className="text-forest inline-flex items-center gap-0.5"
-              title={`Wants to partner with ${pairRequest.targetNickname}`}
-            >
-              <HeartHandshake className="h-2.5 w-2.5" /> {pairRequest.targetNickname}
-            </span>
-          )}
-          {againstRequest && (
-            <span
-              className="text-coral inline-flex items-center gap-0.5"
-              title={`Wants to play against ${againstRequest.targetNickname}`}
-            >
-              <Crosshair className="h-2.5 w-2.5" /> {againstRequest.targetNickname}
-            </span>
-          )}
+      <div
+        ref={setNodeRef}
+        {...(draggable ? listeners : {})}
+        {...(draggable && mounted ? attributes : {})}
+        aria-label={draggable ? `Drag ${player.nickname} to a court` : undefined}
+        title={draggable ? "Drag onto a court or the waiting court" : undefined}
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2 rounded-xl",
+          draggable &&
+            "border-forest/35 bg-paper hover:border-forest hover:bg-lime/15 cursor-grab touch-manipulation border-2 border-dashed py-1 pr-2 pl-1 shadow-sm transition select-none active:cursor-grabbing",
+          isDragging && "border-lime bg-lime/20 opacity-50",
+        )}
+      >
+        {draggable && <GripVertical className="text-forest/60 h-4 w-4 shrink-0" aria-hidden="true" />}
+        <Avatar name={player.nickname} level={player.levelLabel} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
+            {player.priority && <Star className="fill-lime-deep text-lime-deep h-3 w-3" />}
+          </div>
+          <div className="text-muted flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
+            <span>{player.gamesPlayed} games</span>
+            {player.permanentPartnerNickname && (
+              <span
+                className="text-forest inline-flex items-center gap-0.5"
+                title={`Permanent pair: ${player.permanentPartnerNickname}`}
+              >
+                <Link2 className="h-2.5 w-2.5" /> {player.permanentPartnerNickname}
+              </span>
+            )}
+            {pairRequest && (
+              <span
+                className="text-forest inline-flex items-center gap-0.5"
+                title={`Wants to partner with ${pairRequest.targetNickname}`}
+              >
+                <HeartHandshake className="h-2.5 w-2.5" /> {pairRequest.targetNickname}
+              </span>
+            )}
+            {againstRequest && (
+              <span
+                className="text-coral inline-flex items-center gap-0.5"
+                title={`Wants to play against ${againstRequest.targetNickname}`}
+              >
+                <Crosshair className="h-2.5 w-2.5" /> {againstRequest.targetNickname}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

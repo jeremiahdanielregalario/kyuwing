@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Waiting courts** — set games ahead of time on court-style cards below the courts: drop four players in or press Pair, even while courts are open. Waiting games run in order and take the next court that frees up; edit, remove, or drag them onto a free court.
 - **Shareable live view** — **Share live view** on the board gives a view-only link for the group chat. Players see the courts, the Next up line, and the waiting order, updating every few seconds, and can type their nickname to see if they're next. No login; nicknames and levels only.
 - **Non-affiliate player type** — for plus-ones from outside the association, with its own fee rules (a higher ₱30 per-game rate in production). Available in the roster, sign-ups, walk-ins, imports (`non-affiliate`, `plus one`, or `guest`), and the fee matrix.
 - **Add court** — add a court to the current block from the live board, mid-session. A game waiting in Next up moves straight onto it.
@@ -31,6 +32,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Draggable queue names** — in The queue, each waiting player's name box is the drag handle, outlined so it looks draggable. On tablets, press and hold to pick a player up, so a quick swipe still scrolls the list.
 - **Player database sorting** — sort the roster by name, level, type, contact, or status by clicking a column header or using the sort control; click again to flip the direction.
 - **Player search** — search now also matches notes, and a Clear button resets all filters at once.
 - **Player categories** — "Inactive" and "Alumni" are now separate player types (Active, Inactive, Alumni, Applicant) in the roster, sign-ups, board, and fee rules.
@@ -45,6 +47,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- Board messages name courts by their labels ("Court 5 is live") instead of their position ("Court 1").
 - Adding a Non-affiliate player from sign-ups or walk-ins no longer fails with "Pick a valid player type."
 - Sidebar and mobile navigation highlight "Live board" on every game-day page and "Game days" only on the list page.
 - "Live board" is disabled when no game day exists, instead of bouncing through a redirect to the game-days list.
