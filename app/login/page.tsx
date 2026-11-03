@@ -50,9 +50,9 @@ export default async function LoginPage({
               </>
             ) : (
               <>
-                Run the room,
+                Bold. Agile.
                 <br />
-                not the group chat.
+                Daring.
               </>
             )}
           </h1>
