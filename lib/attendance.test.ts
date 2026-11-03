@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nameKey, parseAttendanceBlock, parseNameList } from "./attendance";
+import { fullNameKeys, nameKey, parseAttendanceBlock, parseNameList } from "./attendance";
 
 const EXHIBIT_1 = `Official MEGA Game Day (KBC) 
 Nov 2, 2026; Monday
@@ -76,9 +76,9 @@ describe("parseNameList", () => {
   });
 
   it("ignores pasted event headers, dates and times", () => {
-    expect(
-      parseNameList("Official MEGA Game Day (KBC)\nNov 2, 2026; Monday\n10AM - 3PM\n1. Jgops"),
-    ).toEqual(["Jgops"]);
+    expect(parseNameList("Official MEGA Game Day (KBC)\nNov 2, 2026; Monday\n10AM - 3PM\n1. Jgops")).toEqual([
+      "Jgops",
+    ]);
   });
 });
 
@@ -89,6 +89,24 @@ describe("parseAttendanceBlock", () => {
     expect(played[0]).toBe("Jgops");
     expect(played.at(-1)).toBe("Carl");
     expect(waitlist).toEqual(["Dane", "Miles", "Dee", "Emman", "Gian", "Perry", "Serafin", "Ian"]);
+  });
+});
+
+describe("mentions", () => {
+  it("keeps Messenger mentions as names", () => {
+    expect(parseNameList("2. Wan\n3. @Jeremiah Daniel Regalario \n4. Eli")).toEqual([
+      "Wan",
+      "Jeremiah Daniel Regalario",
+      "Eli",
+    ]);
+  });
+
+  it("matches full names in stored and first-last order", () => {
+    expect(fullNameKeys("REGALARIO, Jeremiah Daniel")).toEqual([
+      "regalario, jeremiah daniel",
+      "jeremiah daniel regalario",
+    ]);
+    expect(fullNameKeys("Jill")).toEqual(["jill"]);
   });
 });
 

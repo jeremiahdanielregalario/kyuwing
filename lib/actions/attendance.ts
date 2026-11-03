@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { fail, ok } from "@/lib/action-result";
 import type { ActionResult } from "@/lib/action-result";
-import { nameKey, parseAttendanceBlock, parseNameList } from "@/lib/attendance";
+import { fullNameKeys, nameKey, parseAttendanceBlock, parseNameList } from "@/lib/attendance";
 import { isQueueMaster } from "@/lib/auth";
 import { dateOnlyFromKey } from "@/lib/datetime";
 import { prisma } from "@/lib/db";
@@ -55,13 +55,15 @@ export async function logAttendanceEvent(
   const fullNameCounts = new Map<string, number>();
   for (const player of players) {
     if (!player.fullName) continue;
-    const key = nameKey(player.fullName);
-    fullNameCounts.set(key, (fullNameCounts.get(key) ?? 0) + 1);
+    for (const key of fullNameKeys(player.fullName)) {
+      fullNameCounts.set(key, (fullNameCounts.get(key) ?? 0) + 1);
+    }
   }
   for (const player of players) {
     if (!player.fullName) continue;
-    const key = nameKey(player.fullName);
-    if (fullNameCounts.get(key) === 1) byKey.set(key, player.id);
+    for (const key of fullNameKeys(player.fullName)) {
+      if (fullNameCounts.get(key) === 1) byKey.set(key, player.id);
+    }
   }
   for (const player of players) byKey.set(nameKey(player.nickname), player.id);
 

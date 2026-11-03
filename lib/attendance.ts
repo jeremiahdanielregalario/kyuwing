@@ -24,10 +24,21 @@ const NOISE_LINE =
  * Nicknames are short: letters, spaces, dots, apostrophes and hyphens.
  * Anything else (dates, times, event titles with parentheses) is a header.
  */
-const NAME_LINE = /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ.'\- ]{0,31}$/;
+const NAME_LINE = /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ.'\- ]{0,47}$/;
 
 export function nameKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Keys a stored full name ("REGALARIO, Jeremiah Daniel") can be matched by:
+ * as stored, and in the "Jeremiah Daniel Regalario" order chat mentions use.
+ */
+export function fullNameKeys(fullName: string): string[] {
+  const stored = nameKey(fullName);
+  const [last, first] = fullName.split(",").map((part) => part.trim());
+  if (!last || !first) return [stored];
+  return [stored, nameKey(`${first} ${last}`)];
 }
 
 export function parseNameList(input: string): string[] {
@@ -39,7 +50,8 @@ export function parseNameList(input: string): string[] {
     let line = rawLine.trim();
     if (!line) continue;
 
-    line = line.replace(LIST_PREFIX, "").replace(/\s+/g, " ").trim();
+    // A leading "@" is a Messenger mention of the player.
+    line = line.replace(LIST_PREFIX, "").replace(/^@/, "").replace(/\s+/g, " ").trim();
     if (!line || NOISE_LINE.test(line)) continue;
     if (!NAME_LINE.test(line)) continue;
     // Guard against event headers that happen to be short and unpunctuated.
