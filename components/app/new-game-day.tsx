@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createGameDay } from "@/lib/actions/gamedays";
 import { courtName, parseCourtNumbers } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
+import { CourtRateField } from "@/components/app/court-rate-field";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 
@@ -53,6 +54,7 @@ export function NewGameDayButton({
   const [notes, setNotes] = React.useState("");
   const [queueMasterName, setQueueMasterName] = React.useState(defaultQueueMaster);
   const [financeMemberName, setFinanceMemberName] = React.useState("");
+  const [courtRate, setCourtRate] = React.useState("");
   const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue)] : []);
   const [pending, startTransition] = React.useTransition();
 
@@ -99,6 +101,7 @@ export function NewGameDayButton({
         notes,
         queueMasterName,
         financeMemberName,
+        courtRatePerHour: courtRate ? Number(courtRate) : null,
         courtPlan: slots.map(({ numbers, ...slot }) => {
           const courtLabels = parseCourtNumbers(numbers);
           return courtLabels.length ? { ...slot, courts: courtLabels.length, courtLabels } : slot;
@@ -188,6 +191,8 @@ export function NewGameDayButton({
               />
             </Field>
           </div>
+
+          <CourtRateField value={courtRate} onChange={setCourtRate} plan={slots} />
 
           <Field label="Name (optional)" hint="Defaults to venue + date, e.g. KBC · Monday, Nov 2.">
             <Input

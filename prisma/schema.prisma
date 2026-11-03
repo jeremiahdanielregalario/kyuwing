@@ -180,6 +180,8 @@ model GameDay {
   status      GameDayStatus  @default(DRAFT)
   courtPlan   Json           @default("[]")
   notes       String?
+  /// Court rate per hour per court. When set, the court cost is split among players as the flat fee, instead of using the venue's fee rules.
+  courtRatePerHour Int?
   /// Officers on duty, shown on the session report.
   queueMasterName   String?
   financeMemberName String?

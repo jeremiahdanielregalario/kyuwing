@@ -1,4 +1,5 @@
 import type { CourtSlot } from "./datetime";
+import type { FeeSplit } from "./fees";
 
 export type BoardRequest = {
   id: string;
@@ -61,6 +62,7 @@ export type BoardGameDay = {
   notes: string | null;
   queueMasterName: string | null;
   financeMemberName: string | null;
+  courtRatePerHour: number | null;
   startedAt: string | null;
   courtPlan: CourtSlot[];
   venue: { id: string; name: string; shortName: string };
@@ -110,6 +112,8 @@ export type FeeRow = {
 
 export type FeeReport = {
   gameDay: BoardGameDay;
+  /** How fees were worked out, with the split breakdown when the game day has a court rate. */
+  scheme: { mode: "VENUE" | "SPLIT"; split: FeeSplit | null };
   rows: FeeRow[];
   summary: {
     totalPlayers: number;

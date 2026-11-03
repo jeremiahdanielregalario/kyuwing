@@ -66,6 +66,7 @@ const DATA: BoardData = {
     notes: "internal",
     queueMasterName: "Officer Quinn",
     financeMemberName: "Officer Fay",
+    courtRatePerHour: null,
     startedAt: null,
     courtPlan: [
       { id: "a", label: "First", start: "10:00", end: "14:00", courts: 3, courtLabels: ["5", "6", "7"] },

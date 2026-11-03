@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Split-cost fees for any venue** — enter a game day's **court rate per hour** (per court) and the court cost (rate × hours × courts across the blocks) is divided among the players who check in, rounded up, as everyone's flat fee. Shuttles are per game: Active ₱20, Alumni/Inactive/Applicant ₱25, Non-affiliate ₱30. Set in the new game day form or Settings; the Fees tab shows the breakdown. Blank keeps the venue's fee rates.
 - **Payment list on the live view** — when a game day is completed, the shared live link adds a **Payment list**: each player's games, total, and balance (nickname only, with your own row highlighted), above the Pay online QR. Nothing about fees is public while the game day is still running.
 - **Pay online card** — game-day GCash details (account name, number, QR, one-tap Copy number) shown on the players' live view and at the top of the Fees tab, so players can pay fast. Details live in `lib/payment.ts`; the QR is `public/brand/gcash-qr.jpg`.
 - **End of reservation** — when the reserved time runs out, the board asks whether to **extend** (until when, with how many courts) or **end the game day**, counting games still on court and going straight to Fees. It can be snoozed for 10 minutes.

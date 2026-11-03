@@ -12,7 +12,7 @@ import type {
   FeeRow,
 } from "./board-types";
 import { currentSlotIndex, elapsedMinutes, parseCourtPlan, QUEUED_COURT, type CourtSlot } from "./datetime";
-import { computeFee } from "./fees";
+import { buildFeeSchedule } from "./fees";
 import { levelLabel } from "./levels";
 import { recencySummary, toRecencySnapshot, type RecencyEntry, type RecencySnapshot } from "./recency";
 
@@ -37,6 +37,7 @@ function toGameDayDto(gameDay: GameDayWithPlayers): BoardGameDay {
     notes: gameDay.notes,
     queueMasterName: gameDay.queueMasterName,
     financeMemberName: gameDay.financeMemberName,
+    courtRatePerHour: gameDay.courtRatePerHour,
     startedAt: gameDay.startedAt?.toISOString() ?? null,
     courtPlan: parseCourtPlan(gameDay.courtPlan),
     venue: {
@@ -309,11 +310,15 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
   });
   if (!gameDay) return null;
 
+  const schedule = buildFeeSchedule({
+    type: gameDay.type,
+    courtPlan: parseCourtPlan(gameDay.courtPlan),
+    ratePerCourtHour: gameDay.courtRatePerHour,
+    attendees: gameDay.players.filter((row) => row.status !== "EXPECTED").length,
+    rules: gameDay.venue.feeRules,
+  });
   const rows: FeeRow[] = gameDay.players.map((row) => {
-    const rule = gameDay.venue.feeRules.find(
-      (candidate) => candidate.dayType === gameDay.type && candidate.category === row.player.category,
-    );
-    const total = computeFee(rule, row.gamesPlayed);
+    const { flatFee, perGameFee, total } = schedule.feeFor(row.player.category, row.gamesPlayed);
     return {
       sessionPlayerId: row.id,
       playerId: row.playerId,
@@ -322,8 +327,8 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
       category: row.player.category,
       status: row.status,
       gamesPlayed: row.gamesPlayed,
-      flatFee: rule?.flatFee ?? 0,
-      perGameFee: rule?.perGameFee ?? 0,
+      flatFee,
+      perGameFee,
       total,
       paid: row.paid,
       amountPaid: row.amountPaid,
@@ -337,6 +342,7 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
 
   return {
     gameDay: toGameDayDto(gameDay),
+    scheme: { mode: schedule.mode, split: schedule.split },
     rows,
     summary: {
       totalPlayers: rows.length,

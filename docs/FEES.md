@@ -119,6 +119,18 @@ There is currently no effective-dated fee rule table. This is a known limitation
 4. Check that the Excel total matches the cash + GCash + bank received.
 5. File the export; it is the immutable record for that date.
 
+## Split-cost scheme (any venue)
+
+A game day can carry its own **Court rate per hour** instead of using the venue's fee matrix. Set it when you create the game day, or later in **Settings**. Leave it blank to keep using the venue rates.
+
+- **Court cost** = rate × hours × courts, summed over every block of the court plan. Example: 3 courts 10:00–12:00 and 4 courts 12:00–14:00 is 14 court-hours; at ₱200 that is ₱2,800.
+- **Flat fee** = court cost ÷ the players who checked in, rounded up to the next peso. Everyone pays the same share, whatever their category.
+- **Shuttles**, per game played: Active ₱20 · Alumni, Inactive, Applicant ₱25 · Non-affiliate ₱30.
+- **Total** = flat share + (games × shuttle rate). Free games still do not count.
+- The share is recalculated from who is checked in, so it drops as more players arrive. Settle after the game day is complete; a player marked paid earlier keeps the amount recorded at that moment.
+
+The Fees tab shows the breakdown (`court-hours × rate = cost ÷ players = share`). The rule lives in `buildFeeSchedule` in `lib/fees.ts`; the shuttle rates are `SPLIT_SHUTTLE_RATES` there.
+
 ## Tests
 
 `lib/fees.test.ts` covers:
@@ -131,5 +143,7 @@ There is currently no effective-dated fee rule table. This is a known limitation
 - Peso formatting: symbol, thousands separators, rounding, negatives (`-₱250`).
 - PDF formatting (`PHP`, no peso glyph).
 - Label coverage for every enum value.
+
+`lib/fee-split.test.ts` covers court-hours and cost, the round-up split, shuttle rates per category, and falling back to the venue rules.
 
 Run with `pnpm test`.

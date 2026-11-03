@@ -21,6 +21,7 @@ import { deleteGameDay, setGameDayStatus, updateGameDay } from "@/lib/actions/ga
 import type { BoardGameDay } from "@/lib/board-types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CourtRateField } from "@/components/app/court-rate-field";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
@@ -62,6 +63,9 @@ export function GameDaySettings({
   const [notes, setNotes] = React.useState(gameDay.notes ?? "");
   const [queueMasterName, setQueueMasterName] = React.useState(gameDay.queueMasterName ?? "");
   const [financeMemberName, setFinanceMemberName] = React.useState(gameDay.financeMemberName ?? "");
+  const [courtRate, setCourtRate] = React.useState(
+    gameDay.courtRatePerHour ? String(gameDay.courtRatePerHour) : "",
+  );
   const [slots, setSlots] = React.useState<Slot[]>(gameDay.courtPlan);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
@@ -99,6 +103,7 @@ export function GameDaySettings({
         notes: notes || null,
         queueMasterName: queueMasterName || null,
         financeMemberName: financeMemberName || null,
+        courtRatePerHour: courtRate ? Number(courtRate) : null,
         courtPlan: slots,
       }),
     );
@@ -270,6 +275,8 @@ export function GameDaySettings({
                 />
               </Field>
             </div>
+
+            <CourtRateField value={courtRate} onChange={setCourtRate} plan={slots} />
 
             <Field
               label="Notes"

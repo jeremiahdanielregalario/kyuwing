@@ -1,6 +1,6 @@
 "use server";
 
-import type { Prisma } from "@prisma/client";
+import type { GameDayType, PlayerCategory, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { fail, ok } from "@/lib/action-result";
 import type { ActionResult } from "@/lib/action-result";
@@ -21,7 +21,7 @@ import {
   timeToMinutes,
   withoutCourt,
 } from "@/lib/datetime";
-import { computeFee } from "@/lib/fees";
+import { buildFeeSchedule } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
 import { suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import { gameDayCreateSchema, gameDayUpdateSchema, parseCategory, type PlayerInput } from "@/lib/validation";
@@ -132,6 +132,7 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
       notes: parsed.data.notes || null,
       queueMasterName: parsed.data.queueMasterName || null,
       financeMemberName: parsed.data.financeMemberName || null,
+      courtRatePerHour: parsed.data.courtRatePerHour ?? null,
     },
   });
 
@@ -160,6 +161,7 @@ export async function updateGameDay(input: unknown): Promise<ActionResult> {
       ...(rest.notes !== undefined ? { notes: rest.notes || null } : {}),
       ...(rest.queueMasterName !== undefined ? { queueMasterName: rest.queueMasterName || null } : {}),
       ...(rest.financeMemberName !== undefined ? { financeMemberName: rest.financeMemberName || null } : {}),
+      ...(rest.courtRatePerHour !== undefined ? { courtRatePerHour: rest.courtRatePerHour || null } : {}),
       ...(date ? { date: dateOnlyFromKey(date) } : {}),
       ...(rest.venueId ? { venueId: rest.venueId } : {}),
     },
@@ -1261,6 +1263,24 @@ export async function renameCourt(
   );
 }
 
+function feeScheduleFor(gameDay: {
+  type: GameDayType;
+  courtPlan: unknown;
+  courtRatePerHour: number | null;
+  players: Array<{ status: string }>;
+  venue: {
+    feeRules: Array<{ dayType: GameDayType; category: PlayerCategory; flatFee: number; perGameFee: number }>;
+  };
+}) {
+  return buildFeeSchedule({
+    type: gameDay.type,
+    courtPlan: parseCourtPlan(gameDay.courtPlan),
+    ratePerCourtHour: gameDay.courtRatePerHour,
+    attendees: gameDay.players.filter((player) => player.status !== "EXPECTED").length,
+    rules: gameDay.venue.feeRules,
+  });
+}
+
 export async function setPayment(
   sessionPlayerId: string,
   input: { paid: boolean; amountPaid?: number; method?: "CASH" | "GCASH" | "BANK" | "OTHER" | null },
@@ -1270,14 +1290,14 @@ export async function setPayment(
 
   const row = await prisma.sessionPlayer.findUnique({
     where: { id: sessionPlayerId },
-    include: { gameDay: { include: { venue: { include: { feeRules: true } } } }, player: true },
+    include: {
+      gameDay: { include: { venue: { include: { feeRules: true } }, players: { select: { status: true } } } },
+      player: true,
+    },
   });
   if (!row) return fail("Player not found in this game day.");
 
-  const rule = row.gameDay.venue.feeRules.find(
-    (candidate) => candidate.dayType === row.gameDay.type && candidate.category === row.player.category,
-  );
-  const total = computeFee(rule, row.gamesPlayed);
+  const total = feeScheduleFor(row.gameDay).feeFor(row.player.category, row.gamesPlayed).total;
   const amount = Math.max(0, Math.round(input.amountPaid ?? (input.paid ? total : 0)));
 
   await prisma.sessionPlayer.update({
@@ -1306,13 +1326,11 @@ export async function markAllPaid(gameDayId: string): Promise<ActionResult<{ upd
   });
   if (!gameDay) return fail("Game day not found.");
 
+  const schedule = feeScheduleFor(gameDay);
   let updated = 0;
   for (const row of gameDay.players) {
     if (row.paid) continue;
-    const rule = gameDay.venue.feeRules.find(
-      (candidate) => candidate.dayType === gameDay.type && candidate.category === row.player.category,
-    );
-    const total = computeFee(rule, row.gamesPlayed);
+    const total = schedule.feeFor(row.player.category, row.gamesPlayed).total;
     await prisma.sessionPlayer.update({
       where: { id: row.id },
       data: { paid: true, amountPaid: total, paymentMethod: "CASH" },
