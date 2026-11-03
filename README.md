@@ -108,6 +108,7 @@ cp .env.example .env
 | `DATABASE_URL`         | yes               | PostgreSQL connection string (pooled in production) |
 | `DIRECT_URL`           | recommended       | Direct connection used by `prisma migrate`          |
 | `QUEUE_MASTER_PIN`     | yes in production | Shared PIN for the queue-master login               |
+| `ADMIN_PIN`            | optional          | Separate developer PIN; unlocks UI customization    |
 | `AUTH_SECRET`          | yes in production | Signs the session cookie; use 32+ random characters |
 | `NEXT_PUBLIC_APP_URL`  | recommended       | Absolute URL used in links and metadata             |
 | `NEXT_PUBLIC_ORG_NAME` | optional          | Overrides the org name in the UI                    |
@@ -223,6 +224,7 @@ vercel link
 vercel env add DATABASE_URL production
 vercel env add DIRECT_URL production
 vercel env add QUEUE_MASTER_PIN production
+vercel env add ADMIN_PIN production        # optional: developer UI customization
 vercel env add AUTH_SECRET production
 vercel env add NEXT_PUBLIC_APP_URL production
 vercel --prod

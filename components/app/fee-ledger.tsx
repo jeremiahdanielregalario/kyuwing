@@ -172,7 +172,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
         <div className="border-line/80 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
           <div>
             <h2 className="font-display text-base font-bold">Fee ledger</h2>
-            <p className="text-muted text-[11px]">
+            <p data-trim-id="fees.formula" className="text-muted text-[11px]">
               Total = flat fee + (games × per-game rate). {report.gameDay.type} rates ·{" "}
               {report.gameDay.venue.shortName}.
             </p>
@@ -264,7 +264,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
         </div>
       </Card>
 
-      <p className="text-muted text-[11px] leading-relaxed">
+      <p data-trim-id="fees.footer-note" className="text-muted text-[11px] leading-relaxed">
         Need to change a rate? Go to{" "}
         <a href="/app/venues" className="text-forest font-semibold underline">
           Venues &amp; fees

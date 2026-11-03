@@ -30,8 +30,12 @@ export default async function VenuesPage() {
         eyebrow="Courts & money"
         title="Venues & fees"
         description="KBC on Mondays, DASC on Saturdays. Set the default court blocks and the flat + per-game rates for every player type and game-day type."
+        descriptionTrimId="venues.description"
       />
-      <div className="rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900">
+      <div
+        data-trim-id="venues.rates-warning"
+        className="rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900"
+      >
         <span className="font-semibold">Exact rates to follow.</span> The seeded values are development
         placeholders so the ledger is testable. Update the table below before using the app for an official UP
         BadAss game day.

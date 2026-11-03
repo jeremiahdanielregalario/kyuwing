@@ -39,6 +39,7 @@ export default async function SignupsPage({ params }: { params: Promise<{ id: st
           eyebrow={`${data.gameDay.venue.shortName} · ${formatGameDate(data.gameDay.date, { weekday: true })}`}
           title="Sign-ups"
           description="Build the list before the session. Check players in only when they arrive — that is when their queue timer starts."
+          descriptionTrimId="signups.description"
           actions={
             <>
               <Link href={`/app/gamedays/${id}`} className={buttonVariants({ variant: "paper", size: "sm" })}>

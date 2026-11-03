@@ -227,3 +227,10 @@ model PairingRequest {
   @@unique([gameDayId, playerId, type, targetPlayerId])
   @@index([gameDayId])
 }
+
+/// Global app settings, including which optional UI pieces the developer hid.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

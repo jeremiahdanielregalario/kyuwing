@@ -4,13 +4,24 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { toast } from "sonner";
-import { loginAction } from "@/lib/actions/auth";
+import { loginAction, type LoginMode } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 
-export function LoginForm({ next, showDevHint }: { next: string; showDevHint: boolean }) {
+export function LoginForm({
+  next,
+  mode = "master",
+  adminEnabled = true,
+  showDevHint,
+}: {
+  next: string;
+  mode?: LoginMode;
+  adminEnabled?: boolean;
+  showDevHint: boolean;
+}) {
   const router = useRouter();
-  const [name, setName] = React.useState("Queue Master");
+  const isAdmin = mode === "admin";
+  const [name, setName] = React.useState(isAdmin ? "Developer" : "Queue Master");
   const [pin, setPin] = React.useState("");
   const [showPin, setShowPin] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -18,9 +29,10 @@ export function LoginForm({ next, showDevHint }: { next: string; showDevHint: bo
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (isAdmin && !adminEnabled) return;
     setError(null);
     startTransition(async () => {
-      const result = await loginAction(name, pin);
+      const result = await loginAction(name, pin, mode);
       if (result.ok) {
         toast.success(result.message ?? "Welcome to the board.");
         router.replace(next || "/app");
@@ -33,7 +45,24 @@ export function LoginForm({ next, showDevHint }: { next: string; showDevHint: bo
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <Field label="Your name" hint="Shown on the board so players know who is running the queue.">
+      {isAdmin && !adminEnabled && (
+        <div className="rounded-xl border border-amber-300/70 bg-amber-50 px-3.5 py-3 text-[12px] leading-relaxed text-amber-900">
+          <p className="font-semibold">Developer sign-in is not configured.</p>
+          <p className="mt-0.5">
+            Add an <span className="font-mono">ADMIN_PIN</span> environment variable in the deployment
+            settings, then redeploy.
+          </p>
+        </div>
+      )}
+
+      <Field
+        label={isAdmin ? "Your name (optional)" : "Your name"}
+        hint={
+          isAdmin
+            ? "Shown on the board while you edit the interface."
+            : "Shown on the board so players know who is running the queue."
+        }
+      >
         <div className="relative">
           <UserRound className="text-muted pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2" />
           <Input
@@ -46,7 +75,7 @@ export function LoginForm({ next, showDevHint }: { next: string; showDevHint: bo
         </div>
       </Field>
 
-      <Field label="Queue master PIN">
+      <Field label={isAdmin ? "Developer PIN" : "Queue master PIN"}>
         <div className="relative">
           <LockKeyhole className="text-muted pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2" />
           <Input
@@ -59,6 +88,7 @@ export function LoginForm({ next, showDevHint }: { next: string; showDevHint: bo
             placeholder="••••"
             autoFocus
             maxLength={20}
+            disabled={isAdmin && !adminEnabled}
           />
           <button
             type="button"
@@ -77,8 +107,20 @@ export function LoginForm({ next, showDevHint }: { next: string; showDevHint: bo
         </div>
       )}
 
-      <Button type="submit" size="lg" className="w-full" loading={pending}>
-        {pending ? "Opening the board…" : "Enter the queue board"}
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        loading={pending}
+        disabled={isAdmin && !adminEnabled}
+      >
+        {pending
+          ? isAdmin
+            ? "Unlocking…"
+            : "Opening the board…"
+          : isAdmin
+            ? "Enter developer mode"
+            : "Enter the queue board"}
         {!pending && <ArrowRight className="h-4 w-4" />}
       </Button>
 

@@ -35,6 +35,7 @@ export default async function GameDaysPage() {
         eyebrow="Schedule & sessions"
         title="Game days"
         description="Every session lives here. Sign-ups start before the day; the live board takes over when the first player arrives."
+        descriptionTrimId="gamedays.description"
         actions={<NewGameDayButton venues={venues} defaultDate={manilaDateKey()} />}
       />
 
@@ -82,7 +83,10 @@ export default async function GameDaysPage() {
         </div>
       )}
 
-      <div className="border-line bg-paper/60 grid gap-3 rounded-3xl border p-5 sm:grid-cols-3 sm:p-6">
+      <div
+        data-trim-id="gamedays.info"
+        className="border-line bg-paper/60 grid gap-3 rounded-3xl border p-5 sm:grid-cols-3 sm:p-6"
+      >
         <Info label="KBC" value="Mondays" note="Kalayaan Badminton Center · 10 AM – 2 PM" />
         <Info label="DASC" value="Saturdays" note="Don Antonio Sports Center · 9 AM – 1 PM" />
         <Info label="Types" value="Regular · Tipid · MEGA" note="Each type has its own fee table." />

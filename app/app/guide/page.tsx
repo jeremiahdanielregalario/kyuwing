@@ -148,6 +148,7 @@ export default function GuidePage() {
         eyebrow="Queue master playbook"
         title="Run a smooth game day"
         description="A one-page routine for the person holding the tablet. Follow it top to bottom and the queue basically runs itself."
+        descriptionTrimId="guide.description"
         actions={
           <Link href="/app/gamedays" className={buttonVariants({ variant: "primary", size: "sm" })}>
             <CalendarClock className="h-3.5 w-3.5" /> Open game days
@@ -155,7 +156,7 @@ export default function GuidePage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div data-trim-id="guide.badges" className="flex flex-wrap gap-2">
         <Badge tone="lime">
           <Users className="h-3 w-3" /> No player accounts
         </Badge>
@@ -171,7 +172,7 @@ export default function GuidePage() {
       </div>
 
       {/* The loop */}
-      <section>
+      <section data-trim-id="guide.loop">
         <div className="mb-3 flex items-center gap-2">
           <ListOrdered className="text-forest h-4 w-4" />
           <h2 className="font-display text-xl font-bold tracking-tight">The game-day loop</h2>
@@ -201,7 +202,7 @@ export default function GuidePage() {
       </section>
 
       {/* Pairing rules */}
-      <section className="border-line bg-paper rounded-3xl border p-5 sm:p-6">
+      <section data-trim-id="guide.engine" className="border-line bg-paper rounded-3xl border p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
@@ -251,7 +252,7 @@ export default function GuidePage() {
       </section>
 
       {/* Requests + permanent pairs */}
-      <section className="grid gap-4 md:grid-cols-2">
+      <section data-trim-id="guide.requests" className="grid gap-4 md:grid-cols-2">
         <Card className="p-5">
           <div className="flex items-center gap-2">
             <HeartHandshake className="text-forest h-4 w-4" />
@@ -325,7 +326,7 @@ export default function GuidePage() {
       </section>
 
       {/* Checklists */}
-      <section>
+      <section data-trim-id="guide.checklists">
         <div className="mb-3 flex items-center gap-2">
           <ClipboardList className="text-forest h-4 w-4" />
           <h2 className="font-display text-xl font-bold tracking-tight">Three checklists</h2>
@@ -355,7 +356,7 @@ export default function GuidePage() {
       </section>
 
       {/* FAQ */}
-      <section className="border-line bg-paper rounded-3xl border px-5 sm:px-6">
+      <section data-trim-id="guide.faq" className="border-line bg-paper rounded-3xl border px-5 sm:px-6">
         <h2 className="font-display pt-5 text-xl font-bold tracking-tight">Quick answers</h2>
         <div className="divide-line mt-2 divide-y">
           {[
@@ -397,7 +398,10 @@ export default function GuidePage() {
         </div>
       </section>
 
-      <div className="border-line bg-cream-deep/60 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3">
+      <div
+        data-trim-id="guide.footer"
+        className="border-line bg-cream-deep/60 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+      >
         <p className="text-muted text-[11px]">
           Still stuck? The board itself is the source of truth — refresh it before assuming something is lost.
         </p>

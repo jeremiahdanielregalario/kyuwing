@@ -35,6 +35,7 @@ export default async function GameDaySettingsPage({ params }: { params: Promise<
           eyebrow={`${data.gameDay.venue.shortName} · ${formatGameDate(data.gameDay.date, { weekday: true })}`}
           title="Game-day settings"
           description="Change the schedule, court blocks, and status. The pairing board updates on the next refresh."
+          descriptionTrimId="settings.description"
           actions={
             <Link href={`/app/gamedays/${id}`} className={buttonVariants({ variant: "paper", size: "sm" })}>
               <ArrowLeft className="h-3.5 w-3.5" /> Back to board

@@ -468,7 +468,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             <h1 className="font-display mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
               {data.gameDay.name}
             </h1>
-            <p className="text-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+            <p
+              data-trim-id="board.subtitle"
+              className="text-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]"
+            >
               <span className="inline-flex items-center gap-1.5">
                 <Clock3 className="h-3.5 w-3.5" />
                 {slot ? `${slot.start}–${slot.end} · ${slot.courts} courts` : "No court block set"}
@@ -494,7 +497,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
         </div>
 
         {isDraft && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3">
+          <div
+            data-trim-id="board.draft-banner"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3"
+          >
             <div className="flex items-start gap-2.5">
               <AlertCircle className="mt-0.5 h-4 w-4 text-amber-700" />
               <div>
@@ -516,7 +522,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
         )}
 
         {isCompleted && (
-          <div className="border-line bg-cream-deep/70 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3">
+          <div
+            data-trim-id="board.completed-banner"
+            className="border-line bg-cream-deep/70 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+          >
             <div className="flex items-start gap-2.5">
               <CircleCheck className="text-forest mt-0.5 h-4 w-4" />
               <div>
@@ -546,7 +555,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
         {/* Status rail: block switcher on top, live numbers below */}
         <Card className="overflow-hidden">
           <div className="border-line/70 flex flex-wrap items-center gap-2 border-b px-3 py-2.5">
-            <span className="text-muted ml-1 text-[10px] font-bold tracking-[0.16em] uppercase">
+            <span
+              data-trim-id="board.plan-label"
+              className="text-muted ml-1 text-[10px] font-bold tracking-[0.16em] uppercase"
+            >
               Court plan
             </span>
             {plan.length === 0 && (
@@ -583,7 +595,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                 </button>
               );
             })}
-            <span className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]">
+            <span
+              data-trim-id="board.plan-clock"
+              className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]"
+            >
               <Dot tone="lime" /> {now ? formatClock(new Date(now)) : "--:--"} Manila
             </span>
           </div>
@@ -592,26 +607,31 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
               label="Waiting"
               value={data.stats.waiting}
               sub={`${data.stats.expected} still expected`}
+              subTrimId="board.rail.waiting-sub"
             />
             <RailCell
               label="On court"
               value={data.stats.playing}
               sub={`${data.stats.courtsBusy}/${data.stats.courtsTotal} courts busy`}
+              subTrimId="board.rail.playing-sub"
             />
             <RailCell
               label="Open courts"
               value={`${data.stats.courtsOpen}/${data.stats.courtsTotal}`}
               sub="in the selected block"
+              subTrimId="board.rail.open-sub"
             />
             <RailCell
               label="Games today"
               value={data.stats.gamesCompleted}
               sub={`${data.stats.totalGamesPlayed} player-games`}
+              subTrimId="board.rail.games-sub"
             />
             <RailCell
               label="Longest wait"
               value={`${data.stats.longestWaitMinutes}m`}
               sub={`avg ${data.stats.averageWaitMinutes}m`}
+              subTrimId="board.rail.wait-sub"
               warn={now > 0 && data.stats.longestWaitMinutes >= 20}
               className="col-span-2 sm:col-span-1"
             />
@@ -640,7 +660,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <h2 className="font-display text-lg font-bold tracking-tight">Courts</h2>
-                <span className="text-muted text-[11px]">
+                <span data-trim-id="board.courts-block" className="text-muted text-[11px]">
                   {slot ? `Block ${slot.start}–${slot.end}` : ""}
                 </span>
               </div>
@@ -675,7 +695,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                     </button>
                   </>
                 )}
-                <span className="text-muted inline-flex items-center gap-1.5 text-[11px]">
+                <span
+                  data-trim-id="board.live-count"
+                  className="text-muted inline-flex items-center gap-1.5 text-[11px]"
+                >
                   <Dot tone={live.length ? "green" : "muted"} /> {live.length} live
                 </span>
               </div>
@@ -696,7 +719,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
               />
             ) : (
               <>
-                <p className="border-line bg-paper/70 text-muted flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]">
+                <p
+                  data-trim-id="board.drag-hint"
+                  className="border-line bg-paper/70 text-muted flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]"
+                >
                   <GripVertical className="text-forest h-3.5 w-3.5" />
                   Drag a court card onto another court to swap them. Drag a player onto a slot to swap
                   players, or fill an open court with four dropped players.
@@ -745,7 +771,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
             )}
 
             {data.recentMatches.length > 0 && (
-              <div className="border-line bg-paper/70 rounded-2xl border p-4">
+              <div data-trim-id="board.recent" className="border-line bg-paper/70 rounded-2xl border p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-muted text-[11px] font-bold tracking-[0.16em] uppercase">
                     Recently finished
@@ -867,7 +893,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
               )}
             </div>
 
-            <div className="border-line/80 flex items-center justify-between border-t px-4 py-3">
+            <div
+              data-trim-id="board.queue-footer"
+              className="border-line/80 flex items-center justify-between border-t px-4 py-3"
+            >
               <span className="text-muted text-[11px]">
                 Longest wait{" "}
                 <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
@@ -1641,12 +1670,14 @@ function RailCell({
   label,
   value,
   sub,
+  subTrimId,
   warn,
   className,
 }: {
   label: string;
   value: string | number;
   sub?: string;
+  subTrimId?: string;
   warn?: boolean;
   className?: string;
 }) {
@@ -1661,7 +1692,11 @@ function RailCell({
       >
         {value}
       </p>
-      {sub && <p className="text-muted mt-1.5 text-[10px]">{sub}</p>}
+      {sub && (
+        <p data-trim-id={subTrimId} className="text-muted mt-1.5 text-[10px]">
+          {sub}
+        </p>
+      )}
     </div>
   );
 }

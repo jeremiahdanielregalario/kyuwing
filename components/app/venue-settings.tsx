@@ -159,7 +159,9 @@ export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-display text-lg font-bold">Venue details</h2>
-              <p className="text-muted text-[11px]">Defaults used when creating a new game day.</p>
+              <p data-trim-id="venues.defaults-note" className="text-muted text-[11px]">
+                Defaults used when creating a new game day.
+              </p>
             </div>
             <span className="bg-cream-deep text-forest grid h-9 w-9 place-items-center rounded-xl">
               <Building2 className="h-4 w-4" />
@@ -323,7 +325,7 @@ export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
             </div>
 
             <div className="border-line bg-cream/40 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border p-3">
-              <p className="text-muted max-w-md text-[11px] leading-relaxed">
+              <p data-trim-id="venues.fee-note" className="text-muted max-w-md text-[11px] leading-relaxed">
                 These are placeholder rates. Replace them with the official UP BadAss rates before the first
                 live game day. Changes apply immediately to reports calculated from this table.
               </p>

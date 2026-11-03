@@ -5,12 +5,15 @@ export function PageHeader({
   eyebrow,
   title,
   description,
+  descriptionTrimId,
   actions,
   className,
 }: {
   eyebrow?: React.ReactNode;
   title: React.ReactNode;
   description?: React.ReactNode;
+  /** Optional trim-mode id for developer-removable helper copy. */
+  descriptionTrimId?: string;
   actions?: React.ReactNode;
   className?: string;
 }) {
@@ -21,7 +24,11 @@ export function PageHeader({
           <div className="text-muted mb-2 text-[11px] font-bold tracking-[0.18em] uppercase">{eyebrow}</div>
         )}
         <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{title}</h1>
-        {description && <p className="text-muted mt-1 max-w-2xl text-sm leading-relaxed">{description}</p>}
+        {description && (
+          <p data-trim-id={descriptionTrimId} className="text-muted mt-1 max-w-2xl text-sm leading-relaxed">
+            {description}
+          </p>
+        )}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

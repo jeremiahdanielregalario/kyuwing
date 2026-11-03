@@ -32,6 +32,7 @@ export default async function FeesPage({ params }: { params: Promise<{ id: strin
           eyebrow={`${report.gameDay.venue.shortName} · ${formatGameDate(report.gameDay.date, { weekday: true })} · ${GAMEDAY_TYPE_LABELS[report.gameDay.type]}`}
           title="Fees & settlement"
           description="Games are counted automatically when a match is finished. Record payments here as players settle up."
+          descriptionTrimId="fees.description"
           actions={
             <Link
               href={`/app/gamedays/${id}/settings`}

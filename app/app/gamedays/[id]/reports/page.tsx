@@ -38,6 +38,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
           eyebrow={`${report.gameDay.venue.shortName} · ${formatGameDate(report.gameDay.date, { weekday: true })} · ${GAMEDAY_TYPE_LABELS[report.gameDay.type]}`}
           title="Session report"
           description="The full day in one place: every match, every player, every peso. Export it for the group chat or the treasurer."
+          descriptionTrimId="reports.description"
           actions={
             <>
               <PrintButton label="Print" />
@@ -55,7 +56,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
           }
         />
 
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div data-trim-id="reports.stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
             label="Games played"
             value={report.matches.length}

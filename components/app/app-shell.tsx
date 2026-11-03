@@ -3,7 +3,15 @@ import { AppNav, FooterLinks, MobileNav } from "@/components/app/app-nav";
 import { Logo, OrgBadge } from "@/components/logo";
 import { logoutAction } from "@/lib/actions/auth";
 
-export function AppShell({ name, children }: { name: string; children: React.ReactNode }) {
+export function AppShell({
+  name,
+  admin,
+  children,
+}: {
+  name: string;
+  admin: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[252px_minmax(0,1fr)]">
       <aside className="bg-forest-deep text-cream relative sticky top-0 hidden h-dvh flex-col overflow-hidden px-4 py-5 lg:flex">
@@ -11,7 +19,14 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
         <div className="bg-lime/10 pointer-events-none absolute -top-24 -left-16 h-64 w-64 rounded-full blur-3xl" />
         <div className="relative px-1">
           <Logo tone="cream" />
-          <OrgBadge className="mt-5" tone="cream" />
+          <div data-trim-id="shell.org-badge">
+            <OrgBadge className="mt-5" tone="cream" />
+          </div>
+          {admin && (
+            <span className="border-lime/30 bg-lime/10 text-lime mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold tracking-[0.14em] uppercase">
+              <span className="bg-lime h-1.5 w-1.5 rounded-full" /> Developer
+            </span>
+          )}
         </div>
 
         <div className="relative flex min-h-0 flex-1 flex-col">
@@ -21,7 +36,9 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
             <div className="border-cream/12 bg-cream/[0.04] rounded-2xl border p-3.5">
               <p className="text-cream/40 text-[9px] font-bold tracking-[0.16em] uppercase">On the board</p>
               <p className="font-display text-cream mt-1 truncate text-sm font-bold">{name}</p>
-              <p className="text-cream/45 text-[10px]">Queue master session</p>
+              <p data-trim-id="shell.session-caption" className="text-cream/45 text-[10px]">
+                {admin ? "Developer session" : "Queue master session"}
+              </p>
               <form action={logoutAction} className="mt-3">
                 <button
                   type="submit"
@@ -31,8 +48,12 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
                 </button>
               </form>
             </div>
-            <FooterLinks />
-            <p className="text-cream/35 px-1 text-[10px] leading-relaxed">App by Danyel Regalario</p>
+            <div data-trim-id="shell.footer-links">
+              <FooterLinks />
+            </div>
+            <p data-trim-id="shell.credit" className="text-cream/35 px-1 text-[10px] leading-relaxed">
+              App by Danyel Regalario
+            </p>
           </div>
         </div>
       </aside>
@@ -41,6 +62,11 @@ export function AppShell({ name, children }: { name: string; children: React.Rea
         <header className="bg-forest-deep text-cream sticky top-0 z-30 flex h-15 items-center justify-between border-b border-black px-4 lg:hidden">
           <Logo compact tone="cream" />
           <div className="flex items-center gap-2">
+            {admin && (
+              <span className="border-lime/30 bg-lime/10 text-lime rounded-full border px-2 py-1 text-[9px] font-bold tracking-[0.12em] uppercase">
+                Dev
+              </span>
+            )}
             <span className="border-cream/15 bg-cream/5 text-cream/70 max-w-[11rem] truncate rounded-full border px-3 py-1.5 text-[11px] font-semibold">
               {name}
             </span>

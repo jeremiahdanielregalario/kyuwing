@@ -132,13 +132,17 @@ See [PAIRING.md](PAIRING.md).
 
 ## Authentication
 
-One shared queue-master identity.
+One shared queue-master identity, plus a separate developer identity.
 
-1. The login form posts a name and PIN to `loginAction`.
-2. `checkPin` compares SHA-256 digests with `timingSafeEqual`; the expected PIN comes from `QUEUE_MASTER_PIN` (development fallback: `1234`).
-3. On success, `createSession` signs a JWT (`HS256`, 14-hour expiry) with `AUTH_SECRET` and sets it as an HTTP-only, `SameSite=Lax` cookie (`Secure` in production).
+1. The login form posts a name and PIN to `loginAction` (`mode: "master" | "admin"`).
+2. `checkPin` / `checkAdminPin` compare SHA-256 digests with `timingSafeEqual`; expected values come from `QUEUE_MASTER_PIN` (development fallback: `1234`) and `ADMIN_PIN` (no fallback — developer sign-in is disabled when unset).
+3. On success, `createSession` signs a JWT (`HS256`, 14-hour expiry) with `AUTH_SECRET` and sets it as an HTTP-only, `SameSite=Lax` cookie (`Secure` in production). Developer sessions carry an `admin: true` claim.
 4. `app/app/layout.tsx` calls `getSession()` and redirects to `/login?next=/app` when absent.
-5. API routes and server actions re-check the session; the layout guard is not the only line of defense.
+5. API routes and server actions re-check the session; the layout guard is not the only line of defense. `lib/actions/ui-config.ts` additionally requires `isAdmin()`.
+
+### Developer UI customization
+
+`/login?mode=admin` unlocks a "Customize UI" button. Only elements tagged with a `data-trim-id` listed in `lib/ui-trim.ts` can be hidden, so critical controls are never removable. Hidden ids are stored globally in `AppSetting` under `ui.hidden.v1`; every `/app` layout injects the matching `display: none` rules, which makes the change apply to every queue master on every device. The developer can restore individual pieces or everything from the trim toolbar.
 
 There are no player accounts. Players never log in, and no personal data beyond nickname, optional full name, optional contact, and notes is stored.
 

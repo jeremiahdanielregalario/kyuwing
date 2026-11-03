@@ -145,7 +145,7 @@ export function GameDaySettings({
             <div>
               <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Session status</p>
               <p className="font-display text-lg leading-tight font-bold">{gameDay.status}</p>
-              <p className="text-muted text-[11px]">
+              <p data-trim-id="settings.status-sub" className="text-muted text-[11px]">
                 {stats.players} sign-ups · {stats.matches} matches logged
               </p>
             </div>
@@ -204,7 +204,9 @@ export function GameDaySettings({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-display text-lg font-bold">Game-day details</h2>
-              <p className="text-muted text-[11px]">These are safe to change before or during play.</p>
+              <p data-trim-id="settings.details-note" className="text-muted text-[11px]">
+                These are safe to change before or during play.
+              </p>
             </div>
             <span className="bg-cream-deep text-forest grid h-9 w-9 place-items-center rounded-xl">
               <Settings2 className="h-4 w-4" />
@@ -263,7 +265,9 @@ export function GameDaySettings({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-display text-lg font-bold">Court blocks</h2>
-              <p className="text-muted text-[11px]">How many courts are open in each time block.</p>
+              <p data-trim-id="settings.courts-note" className="text-muted text-[11px]">
+                How many courts are open in each time block.
+              </p>
             </div>
             <span className="bg-cream-deep text-forest grid h-9 w-9 place-items-center rounded-xl">
               <LayoutGrid className="h-4 w-4" />
@@ -342,7 +346,7 @@ export function GameDaySettings({
                   </label>
                 </div>
                 <div className="mt-2">
-                  <span className="text-muted text-[8px] tracking-wide uppercase">
+                  <span data-trim-id="settings.court-names-note" className="text-muted text-[8px] tracking-wide uppercase">
                     Court names (optional)
                   </span>
                   <div className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
@@ -411,7 +415,7 @@ export function GameDaySettings({
             </span>
             <div>
               <h2 className="font-display text-base font-bold">Delete this game day</h2>
-              <p className="text-muted max-w-lg text-[11px] leading-relaxed">
+              <p data-trim-id="settings.danger-note" className="text-muted max-w-lg text-[11px] leading-relaxed">
                 This removes the session, every sign-up, match, and payment record. Export the Excel or PDF
                 report first if you need a copy.
               </p>

@@ -76,6 +76,7 @@ cd kyuwing
 vercel link            # choose the jeremiahdanielregalario account/team
 vercel env add DATABASE_URL production
 vercel env add QUEUE_MASTER_PIN production
+vercel env add ADMIN_PIN production
 vercel env add AUTH_SECRET production
 vercel env add NEXT_PUBLIC_APP_URL production
 vercel --prod
@@ -97,6 +98,7 @@ It must be the account tied to the GitHub identity that owns the repo.
 | `DATABASE_URL` | yes | `postgresql://user:pass@host/db?sslmode=require` | Pooled connection recommended at runtime |
 | `DIRECT_URL` | yes in production | direct Postgres URL | Used by `prisma migrate`; can equal `DATABASE_URL` when there is no pooler |
 | `QUEUE_MASTER_PIN` | yes | a 6+ digit PIN | Shared by all queue masters; rotate when someone leaves |
+| `ADMIN_PIN` | no | a different 6+ digit PIN | Developer-only: unlocks the "Customize UI" editor. Leave unset to disable. Never share it with queue masters |
 | `AUTH_SECRET` | yes | 32+ random chars | `openssl rand -base64 32`; rotating invalidates sessions |
 | `NEXT_PUBLIC_APP_URL` | yes | `https://badass-kyuwing.vercel.app` | Used in metadata and absolute links |
 | `NEXT_PUBLIC_ORG_NAME` | no | `UP BadAss` | Overrides the org label |

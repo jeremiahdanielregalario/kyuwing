@@ -37,9 +37,10 @@ export default async function PlayersPage() {
         eyebrow="Roster & levels"
         title="Players"
         description="The single source of truth for nicknames, levels, and player types. Import a CSV or JSON file, or edit individual players."
+        descriptionTrimId="players.description"
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div data-trim-id="players.stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label="Total players"
           value={players.length}
@@ -56,7 +57,7 @@ export default async function PlayersPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="font-display text-base font-bold">Bracket spread</h2>
-            <p className="text-muted text-[11px]">
+            <p data-trim-id="players.bracket-note" className="text-muted text-[11px]">
               Active players per broad bracket. The pairing engine uses the full 19-level ladder.
             </p>
           </div>
@@ -89,7 +90,7 @@ export default async function PlayersPage() {
 
       <PlayerManager players={records} />
 
-      <p className="text-muted text-[11px] leading-relaxed">
+      <p data-trim-id="players.level-legend" className="text-muted text-[11px] leading-relaxed">
         Level labels: {LEVELS.map((level) => level.label).join(" · ")}. Full names are optional; nicknames are
         what the queue board shows. Updating a nickname used on a past game day keeps the same player record.
       </p>

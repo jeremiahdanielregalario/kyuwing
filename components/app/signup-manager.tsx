@@ -406,7 +406,10 @@ export function SignupManager({
           </div>
         </Card>
 
-        <div className="border-line bg-cream-deep/50 text-muted rounded-2xl border p-4 text-[11px] leading-relaxed">
+        <div
+          data-trim-id="signups.tip"
+          className="border-line bg-cream-deep/50 text-muted rounded-2xl border p-4 text-[11px] leading-relaxed"
+        >
           <p className="text-ink mb-1 font-semibold">Queue-master tip</p>
           Use <span className="font-semibold">Check in</span> only when the player is physically at the court.
           The wait timer starts at that moment, and only checked-in players are paired.

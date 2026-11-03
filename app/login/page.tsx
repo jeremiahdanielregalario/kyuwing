@@ -3,15 +3,21 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, ShieldCheck, Sparkles, Timer, Trophy, Users } from "lucide-react";
 import { LoginForm } from "@/components/app/login-form";
 import { BrandMark, Logo, OrgBadge } from "@/components/logo";
-import { getSession } from "@/lib/auth";
+import { getSession, hasConfiguredAdminPin } from "@/lib/auth";
 
 export const metadata = { title: "Queue master login" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const session = await getSession();
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; mode?: string }>;
+}) {
   const params = await searchParams;
+  const mode = params.mode === "admin" ? "admin" : "master";
+  const session = await getSession();
   const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/app";
-  if (session) redirect(next);
+  if (session && (mode !== "admin" || session.admin)) redirect(next);
+  const adminEnabled = hasConfiguredAdminPin();
   const appHost = (() => {
     try {
       return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://badass-kyuwing.vercel.app").host;
@@ -36,24 +42,64 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-12">
           <OrgBadge className="w-fit" />
           <h1 className="font-brand mt-6 text-3xl leading-[1.02] tracking-tight uppercase sm:text-[2.6rem]">
-            Run the room,
-            <br />
-            not the group chat.
+            {mode === "admin" ? (
+              <>
+                Developer
+                <br />
+                access.
+              </>
+            ) : (
+              <>
+                Run the room,
+                <br />
+                not the group chat.
+              </>
+            )}
           </h1>
           <p className="text-muted mt-4 text-[14px] leading-relaxed">
-            Sign in with the queue master PIN. Players never need an account — this board is yours.
+            {mode === "admin"
+              ? "The developer PIN unlocks UI customization: hide optional texts and panels for everyone, on every device."
+              : "Sign in with the queue master PIN. Players never need an account — this board is yours."}
           </p>
 
           <div className="border-line bg-paper shadow-card mt-8 rounded-3xl border p-5 sm:p-6">
-            <LoginForm next={next} showDevHint={process.env.NODE_ENV !== "production"} />
+            <LoginForm
+              next={next}
+              mode={mode}
+              adminEnabled={adminEnabled}
+              showDevHint={process.env.NODE_ENV !== "production" && mode === "master"}
+            />
+            <div className="border-line/70 mt-4 border-t pt-3 text-center text-[11px]">
+              {mode === "admin" ? (
+                <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-muted hover:text-ink font-semibold transition">
+                  ← Queue-master sign-in
+                </Link>
+              ) : (
+                <Link
+                  href={`/login?mode=admin&next=${encodeURIComponent(next)}`}
+                  className="text-muted hover:text-ink font-semibold transition"
+                >
+                  Developer sign-in
+                </Link>
+              )}
+            </div>
           </div>
 
           <div className="border-line/70 bg-cream-deep/50 text-muted mt-6 flex items-start gap-2.5 rounded-2xl border p-3.5 text-[11px] leading-relaxed">
             <ShieldCheck className="text-forest mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              The PIN only unlocks this browser. For official game days, set a strong{" "}
-              <span className="font-mono">QUEUE_MASTER_PIN</span> in the deployment settings and share it only
-              with the assigned queue masters.
+              {mode === "admin" ? (
+                <>
+                  The developer session can hide optional UI for everyone. Keep{" "}
+                  <span className="font-mono">ADMIN_PIN</span> private and different from the queue-master PIN.
+                </>
+              ) : (
+                <>
+                  The PIN only unlocks this browser. For official game days, set a strong{" "}
+                  <span className="font-mono">QUEUE_MASTER_PIN</span> in the deployment settings and share it only
+                  with the assigned queue masters.
+                </>
+              )}
             </p>
           </div>
         </div>
