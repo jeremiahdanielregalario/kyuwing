@@ -21,7 +21,7 @@ export function LoginForm({
 }) {
   const router = useRouter();
   const isAdmin = mode === "admin";
-  const [name, setName] = React.useState(isAdmin ? "Developer" : "Queue Master");
+  const [name, setName] = React.useState(isAdmin ? "Developer" : "");
   const [pin, setPin] = React.useState("");
   const [showPin, setShowPin] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -71,6 +71,7 @@ export function LoginForm({
             className="pl-10"
             maxLength={40}
             autoComplete="name"
+            placeholder={isAdmin ? "Developer" : "EJ Mallilin"}
           />
         </div>
       </Field>
