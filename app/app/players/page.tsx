@@ -14,6 +14,11 @@ export const metadata = { title: "Players" };
 export default async function PlayersPage() {
   const [players, attendance] = await Promise.all([getPlayers(), getAttendanceOverview()]);
   const active = players.filter((player) => player.active).length;
+  // Band counts describe the active roster; archived players keep their history.
+  const activeIds = new Set(players.filter((player) => player.active).map((player) => player.id));
+  const activeSnapshots = Object.fromEntries(
+    Object.entries(attendance.byPlayer).filter(([playerId]) => activeIds.has(playerId)),
+  );
   const alumni = players.filter((player) => player.category === "ALUMNI").length;
   const applicants = players.filter((player) => player.category === "APPLICANT").length;
 
@@ -70,8 +75,7 @@ export default async function PlayersPage() {
         </div>
         <div className="border-line mt-5 grid grid-cols-5 gap-2 border-b sm:gap-4">
           {byBracket.map((row) => {
-            const barPx =
-              row.count === 0 ? 3 : Math.max(12, Math.round((row.count / maxBracket) * 100));
+            const barPx = row.count === 0 ? 3 : Math.max(12, Math.round((row.count / maxBracket) * 100));
             const tone = levelTone(row.bracket);
             return (
               <div
@@ -80,10 +84,7 @@ export default async function PlayersPage() {
                 style={{ height: 128 }}
               >
                 <span
-                  className={cn(
-                    "mb-1 font-mono text-[12px] leading-none font-bold tabular-nums",
-                    tone.text,
-                  )}
+                  className={cn("mb-1 font-mono text-[12px] leading-none font-bold tabular-nums", tone.text)}
                 >
                   {row.count}
                 </span>
@@ -109,8 +110,8 @@ export default async function PlayersPage() {
 
       <RecencyPanel
         events={attendance.events}
-        snapshots={attendance.byPlayer}
-        playerCount={players.length}
+        snapshots={activeSnapshots}
+        playerCount={active}
         today={manilaDateKey()}
       />
 
