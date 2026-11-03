@@ -181,6 +181,81 @@ export function withoutCourt(slot: CourtSlot, court: number): CourtSlot {
   return { ...slot, courts: slot.courts - 1, courtLabels: labels };
 }
 
+/** "Court 6", "court 6", "C6" and "6" all store as "6" (shown as "Court 6"); other names pass through. */
+export function normalizeCourtLabel(label: string): string {
+  return label
+    .trim()
+    .replace(/^c(?:ourt)?\s*#?\s*(?=\d+$)/i, "")
+    .slice(0, 24);
+}
+
+/**
+ * Court numbers typed when setting up a game day: "5, 6, 7, 8", "5 6 7 8",
+ * "5-8", or names separated by commas ("Main, Side"). Returns at most 20
+ * normalized labels, without duplicates.
+ */
+export function parseCourtNumbers(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const tokens = trimmed.includes(",") ? trimmed.split(",") : trimmed.split(/\s+/);
+  const labels: string[] = [];
+  for (const raw of tokens) {
+    const token = normalizeCourtLabel(raw);
+    const range = token.match(/^(\d+)\s*[-–]\s*(?:c(?:ourt)?\s*)?(\d+)$/i);
+    if (range) {
+      const [from, to] = [Number(range[1]), Number(range[2])];
+      if (to >= from && to - from < 20) {
+        for (let court = from; court <= to; court++) labels.push(String(court));
+        continue;
+      }
+    }
+    if (token) labels.push(token);
+  }
+  const seen = new Set<string>();
+  return labels
+    .filter((label) => {
+      const key = label.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 20);
+}
+
+/**
+ * Rename one court (1-based position) in a block, or at that position in every
+ * block that has it. A blank name falls back to the position number. Returns
+ * an error when the new name would duplicate another court in the same block.
+ */
+export function renamedCourt(
+  plan: CourtSlot[],
+  slotIndex: number,
+  court: number,
+  label: string,
+  everyBlock: boolean,
+): { plan: CourtSlot[] } | { error: string } {
+  const clean = normalizeCourtLabel(label);
+  const next: CourtSlot[] = [];
+  for (const [index, slot] of plan.entries()) {
+    if ((index !== slotIndex && !everyBlock) || court > slot.courts) {
+      next.push(slot);
+      continue;
+    }
+    const labels = Array.from({ length: slot.courts }, (_, position) => slot.courtLabels?.[position] ?? "");
+    labels[court - 1] = clean;
+    const renamed = { ...slot, courtLabels: labels };
+    const names = Array.from({ length: slot.courts }, (_, position) =>
+      courtName(renamed, position + 1).toLowerCase(),
+    );
+    const name = names[court - 1];
+    if (names.some((other, position) => position !== court - 1 && other === name)) {
+      return { error: `${courtName(renamed, court)} is already a court in ${slot.label}.` };
+    }
+    next.push(renamed);
+  }
+  return { plan: next };
+}
+
 /** A doubles game runs about this long; starting one closer to closing time may not finish. */
 export const FREE_GAME_WINDOW_MINUTES = 15;
 

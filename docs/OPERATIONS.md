@@ -5,7 +5,7 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 ## Before the session
 
 - [ ] Charge the tablet or phone. A power bank is not optional for a four-hour session.
-- [ ] Confirm the venue booking and the exact court numbers.
+- [ ] Confirm the venue booking and the exact court numbers, and enter them in each block's **Court numbers** when you create the game day (`5, 6, 7, 8` or `5-8`). The board, toasts, and the players' live view then use those numbers.
 - [ ] Open Kyuwing and log in with the queue-master PIN.
 - [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, court blocks.
 - [ ] Set the court blocks to match the booking. Example: 3 courts 09:00–10:00, 4 courts 10:00–12:00, 3 courts 12:00–14:00.
@@ -65,6 +65,9 @@ Press **Add court** above the court cards. It adds a court to the block you are 
 
 **A court becomes unavailable** (a failed reservation, a broken net).
 Press the **−** button in that court's header and confirm. The court leaves the block you are viewing; the other courts keep their names (removing Court 6 from 5–8 leaves 5, 7, 8). A suggested game on it moves to the waiting courts. A game in progress must be finished or cancelled first, so the button is disabled on live courts. A block always keeps at least one court.
+
+**The venue switches court numbers.**
+Tap a court's name on its card (it is underlined) to rename it. Type the number (`9` shows as Court 9) or a name like `Main court`. Leave **Use this name in every block** ticked to rename that court in every time block, or untick it to change just the block you are viewing. Two courts in the same block can't share a name.
 
 **It is near closing time.**
 A game takes about 15 minutes. When you start a game within 15 minutes of the reservation's end, the board asks whether it is a **free game**. Free games are played with a used shuttle, show a violet **Free** tag, and do not count as a game played, so they are not added to anyone's fees.

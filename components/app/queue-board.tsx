@@ -54,6 +54,7 @@ import {
 import {
   addCourt,
   removeCourt,
+  renameCourt,
   cancelMatch,
   checkInPlayer,
   clearSuggestedMatches,
@@ -195,6 +196,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [walkOpen, setWalkOpen] = React.useState(false);
   const [addCourtOpen, setAddCourtOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [renameTarget, setRenameTarget] = React.useState<{ court: number; name: string } | null>(null);
+  const [renameLabel, setRenameLabel] = React.useState("");
+  const [renameEveryBlock, setRenameEveryBlock] = React.useState(true);
   const [shareUrl, setShareUrl] = React.useState(livePath);
   const [newCourtLabel, setNewCourtLabel] = React.useState("");
   const [freePrompt, setFreePrompt] = React.useState<{
@@ -847,6 +851,12 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                             onConfirm: () => act(() => cancelMatch(id)),
                           })
                         }
+                        onRename={() => {
+                          const current = slot?.courtLabels?.[court - 1]?.trim();
+                          setRenameLabel(current || String(court));
+                          setRenameEveryBlock(true);
+                          setRenameTarget({ court, name: courtName(slot, court) });
+                        }}
                         onRemove={() =>
                           setConfirmSpec({
                             title: `Remove ${courtName(slot, court)}?`,
@@ -1290,6 +1300,62 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
           </p>
         </Modal>
 
+        {/* Rename court modal */}
+        <Modal
+          open={Boolean(renameTarget)}
+          onClose={() => setRenameTarget(null)}
+          title={`Rename ${renameTarget?.name ?? "court"}`}
+          description="Use the number the venue assigned. Type 5 to show “Court 5”, or any name like “Main court”."
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setRenameTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  renameTarget &&
+                  act(
+                    () =>
+                      renameCourt(
+                        data.gameDay.id,
+                        slotIndex,
+                        renameTarget.court,
+                        renameLabel,
+                        plan.length > 1 && renameEveryBlock,
+                      ),
+                    () => setRenameTarget(null),
+                  )
+                }
+                loading={pending}
+              >
+                <Check className="h-4 w-4" /> Save name
+              </Button>
+            </>
+          }
+        >
+          <Field label="Court number or name" hint="Leave blank to show its position number.">
+            <Input
+              value={renameLabel}
+              onChange={(event) => setRenameLabel(event.target.value)}
+              maxLength={24}
+              autoFocus
+              onFocus={(event) => event.currentTarget.select()}
+            />
+          </Field>
+          {plan.length > 1 && (
+            <label className="text-ink-soft mt-3 flex items-center gap-2 text-[13px]">
+              <input
+                type="checkbox"
+                checked={renameEveryBlock}
+                onChange={(event) => setRenameEveryBlock(event.target.checked)}
+                className="accent-forest h-4 w-4"
+              />
+              Use this name in every block
+            </label>
+          )}
+        </Modal>
+
         {/* Add court modal */}
         <Modal
           open={addCourtOpen}
@@ -1442,6 +1508,23 @@ function FreeTag() {
  */
 const WAITING_BUTTON = "!bg-[#0a0a0a] !text-[#ffd600] hover:!bg-[#2a2a2a]";
 
+/** A court's name; tap it to rename the court when renaming is allowed. */
+function CourtNameButton({ name, onRename }: { name: string; onRename?: () => void }) {
+  if (!onRename) return <>{name}</>;
+  return (
+    <button
+      type="button"
+      onClick={onRename}
+      title={`Rename ${name}`}
+      aria-label={`Rename ${name}`}
+      className="group/name hover:text-cream inline-flex items-center gap-1 rounded uppercase underline decoration-dotted decoration-1 underline-offset-4 transition"
+    >
+      {name}
+      <Pencil className="h-2.5 w-2.5 opacity-50 group-hover/name:opacity-100" />
+    </button>
+  );
+}
+
 function RemoveCourtButton({
   name,
   live,
@@ -1485,6 +1568,7 @@ function CourtCard({
   queuePosition,
   canStart = true,
   onRemove,
+  onRename,
 }: {
   court: number;
   name: string;
@@ -1506,6 +1590,8 @@ function CourtCard({
   canStart?: boolean;
   /** Removes this court from the block (real courts only). */
   onRemove?: () => void;
+  /** Opens the rename dialog (real courts only). */
+  onRename?: () => void;
 }) {
   // A waiting court (court 0) holds a game ahead of time; it is not a real court.
   const waiting = court === QUEUED_COURT;
@@ -1541,7 +1627,8 @@ function CourtCard({
         <div className="relative p-3">
           <div className="flex items-center justify-between">
             <span className="text-cream/70 inline-flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
-              <span className="bg-cream/40 h-1.5 w-1.5 rounded-full" /> {name}
+              <span className="bg-cream/40 h-1.5 w-1.5 rounded-full" />
+              <CourtNameButton name={name} onRename={isCompleted ? undefined : onRename} />
             </span>
             <span className="flex items-center gap-1.5">
               <span className="border-cream/25 bg-cream/10 text-cream/60 rounded-full border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase">
@@ -1622,7 +1709,7 @@ function CourtCard({
               <GripVertical className="h-3.5 w-3.5" />
             </span>
             <span className="text-cream/75 truncate font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
-              {name}
+              <CourtNameButton name={name} onRename={isCompleted ? undefined : onRename} />
             </span>
           </div>
           <div className="flex items-center gap-1.5">

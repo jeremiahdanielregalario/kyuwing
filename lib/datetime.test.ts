@@ -13,13 +13,16 @@ import {
   manilaTime,
   manilaWeekday,
   minutesToLabel,
+  normalizeCourtLabel,
   courtName,
   FREE_GAME_WINDOW_MINUTES,
   minutesLeftInReservation,
   offersFreeGame,
   openCourts,
+  parseCourtNumbers,
   parseCourtPlan,
   QUEUED_COURT,
+  renamedCourt,
   withoutCourt,
   timeToMinutes,
   weekdayFromKey,
@@ -32,6 +35,63 @@ const SLOTS: CourtSlot[] = [
   { id: "b", label: "Midday", start: "10:00", end: "12:00", courts: 4 },
   { id: "c", label: "Afternoon", start: "12:00", end: "14:00", courts: 2 },
 ];
+
+describe("normalizeCourtLabel", () => {
+  it("stores court numbers however they are typed", () => {
+    for (const typed of ["6", "Court 6", "court 6", "C6", "Court #6", " 6 "]) {
+      expect(normalizeCourtLabel(typed)).toBe("6");
+    }
+    expect(normalizeCourtLabel("Main court")).toBe("Main court");
+  });
+});
+
+describe("parseCourtNumbers", () => {
+  it("reads lists, spaces, and ranges", () => {
+    expect(parseCourtNumbers("5, 6, 7, 8")).toEqual(["5", "6", "7", "8"]);
+    expect(parseCourtNumbers("5 6 7")).toEqual(["5", "6", "7"]);
+    expect(parseCourtNumbers("5-8")).toEqual(["5", "6", "7", "8"]);
+    expect(parseCourtNumbers("Court 3, Court 9")).toEqual(["3", "9"]);
+    expect(parseCourtNumbers("2, 4-5")).toEqual(["2", "4", "5"]);
+  });
+
+  it("keeps names, drops blanks and duplicates", () => {
+    expect(parseCourtNumbers("Main court, Side, , main court")).toEqual(["Main court", "Side"]);
+    expect(parseCourtNumbers("   ")).toEqual([]);
+  });
+});
+
+describe("renamedCourt", () => {
+  const plan: CourtSlot[] = [
+    { ...SLOTS[0], courts: 3, courtLabels: ["5", "6", "7"] },
+    { ...SLOTS[1], courts: 4, courtLabels: ["5", "6", "7", "8"] },
+  ];
+
+  it("renames a court in one block only", () => {
+    const result = renamedCourt(plan, 0, 2, "9", false);
+    if ("error" in result) throw new Error(result.error);
+    expect(courtName(result.plan[0], 2)).toBe("Court 9");
+    expect(courtName(result.plan[1], 2)).toBe("Court 6");
+  });
+
+  it("renames the same position in every block", () => {
+    const result = renamedCourt(plan, 0, 1, "Main", true);
+    if ("error" in result) throw new Error(result.error);
+    expect(courtName(result.plan[0], 1)).toBe("Main");
+    expect(courtName(result.plan[1], 1)).toBe("Main");
+  });
+
+  it("falls back to the position number when cleared", () => {
+    const result = renamedCourt(plan, 0, 3, "  ", false);
+    if ("error" in result) throw new Error(result.error);
+    expect(courtName(result.plan[0], 3)).toBe("Court 3");
+  });
+
+  it("refuses a name another court in the block already uses", () => {
+    const result = renamedCourt(plan, 0, 1, "court 6", false);
+    expect(result).toEqual({ error: "Court 6 is already a court in Morning." });
+    expect(renamedCourt(plan, 0, 1, "6", false)).toEqual({ error: "Court 6 is already a court in Morning." });
+  });
+});
 
 describe("withoutCourt", () => {
   it("drops a labelled court and keeps the others' names", () => {

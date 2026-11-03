@@ -6,6 +6,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Court numbers up front** — when creating a game day, enter the venue's court numbers per block (`5, 6, 7, 8` or `5-8`); the court count follows. Leave blank to number courts 1, 2, 3…
+- **Rename courts from the board** — tap a court's name to rename it, in one block or every block. "Court 6", "C6", and "6" all mean Court 6, and duplicate names in a block are refused.
 - **Remove court** — remove an unavailable court (e.g. a failed reservation) from the board with the **−** button on its card. Its suggested game moves to the waiting courts, the other courts keep their names, and courts with a game in progress can't be removed until it ends.
 - **Waiting courts** — set games ahead of time on court-style cards below the courts: drop four players in or press Pair, even while courts are open. Waiting games run in order and take the next court that frees up; edit, remove, or drag them onto a free court. Waiting courts are yellow, like Queue Maestro's, so they stand apart from the green courts.
 - **Shareable live view** — **Share live view** on the board gives a view-only link for the group chat. Players see the courts, the Next up line, and the waiting order, updating every few seconds, and can type their nickname to see if they're next. No login; nicknames and levels only.

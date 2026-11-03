@@ -14,7 +14,9 @@ import {
   formatGameDate,
   openCourts,
   parseCourtPlan,
+  normalizeCourtLabel,
   QUEUED_COURT,
+  renamedCourt,
   timeToMinutes,
   withoutCourt,
 } from "@/lib/datetime";
@@ -977,7 +979,7 @@ export async function addCourt(
 
   const court = slot.courts + 1;
   const courtLabels = Array.from({ length: slot.courts }, (_, index) => slot.courtLabels?.[index] ?? "");
-  courtLabels.push((label ?? "").trim().slice(0, 24));
+  courtLabels.push(normalizeCourtLabel(label ?? ""));
   const nextSlot = { ...slot, courts: court, courtLabels };
   const nextPlan = plan.map((row, index) => (index === slotIndex ? nextSlot : row));
 
@@ -1050,6 +1052,38 @@ export async function removeCourt(
     onCourt
       ? `${name} removed. Its suggested game moved to the waiting courts.`
       : `${name} removed from ${slot.label}.`,
+  );
+}
+
+/** Rename a court from the board, in one block or at that position in every block. */
+export async function renameCourt(
+  gameDayId: string,
+  slotIndex: number,
+  court: number,
+  label: string,
+  everyBlock: boolean,
+): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const gameDay = await prisma.gameDay.findUnique({ where: { id: gameDayId }, select: { courtPlan: true } });
+  if (!gameDay) return fail("Game day not found.");
+  const plan = parseCourtPlan(gameDay.courtPlan);
+  const slot = plan[slotIndex];
+  if (!slot) return fail("Pick a court block first.");
+  if (!Number.isInteger(court) || court < 1 || court > slot.courts) return fail("Pick a valid court.");
+
+  const result = renamedCourt(plan, slotIndex, court, label, everyBlock);
+  if ("error" in result) return fail(result.error);
+
+  await prisma.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: result.plan } });
+  refreshGameDay(gameDayId);
+  const before = courtName(slot, court);
+  const after = courtName(result.plan[slotIndex], court);
+  return ok(
+    before === after
+      ? `${after} unchanged.`
+      : `${before} is now ${after}${everyBlock ? " in every block" : ""}.`,
   );
 }
 

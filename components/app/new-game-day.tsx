@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CalendarPlus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createGameDay } from "@/lib/actions/gamedays";
+import { courtName, parseCourtNumbers } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -18,7 +19,8 @@ type VenueOption = {
   defaultCourts: number;
 };
 
-type Slot = { id: string; label: string; start: string; end: string; courts: number };
+/** `numbers` is what the queue master typed, e.g. "5, 6, 7, 8" or "5-8". */
+type Slot = { id: string; label: string; start: string; end: string; courts: number; numbers: string };
 
 function makeSlot(venue: VenueOption, index = 0): Slot {
   return {
@@ -27,6 +29,7 @@ function makeSlot(venue: VenueOption, index = 0): Slot {
     start: venue.defaultStart,
     end: venue.defaultEnd,
     courts: venue.defaultCourts,
+    numbers: "",
   };
 }
 
@@ -63,7 +66,9 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
           label: `Block ${current.length + 1}`,
           start: nextStart,
           end: nextEnd,
-          courts: selectedVenue.defaultCourts,
+          // Courts usually keep their numbers across blocks; start from the previous block's.
+          courts: previous?.courts ?? selectedVenue.defaultCourts,
+          numbers: previous?.numbers ?? "",
         },
       ];
     });
@@ -81,7 +86,10 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
         date,
         type,
         notes,
-        courtPlan: slots,
+        courtPlan: slots.map(({ numbers, ...slot }) => {
+          const courtLabels = parseCourtNumbers(numbers);
+          return courtLabels.length ? { ...slot, courts: courtLabels.length, courtLabels } : slot;
+        }),
       });
       if (result.ok && result.data) {
         toast.success(result.message ?? "Game day created.");
@@ -170,72 +178,110 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
               </button>
             </div>
             <div className="space-y-2">
-              {slots.map((slot, index) => (
-                <div
-                  key={slot.id}
-                  className="border-line bg-cream/30 grid grid-cols-[1fr_auto] gap-2 rounded-xl border p-2.5 sm:grid-cols-[1.2fr_0.8fr_0.8fr_0.6fr_auto]"
-                >
-                  <Input
-                    value={slot.label}
-                    onChange={(event) =>
-                      setSlots((current) =>
-                        current.map((row, i) => (i === index ? { ...row, label: event.target.value } : row)),
-                      )
-                    }
-                    className="h-9 text-[12px]"
-                    aria-label="Block label"
-                  />
-                  <Input
-                    type="time"
-                    value={slot.start}
-                    onChange={(event) =>
-                      setSlots((current) =>
-                        current.map((row, i) => (i === index ? { ...row, start: event.target.value } : row)),
-                      )
-                    }
-                    className="h-9 text-[12px]"
-                    aria-label="Start time"
-                  />
-                  <Input
-                    type="time"
-                    value={slot.end}
-                    onChange={(event) =>
-                      setSlots((current) =>
-                        current.map((row, i) => (i === index ? { ...row, end: event.target.value } : row)),
-                      )
-                    }
-                    className="h-9 text-[12px]"
-                    aria-label="End time"
-                  />
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={slot.courts}
-                    onChange={(event) =>
-                      setSlots((current) =>
-                        current.map((row, i) =>
-                          i === index ? { ...row, courts: Number(event.target.value) } : row,
-                        ),
-                      )
-                    }
-                    className="h-9 text-center text-[12px]"
-                    aria-label="Court count"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSlots((current) => current.filter((_, i) => i !== index))}
-                    disabled={slots.length === 1}
-                    className="text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-lg transition disabled:opacity-30"
-                    aria-label="Remove block"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
+              {slots.map((slot, index) => {
+                const numbered = parseCourtNumbers(slot.numbers);
+                return (
+                  <div key={slot.id} className="border-line bg-cream/30 space-y-2 rounded-xl border p-2.5">
+                    <div className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[1.2fr_0.8fr_0.8fr_0.6fr_auto]">
+                      <Input
+                        value={slot.label}
+                        onChange={(event) =>
+                          setSlots((current) =>
+                            current.map((row, i) =>
+                              i === index ? { ...row, label: event.target.value } : row,
+                            ),
+                          )
+                        }
+                        className="h-9 text-[12px]"
+                        aria-label="Block label"
+                      />
+                      <Input
+                        type="time"
+                        value={slot.start}
+                        onChange={(event) =>
+                          setSlots((current) =>
+                            current.map((row, i) =>
+                              i === index ? { ...row, start: event.target.value } : row,
+                            ),
+                          )
+                        }
+                        className="h-9 text-[12px]"
+                        aria-label="Start time"
+                      />
+                      <Input
+                        type="time"
+                        value={slot.end}
+                        onChange={(event) =>
+                          setSlots((current) =>
+                            current.map((row, i) =>
+                              i === index ? { ...row, end: event.target.value } : row,
+                            ),
+                          )
+                        }
+                        className="h-9 text-[12px]"
+                        aria-label="End time"
+                      />
+                      <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={numbered.length || slot.courts}
+                        readOnly={numbered.length > 0}
+                        title={numbered.length > 0 ? "Set by the court numbers below" : undefined}
+                        onChange={(event) =>
+                          setSlots((current) =>
+                            current.map((row, i) =>
+                              i === index ? { ...row, courts: Number(event.target.value) } : row,
+                            ),
+                          )
+                        }
+                        className="h-9 text-center text-[12px]"
+                        aria-label="Court count"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSlots((current) => current.filter((_, i) => i !== index))}
+                        disabled={slots.length === 1}
+                        className="text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-lg transition disabled:opacity-30"
+                        aria-label="Remove block"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        value={slot.numbers}
+                        onChange={(event) =>
+                          setSlots((current) =>
+                            current.map((row, i) =>
+                              i === index ? { ...row, numbers: event.target.value } : row,
+                            ),
+                          )
+                        }
+                        placeholder="Court numbers from the venue, e.g. 5, 6, 7, 8 or 5-8"
+                        className="h-9 min-w-0 flex-1 text-[12px]"
+                        aria-label="Court numbers"
+                      />
+                      {numbered.length > 0 && (
+                        <span className="text-muted font-mono text-[10px]">
+                          {numbered
+                            .map((_, position) =>
+                              courtName(
+                                { ...slot, courts: numbered.length, courtLabels: numbered },
+                                position + 1,
+                              ),
+                            )
+                            .join(" · ")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <p className="text-muted mt-1.5 text-[11px]">
-              Each block has its own court count. Example: 3 courts from 9–10, then 4 courts from 10–12.
+              Enter the court numbers the venue assigned — the count follows. Leave them blank to number
+              courts 1, 2, 3… Each block can differ, e.g. 3 courts from 9–10, then 4 from 10–12.
             </p>
           </div>
 
