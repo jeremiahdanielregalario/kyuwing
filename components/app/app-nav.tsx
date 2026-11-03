@@ -14,7 +14,14 @@ const navItems = [
 ];
 
 function isActive(pathname: string, href: string) {
-  if (href === "/app") return pathname === "/app" || pathname === "/app/";
+  // "Live board" matches /app and any game-day page (/app/gamedays/{id}/*).
+  // "Game days" only matches the list page (/app/gamedays).
+  if (href === "/app") {
+    return pathname === "/app" || pathname === "/app/" || /^\/app\/gamedays\/[^/]+/.test(pathname);
+  }
+  if (href === "/app/gamedays") {
+    return pathname === "/app/gamedays" || pathname === "/app/gamedays/";
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
