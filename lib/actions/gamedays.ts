@@ -10,6 +10,7 @@ import {
   courtName,
   currentSlotIndex,
   dateOnlyFromKey,
+  extendedPlan,
   elapsedMinutes,
   formatGameDate,
   openCourts,
@@ -200,6 +201,88 @@ export async function setGameDayStatus(
   });
   refreshGameDay(id);
   return ok(status === "LIVE" ? "Game day is live." : "Game day reopened as a draft.");
+}
+
+/**
+ * Extend a live game day past its reservation: adds a block from the current
+ * end until `until` with `courts` courts. Suggested games on courts the
+ * extension drops go to the waiting courts; waiting games fill added courts.
+ */
+export async function extendGameDay(gameDayId: string, until: string, courts: number): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id: gameDayId },
+    select: { status: true, courtPlan: true },
+  });
+  if (!gameDay) return fail("Game day not found.");
+  if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
+
+  const result = extendedPlan(parseCourtPlan(gameDay.courtPlan), until, courts);
+  if ("error" in result) return fail(result.error);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: result.plan } });
+    await tx.match.updateMany({
+      where: { gameDayId, status: "SUGGESTED", courtNumber: { gt: courts } },
+      data: { courtNumber: QUEUED_COURT },
+    });
+    await promoteQueuedGames(tx, gameDayId, undefined, result.index);
+  });
+
+  refreshGameDay(gameDayId);
+  return ok(`Extended until ${until} with ${courts} ${courts === 1 ? "court" : "courts"}.`);
+}
+
+/**
+ * Close the game day at the end of the reservation. Games still on court can
+ * be counted as played (they usually finished as time ran out); suggested and
+ * waiting games are cancelled. Players then settle fees.
+ */
+export async function endGameDay(gameDayId: string, countLiveGames: boolean): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const gameDay = await prisma.gameDay.findUnique({ where: { id: gameDayId }, select: { status: true } });
+  if (!gameDay) return fail("Game day not found.");
+  if (gameDay.status === "COMPLETED") return ok("This game day is already closed.");
+
+  const live = await prisma.match.findMany({
+    where: { gameDayId, status: "LIVE" },
+    include: { players: { select: { playerId: true } } },
+  });
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    if (countLiveGames) {
+      for (const match of live) {
+        await tx.match.update({ where: { id: match.id }, data: { status: "COMPLETED", endedAt: now } });
+        if (!match.free) {
+          await tx.sessionPlayer.updateMany({
+            where: { gameDayId, playerId: { in: match.players.map((row) => row.playerId) } },
+            data: { gamesPlayed: { increment: 1 }, lastPlayedAt: now },
+          });
+        }
+      }
+    }
+    await tx.match.updateMany({
+      where: { gameDayId, status: { in: ["SUGGESTED", "LIVE"] } },
+      data: { status: "CANCELLED", endedAt: now },
+    });
+    await tx.sessionPlayer.updateMany({
+      where: { gameDayId, status: { in: ["PLAYING", "WAITING"] } },
+      data: { status: "DONE", queuedAt: null },
+    });
+    await tx.gameDay.update({ where: { id: gameDayId }, data: { status: "COMPLETED", completedAt: now } });
+  });
+
+  refreshGameDay(gameDayId);
+  const counted =
+    countLiveGames && live.length > 0
+      ? ` ${live.length} game${live.length === 1 ? "" : "s"} in progress counted.`
+      : "";
+  return ok(`Game day ended.${counted} Collect fees next.`);
 }
 
 export async function deleteGameDay(id: string): Promise<ActionResult> {

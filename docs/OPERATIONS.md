@@ -105,6 +105,12 @@ Requests are soft. The board shows a badge when one was honored. If a request is
 
 ## Closing the day
 
+When the reservation runs out (the end of the last block, on the game day itself), the board asks **Reservation time is up**:
+
+- **Extend the game day** — pick until when and how many courts you still have (it suggests an hour more with the same courts). A new *Extension* block keeps the court numbers. If you keep fewer courts, suggested games on the dropped courts move to the waiting courts.
+- **End the game day & go to fees** — closes the board and opens **Fees**. Games still on court count as played unless you untick the box; suggested and waiting games are cancelled.
+- **Remind me in 10 min** — or close the box; it comes back after ten minutes.
+
 - [ ] Finish or cancel every live and suggested match.
 - [ ] Mark anyone who left early as **Done**.
 - [ ] Open **Fees**, record payments, and reconcile cash vs GCash.

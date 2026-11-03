@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { toast } from "sonner";
 import {
@@ -39,6 +40,7 @@ import {
   Gift,
   Minus,
   Undo2,
+  AlarmClock,
   Search,
   Settings2,
   Share2,
@@ -54,6 +56,8 @@ import {
 } from "lucide-react";
 import {
   addCourt,
+  endGameDay,
+  extendGameDay,
   removeCourt,
   renameCourt,
   restoreMatch,
@@ -85,6 +89,8 @@ import {
   minutesLeftInReservation,
   offersFreeGame,
   QUEUED_COURT,
+  reservationEnd,
+  timeToMinutes,
 } from "@/lib/datetime";
 import { CourtLines } from "@/components/app/court-surface";
 import { Avatar } from "@/components/ui/avatar";
@@ -198,6 +204,12 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [walkOpen, setWalkOpen] = React.useState(false);
   const [addCourtOpen, setAddCourtOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
+  const router = useRouter();
+  // Reservation-end prompt: snoozing hides it until the given time on this device.
+  const [snoozedUntil, setSnoozedUntil] = React.useState(0);
+  const [extendUntil, setExtendUntil] = React.useState("");
+  const [extendCourts, setExtendCourts] = React.useState(0);
+  const [countLiveGames, setCountLiveGames] = React.useState(true);
   const [renameTarget, setRenameTarget] = React.useState<{ court: number; name: string } | null>(null);
   const [renameLabel, setRenameLabel] = React.useState("");
   const [renameEveryBlock, setRenameEveryBlock] = React.useState(true);
@@ -345,6 +357,20 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const courtNumbers = Array.from({ length: courtCount }, (_, index) => index + 1);
   const isDraft = data.gameDay.status === "DRAFT";
   const isCompleted = data.gameDay.status === "COMPLETED";
+
+  // When the reserved time runs out on the game day itself, ask whether to extend or end.
+  const bookedUntil = reservationEnd(plan);
+  const minutesLeft = now ? minutesLeftInReservation(plan, data.gameDay.date, new Date(now)) : null;
+  const reservationOver = data.gameDay.status === "LIVE" && minutesLeft !== null && minutesLeft <= 0;
+  const endPromptOpen = reservationOver && now >= snoozedUntil;
+  const lastBlock = plan.find((block) => block.end === bookedUntil);
+  const suggestedUntil = bookedUntil
+    ? (() => {
+        const minutes = Math.min(timeToMinutes(bookedUntil) + 60, 23 * 60 + 59);
+        return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+      })()
+    : "";
+  const snoozeEndPrompt = () => setSnoozedUntil(Date.now() + 10 * 60 * 1000);
 
   const sortedQueue = React.useMemo(() => {
     const statusOrder: Record<string, number> = { WAITING: 0, PLAYING: 1, EXPECTED: 2, DONE: 3 };
@@ -1247,6 +1273,104 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
               If the nickname already exists, their saved level and player type will be used.
             </p>
+          </div>
+        </Modal>
+
+        {/* Reservation is over: extend or end the game day */}
+        <Modal
+          open={endPromptOpen}
+          onClose={snoozeEndPrompt}
+          title="Reservation time is up"
+          description={`The courts were booked until ${bookedUntil ?? "now"}. Extend the game day, or end it and collect fees.`}
+          size="md"
+          footer={
+            <Button variant="ghost" onClick={snoozeEndPrompt}>
+              <AlarmClock className="h-4 w-4" /> Remind me in 10 min
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="border-line rounded-2xl border p-4">
+              <p className="font-display text-[15px] font-bold">Extend the game day</p>
+              <p className="text-muted mb-3 text-[12px]">
+                Adds a block from {bookedUntil} with the courts you still have.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <Field label="Until">
+                  <Input
+                    type="time"
+                    value={extendUntil || suggestedUntil}
+                    onChange={(event) => setExtendUntil(event.target.value)}
+                  />
+                </Field>
+                <Field label="Courts">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={extendCourts || lastBlock?.courts || 1}
+                    onChange={(event) => setExtendCourts(Number(event.target.value))}
+                  />
+                </Field>
+                <Button
+                  onClick={() =>
+                    act(
+                      () =>
+                        extendGameDay(
+                          data.gameDay.id,
+                          extendUntil || suggestedUntil,
+                          extendCourts || lastBlock?.courts || 1,
+                        ),
+                      () => {
+                        setExtendUntil("");
+                        setExtendCourts(0);
+                      },
+                    )
+                  }
+                  loading={pending}
+                >
+                  <Plus className="h-4 w-4" /> Extend
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-line rounded-2xl border p-4">
+              <p className="font-display text-[15px] font-bold">End the game day</p>
+              <p className="text-muted mb-3 text-[12px]">
+                Closes the board and takes you to Fees to collect payments. Reports are ready after.
+              </p>
+              {live.length > 0 && (
+                <label className="text-ink-soft mb-3 flex items-start gap-2 text-[13px]">
+                  <input
+                    type="checkbox"
+                    checked={countLiveGames}
+                    onChange={(event) => setCountLiveGames(event.target.checked)}
+                    className="accent-forest mt-0.5 h-4 w-4"
+                  />
+                  <span>
+                    Count the {live.length} game{live.length === 1 ? "" : "s"} still on court as played (
+                    {live.map((match) => courtName(slot, match.courtNumber)).join(", ")})
+                  </span>
+                </label>
+              )}
+              <Button
+                variant="danger"
+                onClick={() =>
+                  startTransition(async () => {
+                    const result = await endGameDay(data.gameDay.id, live.length > 0 && countLiveGames);
+                    if (!result.ok) {
+                      toast.error(result.error);
+                      return;
+                    }
+                    toast.success(result.message ?? "Game day ended.");
+                    router.push(`/app/gamedays/${data.gameDay.id}/fees`);
+                  })
+                }
+                loading={pending}
+              >
+                <Flag className="h-4 w-4" /> End game day &amp; go to fees
+              </Button>
+            </div>
           </div>
         </Modal>
 

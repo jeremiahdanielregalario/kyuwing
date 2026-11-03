@@ -4,6 +4,7 @@ import {
   dateOnly,
   dateOnlyFromKey,
   elapsedMinutes,
+  extendedPlan,
   formatClock,
   formatDuration,
   formatGameDate,
@@ -23,6 +24,7 @@ import {
   parseCourtPlan,
   QUEUED_COURT,
   renamedCourt,
+  reservationEnd,
   withoutCourt,
   timeToMinutes,
   weekdayFromKey,
@@ -109,6 +111,42 @@ describe("withoutCourt", () => {
   it("keeps custom names", () => {
     const next = withoutCourt({ ...SLOTS[0], courts: 3, courtLabels: ["Main", "", "Side"] }, 1);
     expect([1, 2].map((court) => courtName(next, court))).toEqual(["Court 2", "Side"]);
+  });
+});
+
+describe("extending the reservation", () => {
+  const plan: CourtSlot[] = [
+    { id: "a", label: "First", start: "10:00", end: "12:00", courts: 3, courtLabels: ["5", "6", "7"] },
+    { id: "b", label: "Second", start: "12:00", end: "14:00", courts: 4, courtLabels: ["5", "6", "7", "8"] },
+  ];
+
+  it("finds the reservation end", () => {
+    expect(reservationEnd(plan)).toBe("14:00");
+    expect(reservationEnd([])).toBeNull();
+  });
+
+  it("adds a block from the end, keeping court numbers", () => {
+    const result = extendedPlan(plan, "15:00", 2);
+    if ("error" in result) throw new Error(result.error);
+    expect(result.index).toBe(2);
+    expect(result.plan[2]).toMatchObject({ label: "Extension", start: "14:00", end: "15:00", courts: 2 });
+    expect([1, 2].map((court) => courtName(result.plan[2], court))).toEqual(["Court 5", "Court 6"]);
+  });
+
+  it("continues numbered courts when adding more", () => {
+    const result = extendedPlan(plan, "15:00", 5);
+    if ("error" in result) throw new Error(result.error);
+    expect(result.plan[2].courtLabels).toEqual(["5", "6", "7", "8", "9"]);
+  });
+
+  it("names a second extension and checks the time", () => {
+    const first = extendedPlan(plan, "15:00", 2);
+    if ("error" in first) throw new Error(first.error);
+    const second = extendedPlan(first.plan, "16:00", 2);
+    if ("error" in second) throw new Error(second.error);
+    expect(second.plan[3]).toMatchObject({ label: "Extension 2", start: "15:00" });
+    expect(extendedPlan(plan, "13:30", 2)).toEqual({ error: "Pick a time after 14:00." });
+    expect(extendedPlan(plan, "15:00", 0)).toEqual({ error: "Pick between 1 and 20 courts." });
   });
 });
 

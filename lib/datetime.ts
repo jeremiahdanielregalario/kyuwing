@@ -256,6 +256,54 @@ export function renamedCourt(
   return { plan: next };
 }
 
+/** The end of the reservation: the latest block end, as "HH:MM". */
+export function reservationEnd(plan: CourtSlot[]): string | null {
+  if (plan.length === 0) return null;
+  return plan.reduce(
+    (latest, slot) => (timeToMinutes(slot.end) > timeToMinutes(latest) ? slot.end : latest),
+    plan[0].end,
+  );
+}
+
+/**
+ * The plan with an extension block from the reservation end until `until`.
+ * Courts keep the last block's numbers; extra numbered courts continue the
+ * sequence (5-8 plus one more adds 9), otherwise they are numbered by position.
+ */
+export function extendedPlan(
+  plan: CourtSlot[],
+  until: string,
+  courts: number,
+): { plan: CourtSlot[]; index: number } | { error: string } {
+  const end = reservationEnd(plan);
+  if (!end) return { error: "Add a court block in Settings first." };
+  if (!/^\d{2}:\d{2}$/.test(until)) return { error: "Pick a valid end time." };
+  if (timeToMinutes(until) <= timeToMinutes(end)) return { error: `Pick a time after ${end}.` };
+  if (!Number.isInteger(courts) || courts < 1 || courts > 20)
+    return { error: "Pick between 1 and 20 courts." };
+
+  const last = plan.find((slot) => slot.end === end) ?? plan[plan.length - 1];
+  const lastLabels = Array.from(
+    { length: last.courts },
+    (_, index) => last.courtLabels?.[index]?.trim() ?? "",
+  );
+  const numbered = lastLabels.length > 0 && lastLabels.every((label) => /^\d+$/.test(label));
+  const courtLabels = Array.from({ length: courts }, (_, index) => {
+    if (index < lastLabels.length) return lastLabels[index];
+    return numbered ? String(Math.max(...lastLabels.map(Number)) + (index - lastLabels.length) + 1) : "";
+  });
+  const extensions = plan.filter((slot) => slot.label.startsWith("Extension")).length;
+  const extension: CourtSlot = {
+    id: `extension-${end.replace(":", "")}-${until.replace(":", "")}`,
+    label: extensions ? `Extension ${extensions + 1}` : "Extension",
+    start: end,
+    end: until,
+    courts,
+    courtLabels,
+  };
+  return { plan: [...plan, extension], index: plan.length };
+}
+
 /** A doubles game runs about this long; starting one closer to closing time may not finish. */
 export const FREE_GAME_WINDOW_MINUTES = 15;
 
