@@ -89,7 +89,7 @@ docs/                     Long-form documentation
 
 - User-facing copy uses "queue master", "game day", "check in", "sign-ups", "court block".
 - Levels display as `E-` … `A+`; bracket names are Beginner / Developing / Intermediate / Advanced / Open.
-- The credit line is exactly **"App by Danyel Regalario"** and must remain in the landing footer, login page, app sidebar, exports, README, and `package.json` author.
+- The credit line is exactly **"App by Danyel Regalario"** and must remain in the landing footer, login page, app sidebar, README, and `package.json` author. Session reports (PDF/Excel) deliberately do **not** carry it: they are UP BadAss documents, branded with the wordmark (`lib/brand-logo.ts`), black and gold, and signed by the game day's queue master and finance member.
 
 ## Gotchas
 

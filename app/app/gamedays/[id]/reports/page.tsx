@@ -56,6 +56,29 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
           }
         />
 
+        <div className="border-line bg-paper flex flex-wrap gap-x-8 gap-y-2 rounded-2xl border px-4 py-3 text-[13px]">
+          <p>
+            <span className="text-muted mr-2 text-[10px] font-bold tracking-[0.14em] uppercase">
+              Queue master
+            </span>
+            <span className="font-semibold">{report.gameDay.queueMasterName ?? "Not set"}</span>
+          </p>
+          <p>
+            <span className="text-muted mr-2 text-[10px] font-bold tracking-[0.14em] uppercase">
+              Finance member
+            </span>
+            <span className="font-semibold">{report.gameDay.financeMemberName ?? "Not set"}</span>
+          </p>
+          {(!report.gameDay.queueMasterName || !report.gameDay.financeMemberName) && (
+            <Link
+              href={`/app/gamedays/${id}/settings`}
+              className="text-forest ml-auto text-[12px] font-semibold hover:underline"
+            >
+              Add names in Settings
+            </Link>
+          )}
+        </div>
+
         <div data-trim-id="reports.stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
             label="Games played"

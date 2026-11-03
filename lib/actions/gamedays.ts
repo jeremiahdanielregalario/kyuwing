@@ -130,6 +130,8 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
       type: parsed.data.type,
       courtPlan: parsed.data.courtPlan,
       notes: parsed.data.notes || null,
+      queueMasterName: parsed.data.queueMasterName || null,
+      financeMemberName: parsed.data.financeMemberName || null,
     },
   });
 
@@ -156,6 +158,8 @@ export async function updateGameDay(input: unknown): Promise<ActionResult> {
       ...(rest.type ? { type: rest.type } : {}),
       ...(rest.courtPlan ? { courtPlan: rest.courtPlan } : {}),
       ...(rest.notes !== undefined ? { notes: rest.notes || null } : {}),
+      ...(rest.queueMasterName !== undefined ? { queueMasterName: rest.queueMasterName || null } : {}),
+      ...(rest.financeMemberName !== undefined ? { financeMemberName: rest.financeMemberName || null } : {}),
       ...(date ? { date: dateOnlyFromKey(date) } : {}),
       ...(rest.venueId ? { venueId: rest.venueId } : {}),
     },

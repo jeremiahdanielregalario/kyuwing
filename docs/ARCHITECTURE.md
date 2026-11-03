@@ -156,7 +156,7 @@ There are no player accounts. Players never log in, and no personal data beyond 
 
 ## Exports
 
-- **Excel** (`app/api/gamedays/[id]/export/xlsx/route.ts`) builds a workbook with Summary, Players, Matches, and Fees sheets via ExcelJS. Creator metadata carries the app credit.
+- **Excel** (`app/api/gamedays/[id]/export/xlsx/route.ts`) builds a workbook with Summary, Players & Fees, and Match History sheets via ExcelJS, each headed by the UP BadAss wordmark. Reports use the app's black and gold, list the game day's queue master and finance member, and do not carry the app credit. The wordmark is embedded as base64 (`lib/brand-logo.ts`) so export routes never read `public/` at runtime.
 - **PDF** (`app/api/gamedays/[id]/export/pdf/route.ts`) draws a print-ready summary with pdf-lib. Standard fonts lack `₱`, so amounts render as `PHP 250`.
 - **Roster export** (`app/api/players/export/route.ts`) produces a CSV of the player database.
 

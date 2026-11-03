@@ -54,6 +54,8 @@ export const gameDayCreateSchema = z.object({
   type: z.enum(GAMEDAY_TYPE_KEYS).default("REGULAR"),
   courtPlan: z.array(courtSlotSchema).min(1).max(8),
   notes: z.string().trim().max(500).optional().nullable(),
+  queueMasterName: z.string().trim().max(60).optional().nullable(),
+  financeMemberName: z.string().trim().max(60).optional().nullable(),
 });
 
 export const gameDayUpdateSchema = gameDayCreateSchema.partial().extend({

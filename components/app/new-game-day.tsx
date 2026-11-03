@@ -33,7 +33,16 @@ function makeSlot(venue: VenueOption, index = 0): Slot {
   };
 }
 
-export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[]; defaultDate: string }) {
+export function NewGameDayButton({
+  venues,
+  defaultDate,
+  defaultQueueMaster = "",
+}: {
+  venues: VenueOption[];
+  defaultDate: string;
+  /** The signed-in queue master's name, as a starting point. */
+  defaultQueueMaster?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const firstVenue = venues[0];
@@ -42,6 +51,8 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
   const [type, setType] = React.useState("REGULAR");
   const [name, setName] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  const [queueMasterName, setQueueMasterName] = React.useState(defaultQueueMaster);
+  const [financeMemberName, setFinanceMemberName] = React.useState("");
   const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue)] : []);
   const [pending, startTransition] = React.useTransition();
 
@@ -86,6 +97,8 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
         date,
         type,
         notes,
+        queueMasterName,
+        financeMemberName,
         courtPlan: slots.map(({ numbers, ...slot }) => {
           const courtLabels = parseCourtNumbers(numbers);
           return courtLabels.length ? { ...slot, courts: courtLabels.length, courtLabels } : slot;
@@ -154,6 +167,25 @@ export function NewGameDayButton({ venues, defaultDate }: { venues: VenueOption[
                 <option value="TIPID">Tipid (court fee only)</option>
                 <option value="MEGA">MEGA</option>
               </Select>
+            </Field>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Queue master" hint="Who runs the board. Shown on the report.">
+              <Input
+                value={queueMasterName}
+                onChange={(event) => setQueueMasterName(event.target.value)}
+                placeholder="Full name"
+                maxLength={60}
+              />
+            </Field>
+            <Field label="Finance member" hint="Who collects fees. Shown on the report.">
+              <Input
+                value={financeMemberName}
+                onChange={(event) => setFinanceMemberName(event.target.value)}
+                placeholder="Full name"
+                maxLength={60}
+              />
             </Field>
           </div>
 

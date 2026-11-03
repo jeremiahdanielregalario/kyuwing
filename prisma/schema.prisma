@@ -180,6 +180,9 @@ model GameDay {
   status      GameDayStatus  @default(DRAFT)
   courtPlan   Json           @default("[]")
   notes       String?
+  /// Officers on duty, shown on the session report.
+  queueMasterName   String?
+  financeMemberName String?
   startedAt   DateTime?
   completedAt DateTime?
   createdAt   DateTime       @default(now())

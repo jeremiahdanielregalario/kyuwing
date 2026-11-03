@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { WORDMARK_PNG_BASE64, WORDMARK_SIZE } from "@/lib/brand-logo";
 import { formatClock, formatGameDate } from "@/lib/datetime";
 import { CATEGORY_LABELS, GAMEDAY_TYPE_LABELS, formatPesoPdf } from "@/lib/fees";
 import { levelLabel } from "@/lib/levels";
@@ -10,13 +11,16 @@ import { slugify } from "@/lib/utils";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FOREST = rgb(13 / 255, 59 / 255, 46 / 255);
-const LIME = rgb(201 / 255, 242 / 255, 109 / 255);
-const CREAM = rgb(245 / 255, 241 / 255, 230 / 255);
-const INK = rgb(15 / 255, 36 / 255, 27 / 255);
-const MUTED = rgb(111 / 255, 127 / 255, 117 / 255);
-const LINE = rgb(221 / 255, 215 / 255, 199 / 255);
+// UP BadAss colours, matching the app: black, gold, and paper.
+const BLACK = rgb(10 / 255, 10 / 255, 10 / 255);
+const GOLD = rgb(1, 214 / 255, 0);
+const PALE_GOLD = rgb(1, 248 / 255, 214 / 255);
+const PAPER = rgb(251 / 255, 250 / 255, 245 / 255);
+const INK = rgb(10 / 255, 10 / 255, 10 / 255);
+const MUTED = rgb(110 / 255, 110 / 255, 100 / 255);
+const LINE = rgb(225 / 255, 220 / 255, 200 / 255);
 const WHITE = rgb(1, 1, 1);
+const HERO_GREY = rgb(0.75, 0.75, 0.72);
 
 type Column = {
   label: string;
@@ -35,6 +39,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await pdf.embedPng(Buffer.from(WORDMARK_PNG_BASE64, "base64"));
 
   const pageWidth = 842;
   const pageHeight = 595;
@@ -45,41 +50,61 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   let y = pageHeight - margin;
 
   const meta = `${report.gameDay.venue.shortName} · ${formatGameDate(report.gameDay.date, { weekday: true })} · ${GAMEDAY_TYPE_LABELS[report.gameDay.type]}`;
+  const officers = [
+    { label: "QUEUE MASTER", name: report.gameDay.queueMasterName ?? "—" },
+    { label: "FINANCE MEMBER", name: report.gameDay.financeMemberName ?? "—" },
+  ];
+  const generated = new Date(report.generatedAt).toLocaleString("en-PH", {
+    timeZone: "Asia/Manila",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
   const drawPageFrame = (withHero = true) => {
     if (withHero) {
-      page.drawRectangle({ x: 0, y: pageHeight - 102, width: pageWidth, height: 102, color: FOREST });
-      page.drawText("KYUWING", {
-        x: margin,
-        y: pageHeight - 44,
-        size: 20,
-        font: bold,
-        color: LIME,
+      const heroHeight = 112;
+      page.drawRectangle({
+        x: 0,
+        y: pageHeight - heroHeight,
+        width: pageWidth,
+        height: heroHeight,
+        color: BLACK,
       });
-      page.drawText("Session report", {
-        x: margin,
-        y: pageHeight - 66,
-        size: 10,
-        font: regular,
-        color: rgb(0.8, 0.85, 0.82),
+      page.drawRectangle({ x: 0, y: pageHeight - heroHeight - 3, width: pageWidth, height: 3, color: GOLD });
+
+      // Logo on a white tile, like the app sidebar.
+      const tile = { x: margin, y: pageHeight - 94, width: 104, height: 70 };
+      page.drawRectangle({ ...tile, color: WHITE });
+      const logoWidth = 90;
+      const logoHeight = (logoWidth * WORDMARK_SIZE.height) / WORDMARK_SIZE.width;
+      page.drawImage(logo, {
+        x: tile.x + (tile.width - logoWidth) / 2,
+        y: tile.y + (tile.height - logoHeight) / 2,
+        width: logoWidth,
+        height: logoHeight,
       });
-      page.drawText(report.gameDay.name, {
-        x: margin,
-        y: pageHeight - 88,
-        size: 14,
-        font: bold,
-        color: WHITE,
+
+      const textX = tile.x + tile.width + 18;
+      text("SESSION REPORT", textX, pageHeight - 40, 9, bold, GOLD);
+      text(report.gameDay.name, textX, pageHeight - 64, 18, bold, WHITE, 380);
+      text(meta, textX, pageHeight - 84, 9, regular, HERO_GREY, 380);
+
+      // Officers on duty, right-aligned.
+      officers.forEach((officer, index) => {
+        const top = pageHeight - 40 - index * 30;
+        const nameWidth = Math.min(bold.widthOfTextAtSize(officer.name, 11), 200);
+        page.drawText(officer.label, {
+          x: pageWidth - margin - bold.widthOfTextAtSize(officer.label, 7),
+          y: top,
+          size: 7,
+          font: bold,
+          color: GOLD,
+        });
+        text(officer.name, pageWidth - margin - nameWidth, top - 14, 11, bold, WHITE, 200);
       });
-      page.drawText(meta, {
-        x: pageWidth - margin - regular.widthOfTextAtSize(meta, 9),
-        y: pageHeight - 88,
-        size: 9,
-        font: regular,
-        color: rgb(0.8, 0.85, 0.82),
-      });
-      y = pageHeight - 128;
+      y = pageHeight - 140;
     } else {
-      page.drawText("Kyuwing · Session report", {
+      page.drawText("UP BadAss · Session report", {
         x: margin,
         y: pageHeight - 34,
         size: 8,
@@ -136,6 +161,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     y -= 14;
   };
 
+  // Tables span the full content width, keeping their relative column widths.
+  const fit = (columns: Column[]): Column[] => {
+    const total = columns.reduce((sum, column) => sum + column.width, 0);
+    return columns.map((column) => ({ ...column, width: (column.width * contentWidth) / total }));
+  };
+
   const tableHeader = (columns: Column[], startX = margin) => {
     ensure(24);
     page.drawRectangle({
@@ -143,7 +174,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       y: y - 16,
       width: columns.reduce((sum, c) => sum + c.width, 0),
       height: 20,
-      color: FOREST,
+      color: BLACK,
     });
     let x = startX;
     for (const column of columns) {
@@ -153,7 +184,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           : column.align === "center"
             ? (column.width - regular.widthOfTextAtSize(column.label, 7)) / 2
             : 8;
-      text(column.label.toUpperCase(), x + offset, y - 10, 7, bold, CREAM);
+      text(column.label.toUpperCase(), x + offset, y - 10, 7, bold, GOLD);
       x += column.width;
     }
     y -= 20;
@@ -163,16 +194,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     columns: Column[],
     values: string[],
     startX = margin,
-    options: { bold?: boolean; fill?: boolean; color?: typeof INK } = {},
+    options: { bold?: boolean; fill?: boolean; highlight?: boolean; color?: typeof INK } = {},
   ) => {
     ensure(20);
-    if (options.fill) {
+    if (options.fill || options.highlight) {
       page.drawRectangle({
         x: startX,
         y: y - 16,
         width: columns.reduce((sum, c) => sum + c.width, 0),
         height: 19,
-        color: CREAM,
+        color: options.highlight ? GOLD : PALE_GOLD,
       });
     }
     let x = startX;
@@ -215,18 +246,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       y: y - 44,
       width: cardWidth,
       height: 44,
-      color: index === 4 ? rgb(1, 0.88, 0.84) : CREAM,
+      color: index === 4 ? GOLD : PAPER,
       borderColor: LINE,
       borderWidth: 0.5,
     });
-    text(card.label.toUpperCase(), x + 8, y - 14, 6.5, bold, MUTED);
-    text(card.value, x + 8, y - 32, 12, bold, index === 4 ? rgb(0.65, 0.2, 0.1) : FOREST);
+    text(card.label.toUpperCase(), x + 8, y - 14, 6.5, bold, index === 4 ? BLACK : MUTED);
+    text(card.value, x + 8, y - 32, 12, bold, BLACK);
   });
   y -= 64;
 
   // Fees
   sectionTitle("Players & fees");
-  const feeColumns: Column[] = [
+  const feeColumns: Column[] = fit([
     { label: "Player", width: 110 },
     { label: "Level", width: 40 },
     { label: "Type", width: 76 },
@@ -237,7 +268,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     { label: "Paid", width: 52, align: "right" },
     { label: "Balance", width: 58, align: "right" },
     { label: "Status", width: 52, align: "center" },
-  ];
+  ]);
   tableHeader(feeColumns);
   report.rows.forEach((row, index) => {
     tableRow(
@@ -274,20 +305,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       "",
     ],
     margin,
-    { bold: true },
+    { bold: true, highlight: true },
   );
 
   y -= 14;
 
   // Matches
   sectionTitle("Match history");
-  const matchColumns: Column[] = [
+  const matchColumns: Column[] = fit([
     { label: "R", width: 24, align: "center" },
     { label: "Court", width: 40, align: "center" },
     { label: "Team A", width: 240 },
     { label: "Team B", width: 240 },
     { label: "Finished", width: 60, align: "right" },
-  ];
+  ]);
   tableHeader(matchColumns);
   [...report.matches].reverse().forEach((match, index) => {
     tableRow(
@@ -313,7 +344,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       thickness: 0.5,
       color: LINE,
     });
-    current.drawText(`App by Danyel Regalario · Kyuwing`, {
+    current.drawText(`UP Badminton Association · Diliman · Generated ${generated}`, {
       x: margin,
       y: 16,
       size: 7.5,

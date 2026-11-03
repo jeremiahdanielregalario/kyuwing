@@ -5,6 +5,7 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 ## Before the session
 
 - [ ] Charge the tablet or phone. A power bank is not optional for a four-hour session.
+- [ ] Know who is queue master and who is the finance member for the day; enter both when you create the game day (they appear on the session report and can be changed in **Settings**).
 - [ ] Confirm the venue booking and the exact court numbers, and enter them in each block's **Court numbers** when you create the game day (`5, 6, 7, 8` or `5-8`). The board, toasts, and the players' live view then use those numbers.
 - [ ] Open Kyuwing and log in with the queue-master PIN.
 - [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, court blocks.

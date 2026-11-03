@@ -64,6 +64,8 @@ const DATA: BoardData = {
     type: "REGULAR",
     status: "LIVE",
     notes: "internal",
+    queueMasterName: "Officer Quinn",
+    financeMemberName: "Officer Fay",
     startedAt: null,
     courtPlan: [
       { id: "a", label: "First", start: "10:00", end: "14:00", courts: 3, courtLabels: ["5", "6", "7"] },
@@ -109,6 +111,7 @@ describe("toPublicBoard", () => {
   it("never carries private player details", () => {
     const json = JSON.stringify(board);
     for (const secret of [
+      "Officer",
       "SECRET",
       "private note",
       "internal",

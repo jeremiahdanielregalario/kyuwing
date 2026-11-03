@@ -60,6 +60,8 @@ export function GameDaySettings({
   const [date, setDate] = React.useState(dateValue(gameDay.date));
   const [type, setType] = React.useState(gameDay.type);
   const [notes, setNotes] = React.useState(gameDay.notes ?? "");
+  const [queueMasterName, setQueueMasterName] = React.useState(gameDay.queueMasterName ?? "");
+  const [financeMemberName, setFinanceMemberName] = React.useState(gameDay.financeMemberName ?? "");
   const [slots, setSlots] = React.useState<Slot[]>(gameDay.courtPlan);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
@@ -95,6 +97,8 @@ export function GameDaySettings({
         date,
         type,
         notes: notes || null,
+        queueMasterName: queueMasterName || null,
+        financeMemberName: financeMemberName || null,
         courtPlan: slots,
       }),
     );
@@ -169,13 +173,15 @@ export function GameDaySettings({
                 onClick={() =>
                   setConfirmSpec({
                     title: "Close this game day?",
-                    description: "Live and suggested matches are cancelled and remaining players are marked done. Fees stay editable.",
+                    description:
+                      "Live and suggested matches are cancelled and remaining players are marked done. Fees stay editable.",
                     confirmLabel: "Close game day",
                     cancelLabel: "Keep running",
                     tone: "danger",
                     onConfirm: () =>
-                      act(() => setGameDayStatus(gameDay.id, "COMPLETED"), () =>
-                        router.push(`/app/gamedays/${gameDay.id}/reports`),
+                      act(
+                        () => setGameDayStatus(gameDay.id, "COMPLETED"),
+                        () => router.push(`/app/gamedays/${gameDay.id}/reports`),
                       ),
                   })
                 }
@@ -243,6 +249,25 @@ export function GameDaySettings({
                   <option value="TIPID">Tipid (court fee only)</option>
                   <option value="MEGA">MEGA</option>
                 </Select>
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Queue master" hint="Shown on the session report.">
+                <Input
+                  value={queueMasterName}
+                  onChange={(event) => setQueueMasterName(event.target.value)}
+                  placeholder="Full name"
+                  maxLength={60}
+                />
+              </Field>
+              <Field label="Finance member" hint="Shown on the session report.">
+                <Input
+                  value={financeMemberName}
+                  onChange={(event) => setFinanceMemberName(event.target.value)}
+                  placeholder="Full name"
+                  maxLength={60}
+                />
               </Field>
             </div>
 
@@ -346,7 +371,10 @@ export function GameDaySettings({
                   </label>
                 </div>
                 <div className="mt-2">
-                  <span data-trim-id="settings.court-names-note" className="text-muted text-[8px] tracking-wide uppercase">
+                  <span
+                    data-trim-id="settings.court-names-note"
+                    className="text-muted text-[8px] tracking-wide uppercase"
+                  >
                     Court names (optional)
                   </span>
                   <div className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
@@ -366,9 +394,7 @@ export function GameDaySettings({
                                 ? {
                                     ...row,
                                     courtLabels: Array.from({ length: row.courts }, (_, position) =>
-                                      position === courtIndex
-                                        ? value
-                                        : (row.courtLabels?.[position] ?? ""),
+                                      position === courtIndex ? value : (row.courtLabels?.[position] ?? ""),
                                     ),
                                   }
                                 : row,
@@ -415,7 +441,10 @@ export function GameDaySettings({
             </span>
             <div>
               <h2 className="font-display text-base font-bold">Delete this game day</h2>
-              <p data-trim-id="settings.danger-note" className="text-muted max-w-lg text-[11px] leading-relaxed">
+              <p
+                data-trim-id="settings.danger-note"
+                className="text-muted max-w-lg text-[11px] leading-relaxed"
+              >
                 This removes the session, every sign-up, match, and payment record. Export the Excel or PDF
                 report first if you need a copy.
               </p>

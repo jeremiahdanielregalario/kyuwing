@@ -59,6 +59,8 @@ export type BoardGameDay = {
   type: "REGULAR" | "TIPID" | "MEGA";
   status: "DRAFT" | "LIVE" | "COMPLETED";
   notes: string | null;
+  queueMasterName: string | null;
+  financeMemberName: string | null;
   startedAt: string | null;
   courtPlan: CourtSlot[];
   venue: { id: string; name: string; shortName: string };

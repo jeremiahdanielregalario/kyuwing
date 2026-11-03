@@ -35,6 +35,8 @@ function toGameDayDto(gameDay: GameDayWithPlayers): BoardGameDay {
     type: gameDay.type,
     status: gameDay.status,
     notes: gameDay.notes,
+    queueMasterName: gameDay.queueMasterName,
+    financeMemberName: gameDay.financeMemberName,
     startedAt: gameDay.startedAt?.toISOString() ?? null,
     courtPlan: parseCourtPlan(gameDay.courtPlan),
     venue: {

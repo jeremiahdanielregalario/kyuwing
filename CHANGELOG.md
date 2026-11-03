@@ -37,6 +37,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Session reports** (PDF and Excel) use the UP BadAss black and gold, carry the UP BadAss wordmark, and name the game day's **queue master** and **finance member**, which are asked for when a game day is set up and editable in Settings. Reports no longer include the app credit line. PDF tables span the full page width.
 - **Draggable queue names** — in The queue, each waiting player's name box is the drag handle, outlined so it looks draggable. On tablets, press and hold to pick a player up, so a quick swipe still scrolls the list.
 - **Player database sorting** — sort the roster by name, level, type, contact, or status by clicking a column header or using the sort control; click again to flip the direction.
 - **Player search** — search now also matches notes, and a Clear button resets all filters at once.

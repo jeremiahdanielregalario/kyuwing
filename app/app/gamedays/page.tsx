@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatGameDate, manilaDateKey, weekdayLabel } from "@/lib/datetime";
 import { GAMEDAY_TYPE_LABELS } from "@/lib/fees";
+import { getSession } from "@/lib/auth";
 import { getGameDays, getVenues } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Game days" };
 
 export default async function GameDaysPage() {
-  const [gameDays, venues] = await Promise.all([getGameDays(), getVenues()]);
+  const [gameDays, venues, session] = await Promise.all([getGameDays(), getVenues(), getSession()]);
   const live = gameDays.filter((gameDay) => gameDay.status === "LIVE");
   const draft = gameDays.filter((gameDay) => gameDay.status === "DRAFT");
   const completed = gameDays.filter((gameDay) => gameDay.status === "COMPLETED");
@@ -36,7 +37,13 @@ export default async function GameDaysPage() {
         title="Game days"
         description="Every session lives here. Sign-ups start before the day; the live board takes over when the first player arrives."
         descriptionTrimId="gamedays.description"
-        actions={<NewGameDayButton venues={venues} defaultDate={manilaDateKey()} />}
+        actions={
+          <NewGameDayButton
+            venues={venues}
+            defaultDate={manilaDateKey()}
+            defaultQueueMaster={session?.name ?? ""}
+          />
+        }
       />
 
       {gameDays.length === 0 ? (
@@ -44,7 +51,13 @@ export default async function GameDaysPage() {
           icon={<CalendarDays className="h-5 w-5" />}
           title="No game days yet"
           description="Create your first game day, pick the venue, and add court blocks. Then build the sign-up list."
-          action={<NewGameDayButton venues={venues} defaultDate={manilaDateKey()} />}
+          action={
+            <NewGameDayButton
+              venues={venues}
+              defaultDate={manilaDateKey()}
+              defaultQueueMaster={session?.name ?? ""}
+            />
+          }
         />
       ) : (
         <div className="space-y-8">
