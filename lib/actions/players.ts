@@ -182,7 +182,7 @@ export async function importPlayers(formData: FormData): Promise<ActionResult<Im
     }
     const category = parseCategory(row.category);
     if (!category) {
-      errors.push(`Row ${index + 2} (${row.nickname}): category should be Active, Alumni, or Applicant`);
+      errors.push(`Row ${index + 2} (${row.nickname}): category should be Active, Inactive, Alumni, or Applicant`);
       continue;
     }
 

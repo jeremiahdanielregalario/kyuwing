@@ -14,7 +14,7 @@ export type BoardPlayer = {
   fullName: string | null;
   level: string;
   levelLabel: string;
-  category: "ACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
   status: "EXPECTED" | "WAITING" | "PLAYING" | "DONE";
   joinedAt: string | null;
   queuedAt: string | null;
@@ -92,7 +92,7 @@ export type FeeRow = {
   playerId: string;
   nickname: string;
   level: string;
-  category: "ACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
   status: string;
   gamesPlayed: number;
   flatFee: number;

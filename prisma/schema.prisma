@@ -36,6 +36,7 @@ enum SkillLevel {
 
 enum PlayerCategory {
   ACTIVE
+  INACTIVE
   ALUMNI
   APPLICANT
 }

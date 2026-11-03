@@ -1027,7 +1027,10 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                   onChange={(event) => setWalk({ ...walk, category: event.target.value })}
                 >
                   <option value="ACTIVE">Active member</option>
-                  <option value="ALUMNI">Inactive / Alumni</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="ALUMNI">Alumni</option>
+                  <option value="APPLICANT">Applicant</option>
                   <option value="APPLICANT">Applicant</option>
                 </Select>
               </Field>

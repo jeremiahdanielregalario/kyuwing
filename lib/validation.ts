@@ -23,7 +23,7 @@ export const SKILL_LEVEL_KEYS = [
   "A_PLUS",
 ] as const;
 
-export const CATEGORY_KEYS = ["ACTIVE", "ALUMNI", "APPLICANT"] as const;
+export const CATEGORY_KEYS = ["ACTIVE", "INACTIVE", "ALUMNI", "APPLICANT"] as const;
 export const GAMEDAY_TYPE_KEYS = ["REGULAR", "TIPID", "MEGA"] as const;
 export const PAYMENT_METHOD_KEYS = ["CASH", "GCASH", "BANK", "OTHER"] as const;
 
@@ -83,7 +83,8 @@ export function parseCategory(value: string | undefined | null): (typeof CATEGOR
   if (!value) return "ACTIVE";
   const normalized = value.trim().toLowerCase();
   if (normalized.startsWith("active") || normalized === "member") return "ACTIVE";
-  if (normalized.startsWith("alumni") || normalized.startsWith("inactive")) return "ALUMNI";
+  if (normalized.startsWith("inactive")) return "INACTIVE";
+  if (normalized.startsWith("alumni")) return "ALUMNI";
   if (normalized.startsWith("applicant")) return "APPLICANT";
   return null;
 }

@@ -2,12 +2,14 @@ import type { GameDayType, PlayerCategory } from "@prisma/client";
 
 export const CATEGORY_LABELS: Record<PlayerCategory, string> = {
   ACTIVE: "Active member",
-  ALUMNI: "Inactive / Alumni",
+  INACTIVE: "Inactive",
+  ALUMNI: "Alumni",
   APPLICANT: "Applicant",
 };
 
 export const CATEGORY_SHORT: Record<PlayerCategory, string> = {
   ACTIVE: "Active",
+  INACTIVE: "Inactive",
   ALUMNI: "Alumni",
   APPLICANT: "Applicant",
 };

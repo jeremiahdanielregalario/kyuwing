@@ -43,7 +43,7 @@ type PlayerRecord = {
   nickname: string;
   fullName: string | null;
   level: string;
-  category: "ACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
   contact: string | null;
   notes: string | null;
   active: boolean;
@@ -54,7 +54,7 @@ type FormState = {
   nickname: string;
   fullName: string;
   level: string;
-  category: "ACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
   contact: string;
   notes: string;
 };
@@ -205,6 +205,7 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
         >
           <option value="ALL">All player types</option>
           <option value="ACTIVE">Active</option>
+          <option value="INACTIVE">Inactive</option>
           <option value="ALUMNI">Alumni</option>
           <option value="APPLICANT">Applicant</option>
         </Select>
@@ -420,7 +421,10 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
                 }
               >
                 <option value="ACTIVE">Active member</option>
-                <option value="ALUMNI">Inactive / Alumni</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+                <option value="ALUMNI">Alumni</option>
+                <option value="APPLICANT">Applicant</option>
                 <option value="APPLICANT">Applicant</option>
               </Select>
             </Field>
@@ -485,7 +489,7 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
             <p className="text-ink font-semibold">CSV columns</p>
             <p className="mt-1 font-mono text-[10px]">nickname, fullName, level, category, contact, notes</p>
             <p className="mt-1">
-              Level accepts E-, E, E+, DE, D-, … A+. Category accepts Active, Alumni, or Applicant. Header
+              Level accepts E-, E, E+, DE, D-, … A+. Category accepts Active, Inactive, Alumni, or Applicant. Header
               names are flexible.
             </p>
           </div>

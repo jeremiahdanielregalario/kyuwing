@@ -63,7 +63,8 @@ describe("labels", () => {
 
   it("covers every player category", () => {
     expect(CATEGORY_LABELS.ACTIVE).toBe("Active member");
-    expect(CATEGORY_LABELS.ALUMNI).toBe("Inactive / Alumni");
+    expect(CATEGORY_LABELS.INACTIVE).toBe("Inactive");
+    expect(CATEGORY_LABELS.ALUMNI).toBe("Alumni");
     expect(CATEGORY_LABELS.APPLICANT).toBe("Applicant");
   });
 });

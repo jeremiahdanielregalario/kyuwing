@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 type FeeRule = {
   dayType: "REGULAR" | "TIPID" | "MEGA";
-  category: "ACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
   flatFee: number;
   perGameFee: number;
 };
@@ -34,7 +34,7 @@ type VenueRecord = {
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
 const DAY_TYPES: Array<"REGULAR" | "TIPID" | "MEGA"> = ["REGULAR", "TIPID", "MEGA"];
-const CATEGORIES: Array<"ACTIVE" | "ALUMNI" | "APPLICANT"> = ["ACTIVE", "ALUMNI", "APPLICANT"];
+const CATEGORIES: Array<"ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT"> = ["ACTIVE", "INACTIVE", "ALUMNI", "APPLICANT"];
 
 function key(dayType: string, category: string) {
   return `${dayType}:${category}`;
