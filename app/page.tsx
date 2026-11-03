@@ -196,9 +196,9 @@ export default function HomePage() {
                 UP Badminton Association in Diliman · Est. 2015
               </span>
               <h1 className="font-brand text-cream mt-6 text-[2.5rem] leading-[0.95] tracking-tight uppercase sm:text-[3.2rem] lg:text-[3.7rem]">
-                Queue less.
+                Bold. Agile.
                 <br />
-                <span className="text-lime">Play more.</span>
+                <span className="text-lime">Daring.</span>
               </h1>
               <p className="text-cream/70 mt-6 max-w-lg text-[15px] leading-relaxed sm:text-base">
                 The game-day board for UP BadAss. Check players in, get balanced doubles on every open court,

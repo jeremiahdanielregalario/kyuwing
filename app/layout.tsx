@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   creator: "Danyel Regalario",
   openGraph: {
     title: "Kyuwing — the UP BadAss queue board",
-    description: "Queue less. Play more. Fair, fast game-day queueing for UP BadAss.",
+    description: "Bold. Agile. Daring. Fair, fast game-day queueing for UP BadAss.",
     type: "website",
     locale: "en_PH",
     siteName: "Kyuwing",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Kyuwing — the UP BadAss queue board",
-    description: "Queue less. Play more. Fair, fast game-day queueing for UP BadAss.",
+    description: "Bold. Agile. Daring. Fair, fast game-day queueing for UP BadAss.",
   },
 };
 
