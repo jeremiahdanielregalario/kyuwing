@@ -81,6 +81,12 @@ export const feeRuleSchema = z.object({
 
 export function parseCategory(value: string | undefined | null): (typeof CATEGORY_KEYS)[number] | null {
   if (!value) return "ACTIVE";
+  // Forms send the enum key itself (e.g. "NON_AFFILIATE"); imports send friendlier spellings.
+  const key = value
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+  if ((CATEGORY_KEYS as readonly string[]).includes(key)) return key as (typeof CATEGORY_KEYS)[number];
   const normalized = value.trim().toLowerCase();
   if (normalized.startsWith("active") || normalized === "member") return "ACTIVE";
   if (normalized.startsWith("inactive")) return "INACTIVE";

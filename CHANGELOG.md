@@ -45,6 +45,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- Adding a Non-affiliate player from sign-ups or walk-ins no longer fails with "Pick a valid player type."
 - Sidebar and mobile navigation highlight "Live board" on every game-day page and "Game days" only on the list page.
 - "Live board" is disabled when no game day exists, instead of bouncing through a redirect to the game-days list.
 - Player category dropdowns (players, sign-ups, and walk-ins) no longer list duplicate Active and Applicant options.
