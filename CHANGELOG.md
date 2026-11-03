@@ -25,6 +25,9 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Player categories** — "Inactive" and "Alumni" are now separate player types (Active, Inactive, Alumni, Applicant) in the roster, sign-ups, board, and fee rules.
+- **Level pickers** — level dropdowns show only the level (`C+`) instead of appending the bracket name (`C+ · Intermediate`).
+- **Bracket spread** — the players page chart is now a bar chart with the count above each bracket and a baseline, replacing the thin progress bars.
 - Negative peso amounts now format as `-₱250` instead of `₱-250`.
 - PDF exports use `PHP 250` instead of `₱250` because standard PDF fonts lack the peso glyph.
 
@@ -34,6 +37,9 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- Sidebar and mobile navigation highlight "Live board" on every game-day page and "Game days" only on the list page.
+- "Live board" is disabled when no game day exists, instead of bouncing through a redirect to the game-days list.
+- Player category dropdown no longer lists duplicate Active and Applicant options.
 - Board query now loads pairing requests, which the queue UI reads.
 - Button variants and sizes are actually applied instead of being computed and discarded.
 - Modal avoids a hydration mismatch by mounting its portal after hydration.
