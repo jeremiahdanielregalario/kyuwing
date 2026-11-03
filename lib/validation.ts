@@ -23,7 +23,7 @@ export const SKILL_LEVEL_KEYS = [
   "A_PLUS",
 ] as const;
 
-export const CATEGORY_KEYS = ["ACTIVE", "INACTIVE", "ALUMNI", "APPLICANT"] as const;
+export const CATEGORY_KEYS = ["ACTIVE", "INACTIVE", "ALUMNI", "APPLICANT", "NON_AFFILIATE"] as const;
 export const GAMEDAY_TYPE_KEYS = ["REGULAR", "TIPID", "MEGA"] as const;
 export const PAYMENT_METHOD_KEYS = ["CASH", "GCASH", "BANK", "OTHER"] as const;
 
@@ -86,6 +86,8 @@ export function parseCategory(value: string | undefined | null): (typeof CATEGOR
   if (normalized.startsWith("inactive")) return "INACTIVE";
   if (normalized.startsWith("alumni")) return "ALUMNI";
   if (normalized.startsWith("applicant")) return "APPLICANT";
+  // Plus-ones from outside the association.
+  if (/^(non[\s-]?affiliate|plus[\s-]?one|guest)/.test(normalized)) return "NON_AFFILIATE";
   return null;
 }
 

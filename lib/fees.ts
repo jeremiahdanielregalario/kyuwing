@@ -5,6 +5,7 @@ export const CATEGORY_LABELS: Record<PlayerCategory, string> = {
   INACTIVE: "Inactive",
   ALUMNI: "Alumni",
   APPLICANT: "Applicant",
+  NON_AFFILIATE: "Non-affiliate",
 };
 
 export const CATEGORY_SHORT: Record<PlayerCategory, string> = {
@@ -12,6 +13,7 @@ export const CATEGORY_SHORT: Record<PlayerCategory, string> = {
   INACTIVE: "Inactive",
   ALUMNI: "Alumni",
   APPLICANT: "Applicant",
+  NON_AFFILIATE: "Non-affiliate",
 };
 
 export const GAMEDAY_TYPE_LABELS: Record<GameDayType, string> = {

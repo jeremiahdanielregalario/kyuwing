@@ -50,7 +50,7 @@ type DatabasePlayer = {
   fullName: string | null;
   level: string;
   levelLabel: string;
-  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | "NON_AFFILIATE";
 };
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -634,12 +634,11 @@ export function SignupManager({
                 value={quick.category}
                 onChange={(event) => setQuick({ ...quick, category: event.target.value })}
               >
-                <option value="ACTIVE">Active member</option>
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
                 <option value="ALUMNI">Alumni</option>
                 <option value="APPLICANT">Applicant</option>
-                <option value="APPLICANT">Applicant</option>
+                <option value="NON_AFFILIATE">Non-affiliate</option>
               </Select>
             </Field>
           </div>

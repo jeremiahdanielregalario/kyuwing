@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Non-affiliate player type** — for plus-ones from outside the association, with its own fee rules (a higher ₱30 per-game rate in production). Available in the roster, sign-ups, walk-ins, imports (`non-affiliate`, `plus one`, or `guest`), and the fee matrix.
 - **Add court** — add a court to the current block from the live board, mid-session. A game waiting in Next up moves straight onto it.
 - **Free games** — starting a game within 15 minutes of the reservation's end asks whether it is a free game (used shuttle). Free games are tagged on the board, reports, and exports, and do not count toward games played or fees.
 - **Next up queue** — auto-pair works even when every court is busy. Each tap of **Queue next game** adds a balanced game to a Next up line; when a court frees up, the first game in line moves onto it, ready to start. Queued games can be edited, removed, or dragged onto an open court.
@@ -45,7 +46,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 - Sidebar and mobile navigation highlight "Live board" on every game-day page and "Game days" only on the list page.
 - "Live board" is disabled when no game day exists, instead of bouncing through a redirect to the game-days list.
-- Player category dropdown no longer lists duplicate Active and Applicant options.
+- Player category dropdowns (players, sign-ups, and walk-ins) no longer list duplicate Active and Applicant options.
 - Board query now loads pairing requests, which the queue UI reads.
 - Button variants and sizes are actually applied instead of being computed and discarded.
 - Modal avoids a hydration mismatch by mounting its portal after hydration.

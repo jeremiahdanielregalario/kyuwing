@@ -39,6 +39,7 @@ enum PlayerCategory {
   INACTIVE
   ALUMNI
   APPLICANT
+  NON_AFFILIATE
 }
 
 enum AttendanceKind {

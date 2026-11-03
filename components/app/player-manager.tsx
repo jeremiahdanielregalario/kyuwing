@@ -49,7 +49,7 @@ type PlayerRecord = {
   nickname: string;
   fullName: string | null;
   level: string;
-  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | "NON_AFFILIATE";
   contact: string | null;
   notes: string | null;
   active: boolean;
@@ -60,7 +60,7 @@ type FormState = {
   nickname: string;
   fullName: string;
   level: string;
-  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT";
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | "NON_AFFILIATE";
   contact: string;
   notes: string;
 };
@@ -80,7 +80,13 @@ type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 type SortKey = "nickname" | "level" | "category" | "contact" | "status" | "recency";
 type SortDir = "asc" | "desc";
 
-const CATEGORY_ORDER: Record<string, number> = { ACTIVE: 0, INACTIVE: 1, ALUMNI: 2, APPLICANT: 3 };
+const CATEGORY_ORDER: Record<string, number> = {
+  ACTIVE: 0,
+  INACTIVE: 1,
+  ALUMNI: 2,
+  APPLICANT: 3,
+  NON_AFFILIATE: 4,
+};
 
 export function PlayerManager({
   players,
@@ -277,6 +283,7 @@ export function PlayerManager({
           <option value="INACTIVE">Inactive</option>
           <option value="ALUMNI">Alumni</option>
           <option value="APPLICANT">Applicant</option>
+          <option value="NON_AFFILIATE">Non-affiliate</option>
         </Select>
         <Select
           value={statusFilter}
@@ -309,7 +316,9 @@ export function PlayerManager({
             type="button"
             onClick={() => setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))}
             className="border-line text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-lg border transition"
-            title={sortDir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"}
+            title={
+              sortDir === "asc" ? "Ascending — click for descending" : "Descending — click for ascending"
+            }
             aria-label={sortDir === "asc" ? "Sort ascending" : "Sort descending"}
           >
             {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
@@ -501,12 +510,13 @@ export function PlayerManager({
                           onClick={() => {
                             setConfirmSpec({
                               title: `Delete ${player.nickname}?`,
-                              description: "Players with games on record are archived instead so fees stay correct.",
+                              description:
+                                "Players with games on record are archived instead so fees stay correct.",
                               confirmLabel: "Delete player",
                               cancelLabel: "Keep player",
                               tone: "danger",
                               onConfirm: () => act(() => deletePlayer(player.id)),
-                            })
+                            });
                           }}
                           disabled={pending}
                           className="text-muted hover:bg-coral-soft hover:text-coral grid h-7 w-7 place-items-center rounded-full transition"
@@ -585,6 +595,7 @@ export function PlayerManager({
                 <option value="INACTIVE">Inactive</option>
                 <option value="ALUMNI">Alumni</option>
                 <option value="APPLICANT">Applicant</option>
+                <option value="NON_AFFILIATE">Non-affiliate</option>
               </Select>
             </Field>
           </div>
@@ -648,8 +659,8 @@ export function PlayerManager({
             <p className="text-ink font-semibold">CSV columns</p>
             <p className="mt-1 font-mono text-[10px]">nickname, fullName, level, category, contact, notes</p>
             <p className="mt-1">
-              Level accepts E-, E, E+, DE, D-, … A+. Category accepts Active, Inactive, Alumni, or Applicant. Header
-              names are flexible.
+              Level accepts E-, E, E+, DE, D-, … A+. Category accepts Active, Inactive, Alumni, Applicant, or
+              Non-affiliate. Header names are flexible.
             </p>
           </div>
 

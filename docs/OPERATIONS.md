@@ -104,7 +104,7 @@ Requests are soft. The board shows a badge when one was honored. If a request is
 
 ## Logging attendance for recency
 
-The **Players** page has a **Playing recency** section. It separates people who still play from people who have drifted away, using the lists posted in the group chat.
+The **Players** page has a **Playing recency** section. Its counters show Playing often, Playing, and Tournament only; every status below appears in the Recency column of the player database. It separates people who still play from people who have drifted away, using the lists posted in the group chat.
 
 1. Open **Players → Log attendance**.
 2. Pick the date and whether it was a **Game day** or a **Tournament**.

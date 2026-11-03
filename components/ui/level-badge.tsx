@@ -19,17 +19,31 @@ export function LevelBadge({ level, className }: { level: string; className?: st
   );
 }
 
-export function CategoryBadge({ category }: { category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | string }) {
-  const label = 
-    category === "INACTIVE" ? "Inactive" :
-    category === "ALUMNI" ? "Alumni" : 
-    category === "APPLICANT" ? "Applicant" : 
-    "Active";
-  const tone = 
-    category === "ACTIVE" ? { bg: "bg-emerald-100", text: "text-emerald-800" } :
-    category === "INACTIVE" ? { bg: "bg-amber-100", text: "text-amber-900" } :
-    category === "ALUMNI" ? { bg: "bg-orange-100", text: "text-orange-900" } :
-    { bg: "bg-sky-100", text: "text-sky-900" };
+export function CategoryBadge({
+  category,
+}: {
+  category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | "NON_AFFILIATE" | string;
+}) {
+  const label =
+    category === "INACTIVE"
+      ? "Inactive"
+      : category === "ALUMNI"
+        ? "Alumni"
+        : category === "APPLICANT"
+          ? "Applicant"
+          : category === "NON_AFFILIATE"
+            ? "Non-affiliate"
+            : "Active";
+  const tone =
+    category === "ACTIVE"
+      ? { bg: "bg-emerald-100", text: "text-emerald-800" }
+      : category === "INACTIVE"
+        ? { bg: "bg-amber-100", text: "text-amber-900" }
+        : category === "ALUMNI"
+          ? { bg: "bg-orange-100", text: "text-orange-900" }
+          : category === "NON_AFFILIATE"
+            ? { bg: "bg-rose-100", text: "text-rose-900" }
+            : { bg: "bg-sky-100", text: "text-sky-900" };
   return (
     <span
       className={cn(

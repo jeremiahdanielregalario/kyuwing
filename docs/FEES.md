@@ -35,7 +35,9 @@ These are illustrative only.
 | DASC | Alumni | ₱370 + ₱70/game | ₱270 + ₱0/game | ₱420 + ₱70/game |
 | DASC | Applicant | ₱400 + ₱70/game | ₱300 + ₱0/game | ₱450 + ₱70/game |
 
-Rationale for the shape (not the numbers): Tipid days are court-fee-only with used shuttles, so the per-game component is zero. MEGA days run at a larger scale and carry a higher flat fee. Alumni and applicants sit above active members.
+Rationale for the shape (not the numbers): Tipid days are court-fee-only with used shuttles, so the per-game component is zero. MEGA days run at a larger scale and carry a higher flat fee. Alumni and applicants sit above active members. Non-affiliates (plus-ones from outside the association) pay a higher per-game rate (₱30 in production).
+
+Every category needs a rule for every venue and game-day type: a player whose category has no rule is billed ₱0.
 
 ## Calculation
 

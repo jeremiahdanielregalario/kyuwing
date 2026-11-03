@@ -160,9 +160,6 @@ export function RecencyPanel({
         <BandCount icon={Flame} label="Playing often" value={counts.hot} tone="hot" />
         <BandCount icon={Activity} label="Playing" value={counts.warm} tone="warm" />
         <BandCount icon={Trophy} label="Tournament only" value={counts.tournament} tone="tournament" />
-        <BandCount icon={TrendingDown} label="Cooling off" value={counts.cooling} tone="cooling" />
-        <BandCount icon={Snowflake} label="Dormant" value={counts.dormant} tone="dormant" />
-        <BandCount icon={History} label="No history" value={counts.new} tone="new" />
       </div>
 
       <div className="border-line mt-4 border-t pt-3">

@@ -142,11 +142,15 @@ async function main() {
       { category: PlayerCategory.ACTIVE, regular: [250, 50], tipid: [180, 0], mega: [300, 50] },
       { category: PlayerCategory.ALUMNI, regular: [320, 60], tipid: [230, 0], mega: [370, 60] },
       { category: PlayerCategory.APPLICANT, regular: [350, 60], tipid: [250, 0], mega: [400, 60] },
+      { category: PlayerCategory.INACTIVE, regular: [320, 60], tipid: [230, 0], mega: [370, 60] },
+      { category: PlayerCategory.NON_AFFILIATE, regular: [350, 70], tipid: [250, 0], mega: [400, 70] },
     ],
     DASC: [
       { category: PlayerCategory.ACTIVE, regular: [300, 60], tipid: [220, 0], mega: [350, 60] },
       { category: PlayerCategory.ALUMNI, regular: [370, 70], tipid: [270, 0], mega: [420, 70] },
       { category: PlayerCategory.APPLICANT, regular: [400, 70], tipid: [300, 0], mega: [450, 70] },
+      { category: PlayerCategory.INACTIVE, regular: [370, 70], tipid: [270, 0], mega: [420, 70] },
+      { category: PlayerCategory.NON_AFFILIATE, regular: [400, 80], tipid: [300, 0], mega: [450, 80] },
     ],
   };
 

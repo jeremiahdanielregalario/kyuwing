@@ -66,5 +66,6 @@ describe("labels", () => {
     expect(CATEGORY_LABELS.INACTIVE).toBe("Inactive");
     expect(CATEGORY_LABELS.ALUMNI).toBe("Alumni");
     expect(CATEGORY_LABELS.APPLICANT).toBe("Applicant");
+    expect(CATEGORY_LABELS.NON_AFFILIATE).toBe("Non-affiliate");
   });
 });
