@@ -65,21 +65,27 @@ export default async function PlayersPage() {
             {LEVELS.length} levels · {active} active
           </span>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-5">
+        <div className="border-line mt-5 grid grid-cols-5 gap-2 border-b sm:gap-4">
+          {byBracket.map((row) => {
+            const barPx =
+              row.count === 0 ? 3 : Math.max(12, Math.round((row.count / maxBracket) * 104));
+            return (
+              <div key={row.bracket} className="flex flex-col items-center">
+                <span className="text-ink mb-1.5 font-mono text-[12px] font-bold tabular-nums">{row.count}</span>
+                <div className="flex w-full items-end justify-center" style={{ height: 104 }}>
+                  <div
+                    className="bg-forest w-full max-w-16 rounded-t-lg transition-all duration-500"
+                    style={{ height: barPx }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-2 grid grid-cols-5 gap-2 sm:gap-4">
           {byBracket.map((row) => (
-            <div key={row.bracket} className="flex items-center gap-3 sm:flex-col sm:items-start">
-              <div className="flex w-16 items-baseline gap-1.5 sm:w-auto">
-                <span className="font-display text-xl font-extrabold">{row.bracket}</span>
-              </div>
-              <div className="bg-cream-deep h-2 flex-1 overflow-hidden rounded-full sm:w-full">
-                <div
-                  className="bg-forest h-full rounded-full"
-                  style={{ width: `${(row.count / maxBracket) * 100}%` }}
-                />
-              </div>
-              <span className="text-ink-soft font-mono text-[11px] font-bold sm:text-[10px]">
-                {row.count}
-              </span>
+            <div key={row.bracket} className="text-center">
+              <span className="font-display text-base font-extrabold">{row.bracket}</span>
             </div>
           ))}
         </div>
