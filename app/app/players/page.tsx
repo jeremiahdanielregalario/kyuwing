@@ -69,19 +69,26 @@ export default async function PlayersPage() {
         <div className="border-line mt-5 grid grid-cols-5 gap-2 border-b sm:gap-4">
           {byBracket.map((row) => {
             const barPx =
-              row.count === 0 ? 3 : Math.max(12, Math.round((row.count / maxBracket) * 104));
+              row.count === 0 ? 3 : Math.max(12, Math.round((row.count / maxBracket) * 100));
             const tone = levelTone(row.bracket);
             return (
-              <div key={row.bracket} className="flex flex-col items-center">
-                <span className={cn("mb-1.5 font-mono text-[12px] font-bold tabular-nums", tone.text)}>
+              <div
+                key={row.bracket}
+                className="flex flex-col items-center justify-end"
+                style={{ height: 128 }}
+              >
+                <span
+                  className={cn(
+                    "mb-1 font-mono text-[12px] leading-none font-bold tabular-nums",
+                    tone.text,
+                  )}
+                >
                   {row.count}
                 </span>
-                <div className="flex w-full items-end justify-center" style={{ height: 104 }}>
-                  <div
-                    className={cn("w-full max-w-16 rounded-t-lg transition-all duration-500", tone.solid)}
-                    style={{ height: barPx }}
-                  />
-                </div>
+                <div
+                  className={cn("w-full max-w-16 rounded-t-lg transition-all duration-500", tone.solid)}
+                  style={{ height: barPx }}
+                />
               </div>
             );
           })}
