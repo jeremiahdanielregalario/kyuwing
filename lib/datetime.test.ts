@@ -14,6 +14,9 @@ import {
   manilaWeekday,
   minutesToLabel,
   courtName,
+  FREE_GAME_WINDOW_MINUTES,
+  minutesLeftInReservation,
+  offersFreeGame,
   openCourts,
   parseCourtPlan,
   QUEUED_COURT,
@@ -28,6 +31,31 @@ const SLOTS: CourtSlot[] = [
   { id: "b", label: "Midday", start: "10:00", end: "12:00", courts: 4 },
   { id: "c", label: "Afternoon", start: "12:00", end: "14:00", courts: 2 },
 ];
+
+describe("free games near closing time", () => {
+  // 13:50 Manila on Nov 2, 2026; the reservation ends 14:00.
+  const NOW = new Date("2026-11-02T05:50:00.000Z");
+  const PLAN: CourtSlot[] = [
+    { id: "a", label: "First", start: "10:00", end: "12:00", courts: 3 },
+    { id: "b", label: "Second", start: "12:00", end: "14:00", courts: 4 },
+  ];
+
+  it("counts minutes to the latest block end on the game day", () => {
+    expect(minutesLeftInReservation(PLAN, "2026-11-02T00:00:00.000Z", NOW)).toBe(10);
+    expect(offersFreeGame(10)).toBe(true);
+  });
+
+  it("does not offer a free game earlier in the day", () => {
+    const early = new Date("2026-11-02T04:00:00.000Z"); // 12:00 Manila
+    expect(offersFreeGame(minutesLeftInReservation(PLAN, "2026-11-02T00:00:00.000Z", early))).toBe(false);
+    expect(FREE_GAME_WINDOW_MINUTES).toBe(15);
+  });
+
+  it("ignores game days that are not today", () => {
+    expect(minutesLeftInReservation(PLAN, "2026-10-26T00:00:00.000Z", NOW)).toBeNull();
+    expect(offersFreeGame(null)).toBe(false);
+  });
+});
 
 describe("queued games", () => {
   it("names the queue slot Next up", () => {

@@ -7,6 +7,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { isQueueMaster } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
+  courtName,
   currentSlotIndex,
   dateOnlyFromKey,
   elapsedMinutes,
@@ -50,6 +51,7 @@ async function promoteQueuedGames(
   tx: Prisma.TransactionClient,
   gameDayId: string,
   preferCourt?: number,
+  slotIndex?: number,
 ): Promise<number[]> {
   const queued = await tx.match.findMany({
     where: { gameDayId, status: "SUGGESTED", courtNumber: QUEUED_COURT },
@@ -61,7 +63,7 @@ async function promoteQueuedGames(
   const gameDay = await tx.gameDay.findUnique({ where: { id: gameDayId }, select: { courtPlan: true } });
   const plan = parseCourtPlan(gameDay?.courtPlan ?? []);
   if (plan.length === 0) return [];
-  const total = plan[currentSlotIndex(plan)].courts;
+  const total = (plan[slotIndex ?? -1] ?? plan[currentSlotIndex(plan)]).courts;
 
   const busy = await tx.match.findMany({
     where: { gameDayId, status: { in: ["SUGGESTED", "LIVE"] }, courtNumber: { not: QUEUED_COURT } },
@@ -627,7 +629,7 @@ export async function clearSuggestedMatches(gameDayId: string): Promise<ActionRe
   return ok(result.count ? `${result.count} suggestions cleared.` : "No suggestions to clear.");
 }
 
-export async function startMatch(matchId: string): Promise<ActionResult> {
+export async function startMatch(matchId: string, options: { free?: boolean } = {}): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;
 
@@ -682,7 +684,7 @@ export async function startMatch(matchId: string): Promise<ActionResult> {
 
     await tx.match.update({
       where: { id: matchId },
-      data: { status: "LIVE", startedAt: new Date(), courtNumber: court },
+      data: { status: "LIVE", startedAt: new Date(), courtNumber: court, free: Boolean(options.free) },
     });
     await tx.sessionPlayer.updateMany({
       where: { gameDayId: match.gameDayId, playerId: { in: match.players.map((row) => row.playerId) } },
@@ -697,10 +699,13 @@ export async function startMatch(matchId: string): Promise<ActionResult> {
   if (noCourt) return fail("Every court is in use. This game starts when a court frees up.");
 
   refreshGameDay(match.gameDayId);
-  return ok(`Court ${court} is live.`);
+  return ok(options.free ? `Court ${court} is live — free game, not counted.` : `Court ${court} is live.`);
 }
 
-export async function startAllSuggested(gameDayId: string): Promise<ActionResult<{ started: number }>> {
+export async function startAllSuggested(
+  gameDayId: string,
+  options: { free?: boolean } = {},
+): Promise<ActionResult<{ started: number }>> {
   const authError = await guard();
   if (authError) return authError;
 
@@ -737,7 +742,7 @@ export async function startAllSuggested(gameDayId: string): Promise<ActionResult
   await prisma.$transaction([
     prisma.match.updateMany({
       where: { id: { in: matches.map((match) => match.id) } },
-      data: { status: "LIVE", startedAt: now },
+      data: { status: "LIVE", startedAt: now, free: Boolean(options.free) },
     }),
     prisma.sessionPlayer.updateMany({
       where: {
@@ -749,9 +754,12 @@ export async function startAllSuggested(gameDayId: string): Promise<ActionResult
   ]);
 
   refreshGameDay(gameDayId);
-  return ok(`${matches.length} ${matches.length === 1 ? "court" : "courts"} started.`, {
-    started: matches.length,
-  });
+  return ok(
+    `${matches.length} ${matches.length === 1 ? "court" : "courts"} started${options.free ? " as free games" : ""}.`,
+    {
+      started: matches.length,
+    },
+  );
 }
 
 export async function completeMatch(matchId: string): Promise<ActionResult> {
@@ -772,7 +780,8 @@ export async function completeMatch(matchId: string): Promise<ActionResult> {
       where: { gameDayId: match.gameDayId, playerId: { in: match.players.map((row) => row.playerId) } },
       data: {
         status: "WAITING",
-        gamesPlayed: { increment: 1 },
+        // A free game (used shuttle near closing) is played but not counted or billed.
+        ...(match.free ? {} : { gamesPlayed: { increment: 1 } }),
         lastPlayedAt: now,
         queuedAt: now,
       },
@@ -784,7 +793,7 @@ export async function completeMatch(matchId: string): Promise<ActionResult> {
   return ok(
     filled.length > 0
       ? `Court ${match.courtNumber} finished. Next up game moved onto Court ${filled[0]} — start it when they're ready.`
-      : `Court ${match.courtNumber} finished. Players are back in the queue.`,
+      : `Court ${match.courtNumber} finished${match.free ? " (free game, not counted)" : ""}. Players are back in the queue.`,
   );
 }
 
@@ -919,6 +928,51 @@ export async function updateMatchCourt(matchId: string, courtNumber: number): Pr
   await prisma.match.update({ where: { id: matchId }, data: { courtNumber } });
   refreshGameDay(match.gameDayId);
   return ok(`Moved to Court ${courtNumber}.`);
+}
+
+/**
+ * Add one court to a block mid-session, e.g. when the venue frees an extra
+ * court for a time slot. A game waiting in Next up moves straight onto it.
+ */
+export async function addCourt(
+  gameDayId: string,
+  slotIndex: number,
+  label?: string,
+): Promise<ActionResult<{ court: number }>> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id: gameDayId },
+    select: { status: true, courtPlan: true },
+  });
+  if (!gameDay) return fail("Game day not found.");
+  if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
+
+  const plan = parseCourtPlan(gameDay.courtPlan);
+  const slot = plan[slotIndex];
+  if (!slot) return fail("Pick a court block first.");
+  if (slot.courts >= 20) return fail("A block can have at most 20 courts.");
+
+  const court = slot.courts + 1;
+  const courtLabels = Array.from({ length: slot.courts }, (_, index) => slot.courtLabels?.[index] ?? "");
+  courtLabels.push((label ?? "").trim().slice(0, 24));
+  const nextSlot = { ...slot, courts: court, courtLabels };
+  const nextPlan = plan.map((row, index) => (index === slotIndex ? nextSlot : row));
+
+  const filled = await prisma.$transaction(async (tx) => {
+    await tx.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: nextPlan } });
+    return promoteQueuedGames(tx, gameDayId, court, slotIndex);
+  });
+
+  refreshGameDay(gameDayId);
+  const name = courtName(nextSlot, court);
+  return ok(
+    filled.length > 0
+      ? `${name} added to ${slot.label}. The first Next up game moved onto it.`
+      : `${name} added to ${slot.label}.`,
+    { court },
+  );
 }
 
 export async function setPayment(

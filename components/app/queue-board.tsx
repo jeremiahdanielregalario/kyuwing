@@ -35,6 +35,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Gift,
   Search,
   Settings2,
   Star,
@@ -46,6 +47,7 @@ import {
   Zap,
 } from "lucide-react";
 import {
+  addCourt,
   cancelMatch,
   checkInPlayer,
   clearSuggestedMatches,
@@ -66,7 +68,15 @@ import {
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
-import { courtName, formatClock, formatDuration, formatGameDate, QUEUED_COURT } from "@/lib/datetime";
+import {
+  courtName,
+  formatClock,
+  formatDuration,
+  formatGameDate,
+  minutesLeftInReservation,
+  offersFreeGame,
+  QUEUED_COURT,
+} from "@/lib/datetime";
 import { CourtLines } from "@/components/app/court-surface";
 import { Avatar } from "@/components/ui/avatar";
 import { Dot } from "@/components/ui/badge";
@@ -177,6 +187,13 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
   const [checkOpen, setCheckOpen] = React.useState(false);
   const [checkQuery, setCheckQuery] = React.useState("");
   const [walkOpen, setWalkOpen] = React.useState(false);
+  const [addCourtOpen, setAddCourtOpen] = React.useState(false);
+  const [newCourtLabel, setNewCourtLabel] = React.useState("");
+  const [freePrompt, setFreePrompt] = React.useState<{
+    count: number;
+    minutesLeft: number;
+    run: (free: boolean) => void;
+  } | null>(null);
   const [walk, setWalk] = React.useState({ nickname: "", level: "C", category: "ACTIVE" });
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [editMatch, setEditMatch] = React.useState<BoardMatch | null>(null);
@@ -349,10 +366,30 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
     setEditTeam2(match.team2.map((player) => player.playerId));
   };
 
+  // Near closing time a game may not finish, so ask whether it is a free game
+  // (used shuttle, not counted) before it starts.
+  const requestStart = (count: number, run: (free: boolean) => void) => {
+    const minutesLeft = minutesLeftInReservation(plan, data.gameDay.date, new Date());
+    if (offersFreeGame(minutesLeft)) setFreePrompt({ count, minutesLeft: minutesLeft!, run });
+    else run(false);
+  };
+
+  const openAddCourt = () => {
+    const labels = (slot?.courtLabels ?? []).map((label) => label.trim());
+    const numbers = labels.filter((label) => /^\d+$/.test(label)).map(Number);
+    // Courts named 5, 6, 7 suggest 8 for the next one.
+    setNewCourtLabel(
+      slot && numbers.length === slot.courts && numbers.length > 0 ? String(Math.max(...numbers) + 1) : "",
+    );
+    setAddCourtOpen(true);
+  };
+
   const finishMatch = (match: BoardMatch) => {
     setConfirmSpec({
       title: `End the game on ${courtName(slot, match.courtNumber)}?`,
-      description: "All four players requeue automatically.",
+      description: match.free
+        ? "Free game — it won't count toward anyone's games or fees. All four requeue automatically."
+        : "All four players requeue automatically.",
       detail: (
         <div className="border-line bg-cream/70 space-y-1.5 rounded-xl border px-3.5 py-3">
           {[
@@ -368,7 +405,9 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
               </span>
             </p>
           ))}
-          <p className="text-muted pt-0.5 text-[11px]">Round {match.round} · doubles · fee counts on end</p>
+          <p className="text-muted pt-0.5 text-[11px]">
+            Round {match.round} · doubles · {match.free ? "free game, not counted" : "fee counts on end"}
+          </p>
         </div>
       ),
       confirmLabel: "End game",
@@ -694,7 +733,11 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                     <Button
                       variant="primary"
                       size="sm"
-                      onClick={() => act(() => startAllSuggested(data.gameDay.id))}
+                      onClick={() =>
+                        requestStart(suggested.length, (free) =>
+                          act(() => startAllSuggested(data.gameDay.id, { free })),
+                        )
+                      }
                       loading={pending}
                     >
                       <Play className="h-3.5 w-3.5" /> Start all ({suggested.length})
@@ -718,6 +761,11 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                       Clear
                     </button>
                   </>
+                )}
+                {slot && !isCompleted && (
+                  <Button variant="paper" size="sm" onClick={openAddCourt} disabled={pending}>
+                    <Plus className="h-3.5 w-3.5" /> Add court
+                  </Button>
                 )}
                 <span
                   data-trim-id="board.live-count"
@@ -766,7 +814,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                         pending={pending}
                         isCompleted={isCompleted}
                         onPair={() => act(() => generateMatches(data.gameDay.id, slotIndex, 1))}
-                        onStart={(id) => act(() => startMatch(id))}
+                        onStart={(id) => requestStart(1, (free) => act(() => startMatch(id, { free })))}
                         onFinish={finishMatch}
                         onEdit={openEdit}
                         onCancel={(id) =>
@@ -812,7 +860,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                           canStart={!courtsFull}
                           pending={pending}
                           isCompleted={isCompleted}
-                          onStart={(id) => act(() => startMatch(id))}
+                          onStart={(id) => requestStart(1, (free) => act(() => startMatch(id, { free })))}
                           onEdit={openEdit}
                           onCancel={(id) =>
                             setConfirmSpec({
@@ -859,6 +907,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                         <span className="text-muted mx-1.5">vs</span>
                         {match.team2.map((player) => player.nickname).join(" & ")}
                       </span>
+                      {match.free && <FreeTag />}
                       <span className="text-muted font-mono text-[10px] font-bold">
                         <CircleCheck className="text-forest inline h-3 w-3 align-[-2px]" />{" "}
                         {match.endedAt ? formatClock(match.endedAt) : "Done"}
@@ -1105,6 +1154,93 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
           </div>
         </Modal>
 
+        {/* Free game prompt near closing time */}
+        <Modal
+          open={Boolean(freePrompt)}
+          onClose={() => setFreePrompt(null)}
+          title={
+            freePrompt && freePrompt.count > 1
+              ? `Start ${freePrompt.count} games as free games?`
+              : "Is this a free game?"
+          }
+          description={
+            freePrompt
+              ? freePrompt.minutesLeft > 0
+                ? `Only ${freePrompt.minutesLeft} min left before the reservation ends. A game takes about 15 minutes.`
+                : "The reservation time is up."
+              : undefined
+          }
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setFreePrompt(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="paper"
+                onClick={() => {
+                  freePrompt?.run(false);
+                  setFreePrompt(null);
+                }}
+              >
+                Regular game
+              </Button>
+              <Button
+                onClick={() => {
+                  freePrompt?.run(true);
+                  setFreePrompt(null);
+                }}
+              >
+                <Gift className="h-4 w-4" /> Free game
+              </Button>
+            </>
+          }
+        >
+          <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[12px]">
+            A free game is played with a used shuttle. It does not count as a game played, so it is not added
+            to anyone&apos;s fees.
+          </p>
+        </Modal>
+
+        {/* Add court modal */}
+        <Modal
+          open={addCourtOpen}
+          onClose={() => setAddCourtOpen(false)}
+          title="Add a court"
+          description={slot ? `Adds one court to ${slot.label} (${slot.start}–${slot.end}).` : undefined}
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setAddCourtOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  act(
+                    () => addCourt(data.gameDay.id, slotIndex, newCourtLabel),
+                    () => setAddCourtOpen(false),
+                  )
+                }
+                loading={pending}
+              >
+                <Plus className="h-4 w-4" /> Add court
+              </Button>
+            </>
+          }
+        >
+          <Field label="Court name" hint="Optional. Leave blank to number it after the others.">
+            <Input
+              value={newCourtLabel}
+              onChange={(event) => setNewCourtLabel(event.target.value)}
+              placeholder={slot ? `Court ${slot.courts + 1}` : "Court"}
+              maxLength={24}
+            />
+          </Field>
+          <p className="text-muted mt-3 text-[11px]">
+            The first game in Next up moves onto the new court. Remove courts in Settings.
+          </p>
+        </Modal>
+
         {/* Edit match modal */}
         <Modal
           open={Boolean(editMatch)}
@@ -1198,6 +1334,17 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
         ) : null}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+function FreeTag() {
+  return (
+    <span
+      title="Free game — used shuttle, not counted"
+      className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-bold tracking-wider text-violet-900 uppercase"
+    >
+      <Gift className="h-2.5 w-2.5" /> Free
+    </span>
   );
 }
 
@@ -1444,6 +1591,7 @@ function CourtCard({
             >
               {live ? "Live" : "Suggested"}
             </span>
+            {match.free && <FreeTag />}
           </div>
         </div>
 

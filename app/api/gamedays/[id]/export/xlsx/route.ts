@@ -59,7 +59,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     ["Game-day type", GAMEDAY_TYPE_LABELS[report.gameDay.type]],
     ["Status", report.gameDay.status],
     ["Players", report.summary.totalPlayers],
-    ["Games played", report.matches.length],
+    ["Games played", report.matches.filter((match) => !match.free).length],
+    ["Free games (not counted)", report.matches.filter((match) => match.free).length],
     ["Player-games", report.summary.totalGames],
     ["Total billed", report.summary.totalBilled],
     ["Total collected", report.summary.totalCollected],
@@ -135,7 +136,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const matches = workbook.addWorksheet("Matches", { views: [{ state: "frozen", ySplit: 5 }] });
   titleBlock(matches, "Match History", meta);
   matches.addRow([]);
-  const matchHeader = matches.addRow(["Round", "Court", "Team A", "Team B", "Started", "Finished"]);
+  const matchHeader = matches.addRow([
+    "Round",
+    "Court",
+    "Team A",
+    "Team B",
+    "Started",
+    "Finished",
+    "Free game",
+  ]);
   styleHeader(matchHeader);
   for (const match of [...report.matches].reverse()) {
     matches.addRow([
@@ -145,9 +154,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       match.team2.map((player) => `${player.nickname} (${player.levelLabel})`).join(" & "),
       match.startedAt ? formatClock(match.startedAt) : "",
       match.endedAt ? formatClock(match.endedAt) : "",
+      match.free ? "Yes (not counted)" : "",
     ]);
   }
-  [8, 8, 34, 34, 12, 12].forEach((width, index) => {
+  [8, 8, 34, 34, 12, 12, 18].forEach((width, index) => {
     matches.getColumn(index + 1).width = width;
   });
 

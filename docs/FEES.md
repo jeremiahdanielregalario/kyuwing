@@ -49,6 +49,7 @@ Key properties:
 
 - **Games played is the multiplier, not games won.** A 35-point game counts once for everyone on court, win or lose.
 - `gamesPlayed` increments when a match is completed, for all four players.
+- **Free games** do not increment `gamesPlayed`, so they add nothing to anyone's fee. A free game is offered when a game starts within 15 minutes of the reservation's end and is played with a used shuttle (`Match.free`).
 - Cancelled matches do not count. Suggested matches do not count until completed.
 - If no rule exists for the combination, the total is **0**, not an error — this makes adding a new category or venue safe until the matrix is filled in.
 - Negative game counts are clamped to 0.

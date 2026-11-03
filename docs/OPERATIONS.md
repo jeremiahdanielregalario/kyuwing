@@ -58,6 +58,12 @@ Every drop is saved immediately and every other device sees it on the next poll.
 
 ### Common situations
 
+**The venue frees up another court.**
+Press **Add court** above the court cards. It adds a court to the block you are viewing (courts named 5, 6, 7 suggest 8). If a game is waiting in Next up, it moves onto the new court. Remove courts in **Settings**.
+
+**It is near closing time.**
+A game takes about 15 minutes. When you start a game within 15 minutes of the reservation's end, the board asks whether it is a **free game**. Free games are played with a used shuttle, show a violet **Free** tag, and do not count as a game played, so they are not added to anyone's fees.
+
 **Someone has waited a long time.**
 Pair normally. The engine already weights wait time. If they are about to leave, toggle **Priority** so they jump the next wave.
 

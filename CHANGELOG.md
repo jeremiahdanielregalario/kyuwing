@@ -6,6 +6,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Add court** — add a court to the current block from the live board, mid-session. A game waiting in Next up moves straight onto it.
+- **Free games** — starting a game within 15 minutes of the reservation's end asks whether it is a free game (used shuttle). Free games are tagged on the board, reports, and exports, and do not count toward games played or fees.
 - **Next up queue** — auto-pair works even when every court is busy. Each tap of **Queue next game** adds a balanced game to a Next up line; when a court frees up, the first game in line moves onto it, ready to start. Queued games can be edited, removed, or dragged onto an open court.
 - **Playing recency** — log game-day and tournament lists pasted from the group chat (played and waitlist) on the Players page. Each player gets a recency score and a band (Playing often, Playing, Tournament only, Cooling off, Dormant, No history), shown as a sortable column in the player database.
 - **Developer UI customization** — a separate `ADMIN_PIN` unlocks a developer sign-in at `/login?mode=admin`. "Customize UI" turns on trim mode: click any highlighted optional text or panel to hide it for everyone, on every device. Hidden pieces are stored globally and can be restored individually or all at once.

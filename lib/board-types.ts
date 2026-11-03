@@ -43,6 +43,8 @@ export type BoardMatch = {
   courtNumber: number;
   round: number;
   status: "SUGGESTED" | "LIVE" | "COMPLETED" | "CANCELLED";
+  /** Played with a used shuttle near closing; not counted as a game. */
+  free: boolean;
   startedAt: string | null;
   endedAt: string | null;
   note: string | null;

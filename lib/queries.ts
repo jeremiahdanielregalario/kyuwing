@@ -100,6 +100,7 @@ function toBoardMatch(match: MatchWithPlayers, sessionByPlayer: Map<string, stri
     courtNumber: match.courtNumber,
     round: match.round,
     status: match.status,
+    free: match.free,
     startedAt: match.startedAt?.toISOString() ?? null,
     endedAt: match.endedAt?.toISOString() ?? null,
     note: match.note,
@@ -152,7 +153,8 @@ export async function getBoardData(gameDayId: string, slotParam?: number | null)
   const openCourtNumbers = Array.from({ length: courtsTotal }, (_, index) => index + 1).filter(
     (court) => !busyCourtNumbers.has(court),
   );
-  const completedCount = await prisma.match.count({ where: { gameDayId, status: "COMPLETED" } });
+  // Free games are played but not counted as games.
+  const completedCount = await prisma.match.count({ where: { gameDayId, status: "COMPLETED", free: false } });
 
   return {
     gameDay: toGameDayDto(gameDay),

@@ -167,6 +167,30 @@ export function openCourts(total: number, busy: Iterable<number>): number[] {
   return Array.from({ length: total }, (_, index) => index + 1).filter((court) => !taken.has(court));
 }
 
+/** A doubles game runs about this long; starting one closer to closing time may not finish. */
+export const FREE_GAME_WINDOW_MINUTES = 15;
+
+/**
+ * Minutes until the reservation ends (the latest block end), or null when the
+ * game day is not today in Manila. Negative once the reservation has ended.
+ */
+export function minutesLeftInReservation(
+  plan: CourtSlot[],
+  gameDate: Date | string,
+  now = new Date(),
+): number | null {
+  if (plan.length === 0) return null;
+  const dateKey = (typeof gameDate === "string" ? gameDate : gameDate.toISOString()).slice(0, 10);
+  if (dateKey !== manilaDateKey(now)) return null;
+  const end = Math.max(...plan.map((slot) => timeToMinutes(slot.end)));
+  return end - timeToMinutes(manilaTime(now));
+}
+
+/** True when a game started now should be offered as a free game. */
+export function offersFreeGame(minutesLeft: number | null): boolean {
+  return minutesLeft !== null && minutesLeft < FREE_GAME_WINDOW_MINUTES;
+}
+
 export function courtName(slot: CourtSlot | undefined, court: number): string {
   if (court === QUEUED_COURT) return "Next up";
   const label = slot?.courtLabels?.[court - 1]?.trim();

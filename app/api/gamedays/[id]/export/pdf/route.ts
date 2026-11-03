@@ -201,7 +201,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // Summary cards
   const cards = [
     { label: "Players", value: String(report.summary.totalPlayers) },
-    { label: "Games", value: String(report.matches.length) },
+    { label: "Games", value: String(report.matches.filter((match) => !match.free).length) },
     { label: "Billed", value: formatPesoPdf(report.summary.totalBilled) },
     { label: "Collected", value: formatPesoPdf(report.summary.totalCollected) },
     { label: "Outstanding", value: formatPesoPdf(report.summary.totalOutstanding) },
@@ -293,7 +293,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       matchColumns,
       [
         String(match.round),
-        `C${match.courtNumber}`,
+        match.free ? `C${match.courtNumber} free` : `C${match.courtNumber}`,
         match.team1.map((player) => `${player.nickname} (${player.levelLabel})`).join(" & "),
         match.team2.map((player) => `${player.nickname} (${player.levelLabel})`).join(" & "),
         match.endedAt ? formatClock(match.endedAt) : "",

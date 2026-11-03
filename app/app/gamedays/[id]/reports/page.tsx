@@ -59,8 +59,12 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
         <div data-trim-id="reports.stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
             label="Games played"
-            value={report.matches.length}
-            hint={`${report.summary.totalGames} player-games`}
+            value={report.matches.filter((match) => !match.free).length}
+            hint={
+              report.matches.some((match) => match.free)
+                ? `${report.summary.totalGames} player-games · ${report.matches.filter((match) => match.free).length} free`
+                : `${report.summary.totalGames} player-games`
+            }
             icon={<Trophy className="h-4 w-4" />}
             tone="forest"
           />
@@ -118,6 +122,11 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
                               C{match.courtNumber}
                             </span>
                             <span className="text-muted ml-2 text-[9px]">R{match.round}</span>
+                            {match.free && (
+                              <span className="ml-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold text-violet-900 uppercase">
+                                Free
+                              </span>
+                            )}
                           </td>
                           <td className="px-2 py-2.5">
                             <div className="flex flex-wrap gap-1.5">

@@ -224,6 +224,8 @@ model Match {
   courtNumber Int
   round       Int         @default(1)
   status      MatchStatus @default(SUGGESTED)
+  /// Free game: played with a used shuttle near the end of the reservation, so it doesn't count as a game played.
+  free        Boolean     @default(false)
   note        String?
   startedAt   DateTime?
   endedAt     DateTime?
