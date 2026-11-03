@@ -16,6 +16,7 @@ import {
   parseCourtPlan,
   QUEUED_COURT,
   timeToMinutes,
+  withoutCourt,
 } from "@/lib/datetime";
 import { computeFee } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
@@ -992,6 +993,63 @@ export async function addCourt(
       ? `${name} added to ${slot.label}. The first Next up game moved onto it.`
       : `${name} added to ${slot.label}.`,
     { court },
+  );
+}
+
+/**
+ * Remove one court from a block mid-session, e.g. when a reservation falls
+ * through. A suggested game on it moves to the waiting courts; a game in
+ * progress must be finished or cancelled first. Later courts keep their names.
+ */
+export async function removeCourt(
+  gameDayId: string,
+  slotIndex: number,
+  court: number,
+): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id: gameDayId },
+    select: { status: true, courtPlan: true },
+  });
+  if (!gameDay) return fail("Game day not found.");
+  if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
+
+  const plan = parseCourtPlan(gameDay.courtPlan);
+  const slot = plan[slotIndex];
+  if (!slot) return fail("Pick a court block first.");
+  if (!Number.isInteger(court) || court < 1 || court > slot.courts) return fail("Pick a valid court.");
+  const name = courtName(slot, court);
+  if (slot.courts <= 1)
+    return fail(`${name} is the only court in ${slot.label}. Change the block in Settings instead.`);
+
+  // Games sit on court positions of the block in play, so only that block's games move.
+  const inPlay = slotIndex === currentSlotIndex(plan);
+  const onCourt = inPlay
+    ? await prisma.match.findFirst({
+        where: { gameDayId, courtNumber: court, status: { in: ["SUGGESTED", "LIVE"] } },
+        select: { id: true, status: true },
+      })
+    : null;
+  if (onCourt?.status === "LIVE") return fail(`${name} has a game in progress. Finish or cancel it first.`);
+
+  const nextPlan = plan.map((row, index) => (index === slotIndex ? withoutCourt(row, court) : row));
+  await prisma.$transaction(async (tx) => {
+    await tx.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: nextPlan } });
+    if (!inPlay) return;
+    if (onCourt) await tx.match.update({ where: { id: onCourt.id }, data: { courtNumber: QUEUED_COURT } });
+    await tx.match.updateMany({
+      where: { gameDayId, status: { in: ["SUGGESTED", "LIVE"] }, courtNumber: { gt: court } },
+      data: { courtNumber: { decrement: 1 } },
+    });
+  });
+
+  refreshGameDay(gameDayId);
+  return ok(
+    onCourt
+      ? `${name} removed. Its suggested game moved to the waiting courts.`
+      : `${name} removed from ${slot.label}.`,
   );
 }
 

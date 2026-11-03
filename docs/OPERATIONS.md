@@ -63,6 +63,9 @@ Every drop is saved immediately and every other device sees it on the next poll.
 **The venue frees up another court.**
 Press **Add court** above the court cards. It adds a court to the block you are viewing (courts named 5, 6, 7 suggest 8). If a game is waiting in Next up, it moves onto the new court. Remove courts in **Settings**.
 
+**A court becomes unavailable** (a failed reservation, a broken net).
+Press the **−** button in that court's header and confirm. The court leaves the block you are viewing; the other courts keep their names (removing Court 6 from 5–8 leaves 5, 7, 8). A suggested game on it moves to the waiting courts. A game in progress must be finished or cancelled first, so the button is disabled on live courts. A block always keeps at least one court.
+
 **It is near closing time.**
 A game takes about 15 minutes. When you start a game within 15 minutes of the reservation's end, the board asks whether it is a **free game**. Free games are played with a used shuttle, show a violet **Free** tag, and do not count as a game played, so they are not added to anyone's fees.
 

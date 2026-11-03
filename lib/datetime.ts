@@ -167,6 +167,20 @@ export function openCourts(total: number, busy: Iterable<number>): number[] {
   return Array.from({ length: total }, (_, index) => index + 1).filter((court) => !taken.has(court));
 }
 
+/**
+ * A block without one court (1-based position). Later courts shift down a
+ * position but keep their names, so "5, 6, 7, 8" without 6 reads "5, 7, 8",
+ * and unnamed courts 1-4 without 2 read "1, 3, 4" rather than renumbering.
+ */
+export function withoutCourt(slot: CourtSlot, court: number): CourtSlot {
+  const labels = Array.from(
+    { length: slot.courts },
+    (_, index) => slot.courtLabels?.[index]?.trim() || String(index + 1),
+  );
+  labels.splice(court - 1, 1);
+  return { ...slot, courts: slot.courts - 1, courtLabels: labels };
+}
+
 /** A doubles game runs about this long; starting one closer to closing time may not finish. */
 export const FREE_GAME_WINDOW_MINUTES = 15;
 

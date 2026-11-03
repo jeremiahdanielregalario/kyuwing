@@ -37,6 +37,7 @@ import {
   Play,
   Plus,
   Gift,
+  Minus,
   Search,
   Settings2,
   Share2,
@@ -52,6 +53,7 @@ import {
 } from "lucide-react";
 import {
   addCourt,
+  removeCourt,
   cancelMatch,
   checkInPlayer,
   clearSuggestedMatches,
@@ -845,6 +847,18 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                             onConfirm: () => act(() => cancelMatch(id)),
                           })
                         }
+                        onRemove={() =>
+                          setConfirmSpec({
+                            title: `Remove ${courtName(slot, court)}?`,
+                            description: match
+                              ? `It leaves ${slot?.label ?? "this block"}. The suggested game on it moves to the waiting courts, and the other courts keep their names.`
+                              : `It leaves ${slot?.label ?? "this block"}. The other courts keep their names. Add it back with Add court.`,
+                            confirmLabel: "Remove court",
+                            cancelLabel: "Keep court",
+                            tone: "danger",
+                            onConfirm: () => act(() => removeCourt(data.gameDay.id, slotIndex, court)),
+                          })
+                        }
                         onClearDraft={(index) =>
                           setDrafts((prev) => ({
                             ...prev,
@@ -1428,6 +1442,31 @@ function FreeTag() {
  */
 const WAITING_BUTTON = "!bg-[#0a0a0a] !text-[#ffd600] hover:!bg-[#2a2a2a]";
 
+function RemoveCourtButton({
+  name,
+  live,
+  pending,
+  onRemove,
+}: {
+  name: string;
+  live: boolean;
+  pending: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      disabled={pending || live}
+      aria-label={`Remove ${name}`}
+      title={live ? "Finish or cancel the game in progress before removing this court" : `Remove ${name}`}
+      className="border-cream/20 text-cream/50 hover:border-coral/60 hover:bg-coral/20 hover:text-cream grid h-6 w-6 place-items-center rounded-full border transition disabled:opacity-30"
+    >
+      <Minus className="h-3 w-3" />
+    </button>
+  );
+}
+
 function CourtCard({
   court,
   name,
@@ -1445,6 +1484,7 @@ function CourtCard({
   onClearDraft,
   queuePosition,
   canStart = true,
+  onRemove,
 }: {
   court: number;
   name: string;
@@ -1464,6 +1504,8 @@ function CourtCard({
   queuePosition?: number;
   /** False when a waiting court's game has no free court to start on. */
   canStart?: boolean;
+  /** Removes this court from the block (real courts only). */
+  onRemove?: () => void;
 }) {
   // A waiting court (court 0) holds a game ahead of time; it is not a real court.
   const waiting = court === QUEUED_COURT;
@@ -1501,8 +1543,13 @@ function CourtCard({
             <span className="text-cream/70 inline-flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
               <span className="bg-cream/40 h-1.5 w-1.5 rounded-full" /> {name}
             </span>
-            <span className="border-cream/25 bg-cream/10 text-cream/60 rounded-full border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase">
-              Open
+            <span className="flex items-center gap-1.5">
+              <span className="border-cream/25 bg-cream/10 text-cream/60 rounded-full border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase">
+                Open
+              </span>
+              {onRemove && !isCompleted && (
+                <RemoveCourtButton name={name} live={false} pending={pending} onRemove={onRemove} />
+              )}
             </span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-x-8">
@@ -1596,6 +1643,9 @@ function CourtCard({
               {live ? "Live" : waiting ? (queuePosition === 1 ? "Up next" : "Waiting") : "Suggested"}
             </span>
             {match.free && <FreeTag />}
+            {onRemove && !isCompleted && (
+              <RemoveCourtButton name={name} live={live} pending={pending} onRemove={onRemove} />
+            )}
           </div>
         </div>
 

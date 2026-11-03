@@ -49,6 +49,9 @@ export function Modal({
 
   if (!mounted || !open) return null;
 
+  // Confirmations often have no body; skip the empty strip between header and footer.
+  const hasBody = children !== null && children !== undefined && children !== false;
+
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6"
@@ -74,7 +77,12 @@ export function Modal({
           className,
         )}
       >
-        <div className="border-line/80 flex items-start justify-between gap-4 border-b px-5 py-4 sm:px-6">
+        <div
+          className={cn(
+            "border-line/80 flex items-start justify-between gap-4 px-5 py-4 sm:px-6",
+            hasBody && "border-b",
+          )}
+        >
           <div>
             <h2 className="font-display text-xl font-bold tracking-tight">{title}</h2>
             {description && <p className="text-muted mt-0.5 text-[13px]">{description}</p>}
@@ -88,7 +96,7 @@ export function Modal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="hide-scrollbar flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+        {hasBody && <div className="hide-scrollbar flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>}
         {footer && (
           <div className="border-line/80 bg-cream/40 flex flex-wrap items-center justify-end gap-2 border-t px-5 py-3.5 sm:px-6">
             {footer}

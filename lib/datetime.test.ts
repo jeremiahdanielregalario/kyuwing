@@ -20,6 +20,7 @@ import {
   openCourts,
   parseCourtPlan,
   QUEUED_COURT,
+  withoutCourt,
   timeToMinutes,
   weekdayFromKey,
   weekdayLabel,
@@ -31,6 +32,25 @@ const SLOTS: CourtSlot[] = [
   { id: "b", label: "Midday", start: "10:00", end: "12:00", courts: 4 },
   { id: "c", label: "Afternoon", start: "12:00", end: "14:00", courts: 2 },
 ];
+
+describe("withoutCourt", () => {
+  it("drops a labelled court and keeps the others' names", () => {
+    const slot: CourtSlot = { ...SLOTS[0], courts: 4, courtLabels: ["5", "6", "7", "8"] };
+    const next = withoutCourt(slot, 2);
+    expect(next.courts).toBe(3);
+    expect([1, 2, 3].map((court) => courtName(next, court))).toEqual(["Court 5", "Court 7", "Court 8"]);
+  });
+
+  it("freezes positional names so unnamed courts are not renumbered", () => {
+    const next = withoutCourt({ ...SLOTS[0], courts: 4 }, 2);
+    expect([1, 2, 3].map((court) => courtName(next, court))).toEqual(["Court 1", "Court 3", "Court 4"]);
+  });
+
+  it("keeps custom names", () => {
+    const next = withoutCourt({ ...SLOTS[0], courts: 3, courtLabels: ["Main", "", "Side"] }, 1);
+    expect([1, 2].map((court) => courtName(next, court))).toEqual(["Court 2", "Side"]);
+  });
+});
 
 describe("free games near closing time", () => {
   // 13:50 Manila on Nov 2, 2026; the reservation ends 14:00.
