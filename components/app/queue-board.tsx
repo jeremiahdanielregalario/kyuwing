@@ -65,7 +65,7 @@ import {
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
-import { formatClock, formatDuration, formatGameDate } from "@/lib/datetime";
+import { courtName,  formatClock, formatDuration, formatGameDate } from "@/lib/datetime";
 import { CourtLines } from "@/components/app/court-surface";
 import { Avatar } from "@/components/ui/avatar";
 import { Dot } from "@/components/ui/badge";
@@ -345,7 +345,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
 
   const finishMatch = (match: BoardMatch) => {
     setConfirmSpec({
-      title: `End the game on Court ${match.courtNumber}?`,
+      title: `End the game on ${courtName(slot, match.courtNumber)}?`,
       description: "All four players requeue automatically.",
       detail: (
         <div className="border-line bg-cream/70 space-y-1.5 rounded-xl border px-3.5 py-3">
@@ -708,6 +708,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                       <CourtCard
                         key={court}
                         court={court}
+                        name={courtName(slot, court)}
                         match={match}
                         draft={drafts[court] ?? EMPTY_DRAFT}
                         playerById={playerById}
@@ -762,7 +763,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                       key={match.id}
                       className="border-line/60 bg-cream/30 flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-[11px]"
                     >
-                      <span className="text-muted font-mono font-bold">C{match.courtNumber}</span>
+                      <span className="text-muted max-w-[8rem] truncate font-mono font-bold">{courtName(slot, match.courtNumber)}</span>
                       <span className="min-w-0 flex-1 truncate font-semibold">
                         {match.team1.map((player) => player.nickname).join(" & ")}
                         <span className="text-muted mx-1.5">vs</span>
@@ -1035,7 +1036,7 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
                     (_, index) => index + 1,
                   ).map((court) => (
                     <option key={court} value={court}>
-                      Court {court}
+                      {courtName(slot, court)}
                     </option>
                   ))}
                 </Select>
@@ -1089,13 +1090,21 @@ export function QueueBoard({ initialData }: { initialData: BoardData }) {
           )}
         </Modal>
       </div>
-      <DragOverlay dropAnimation={null}>{activeDrag ? <DragChip drag={activeDrag} /> : null}</DragOverlay>
+      <DragOverlay dropAnimation={null}>
+        {activeDrag ? (
+          <DragChip
+            drag={activeDrag}
+            courtLabel={activeDrag.kind === "match" ? courtName(slot, activeDrag.courtNumber) : undefined}
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
 
 function CourtCard({
   court,
+  name,
   match,
   draft,
   playerById,
@@ -1110,6 +1119,7 @@ function CourtCard({
   onClearDraft,
 }: {
   court: number;
+  name: string;
   match?: BoardMatch;
   draft: Array<string | null>;
   playerById: Map<string, BoardPlayer>;
@@ -1154,7 +1164,7 @@ function CourtCard({
         <div className="relative p-3">
           <div className="flex items-center justify-between">
             <span className="text-cream/70 inline-flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
-              <span className="bg-cream/40 h-1.5 w-1.5 rounded-full" /> Court {court}
+              <span className="bg-cream/40 h-1.5 w-1.5 rounded-full" /> {name}
             </span>
             <span className="border-cream/25 bg-cream/10 text-cream/60 rounded-full border px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase">
               Open
@@ -1225,8 +1235,8 @@ function CourtCard({
             >
               <GripVertical className="h-3.5 w-3.5" />
             </span>
-            <span className="text-cream/75 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
-              Court {court}
+            <span className="text-cream/75 truncate font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
+              {name}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1439,11 +1449,11 @@ function DraftSlot({
   );
 }
 
-function DragChip({ drag }: { drag: DragPayload }) {
+function DragChip({ drag, courtLabel }: { drag: DragPayload; courtLabel?: string }) {
   if (drag.kind === "match") {
     return (
       <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex rotate-2 items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold">
-        <GripVertical className="text-lime h-3.5 w-3.5" /> Court {drag.courtNumber}
+        <GripVertical className="text-lime h-3.5 w-3.5" /> {courtLabel ?? `Court ${drag.courtNumber}`}
       </div>
     );
   }

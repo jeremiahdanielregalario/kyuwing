@@ -128,6 +128,8 @@ export type CourtSlot = {
   start: string;
   end: string;
   courts: number;
+  /** Optional display names for each court position, e.g. "Court 5", "Reserved A". */
+  courtLabels?: string[];
 };
 
 export function parseCourtPlan(value: unknown): CourtSlot[] {
@@ -140,7 +142,23 @@ export function parseCourtPlan(value: unknown): CourtSlot[] {
       start: typeof row.start === "string" ? row.start : "10:00",
       end: typeof row.end === "string" ? row.end : "12:00",
       courts: Math.min(20, Math.max(1, Number(row.courts) || 1)),
+      ...(() => {
+        if (!Array.isArray(row.courtLabels)) return {};
+        const labels = row.courtLabels
+          .filter((entry): entry is string => typeof entry === "string")
+          .slice(0, 20)
+          .map((entry) => entry.trim().slice(0, 24));
+        return labels.some((entry) => entry.length > 0) ? { courtLabels: labels } : {};
+      })(),
     }));
+}
+
+/** Display name for a court position, e.g. "Court 5" or the master's own label. */
+export function courtName(slot: CourtSlot | undefined, court: number): string {
+  const label = slot?.courtLabels?.[court - 1]?.trim();
+  if (!label) return `Court ${court}`;
+  // A master who types just "5" gets "Court 5"; full names pass through as typed.
+  return /^\d+$/.test(label) ? `Court ${label}` : label;
 }
 
 /** Index of the slot covering now, or the next upcoming slot, or the first slot. */

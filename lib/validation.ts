@@ -44,6 +44,7 @@ export const courtSlotSchema = z.object({
   start: z.string().regex(/^\d{2}:\d{2}$/),
   end: z.string().regex(/^\d{2}:\d{2}$/),
   courts: z.coerce.number().int().min(1).max(20),
+  courtLabels: z.array(z.string().trim().max(24)).max(20).optional(),
 });
 
 export const gameDayCreateSchema = z.object({

@@ -13,6 +13,7 @@ import {
   manilaTime,
   manilaWeekday,
   minutesToLabel,
+  courtName,
   parseCourtPlan,
   timeToMinutes,
   weekdayFromKey,
@@ -25,6 +26,23 @@ const SLOTS: CourtSlot[] = [
   { id: "b", label: "Midday", start: "10:00", end: "12:00", courts: 4 },
   { id: "c", label: "Afternoon", start: "12:00", end: "14:00", courts: 2 },
 ];
+
+describe("courtName", () => {
+  it("falls back to the position number", () => {
+    expect(courtName(undefined, 3)).toBe("Court 3");
+    expect(courtName(SLOTS[0], 2)).toBe("Court 2");
+  });
+
+  it("uses a custom label when present", () => {
+    const slot: CourtSlot = { ...SLOTS[0], courtLabels: ["Court 5", "", "Reserved A"] };
+    expect(courtName(slot, 1)).toBe("Court 5");
+    expect(courtName({ ...SLOTS[0], courtLabels: ["7"] }, 1)).toBe("Court 7");
+    expect(courtName({ ...SLOTS[0], courtLabels: ["Reserved A"] }, 1)).toBe("Reserved A");
+    expect(courtName(slot, 2)).toBe("Court 2");
+    expect(courtName(slot, 3)).toBe("Reserved A");
+    expect(courtName(slot, 4)).toBe("Court 4");
+  });
+});
 
 describe("parseCourtPlan", () => {
   it("returns an empty plan for non-array input", () => {
@@ -56,6 +74,15 @@ describe("parseCourtPlan", () => {
   it("skips entries that are not objects", () => {
     const plan = parseCourtPlan([null, 5, "x", { courts: 2 }]);
     expect(plan).toHaveLength(1);
+  });
+
+  it("keeps court labels when provided", () => {
+    const plan = parseCourtPlan([
+      { id: "a", label: "Block", start: "10:00", end: "12:00", courts: 2, courtLabels: ["Court 5", " Court 6 "] },
+    ]);
+    expect(plan[0].courtLabels).toEqual(["Court 5", "Court 6"]);
+    const blank = parseCourtPlan([{ start: "10:00", end: "12:00", courts: 2, courtLabels: ["", " "] }]);
+    expect(blank[0].courtLabels).toBeUndefined();
   });
 });
 

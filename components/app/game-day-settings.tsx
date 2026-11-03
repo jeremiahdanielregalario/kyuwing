@@ -27,7 +27,7 @@ import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils";
 
 type VenueOption = { id: string; name: string; shortName: string };
-type Slot = { id: string; label: string; start: string; end: string; courts: number };
+type Slot = { id: string; label: string; start: string; end: string; courts: number; courtLabels?: string[] };
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
 function dateValue(iso: string) {
@@ -340,6 +340,40 @@ export function GameDaySettings({
                       className="h-9 text-center text-[12px]"
                     />
                   </label>
+                </div>
+                <div className="mt-2">
+                  <span className="text-muted text-[8px] tracking-wide uppercase">
+                    Court names (optional)
+                  </span>
+                  <div className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                    {Array.from({ length: slot.courts }, (_, courtIndex) => (
+                      <Input
+                        key={courtIndex}
+                        value={slot.courtLabels?.[courtIndex] ?? ""}
+                        placeholder={`Court ${courtIndex + 1}`}
+                        maxLength={24}
+                        className="h-8 text-[11px]"
+                        aria-label={`Court ${courtIndex + 1} name`}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setSlots((current) =>
+                            current.map((row, i) =>
+                              i === index
+                                ? {
+                                    ...row,
+                                    courtLabels: Array.from({ length: row.courts }, (_, position) =>
+                                      position === courtIndex
+                                        ? value
+                                        : (row.courtLabels?.[position] ?? ""),
+                                    ),
+                                  }
+                                : row,
+                            ),
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
