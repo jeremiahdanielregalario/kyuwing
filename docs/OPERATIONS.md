@@ -117,6 +117,7 @@ When the reservation runs out (the end of the last block, on the game day itself
 - [ ] Mark anyone who left early as **Done**.
 - [ ] Open **Fees**, record payments, and reconcile cash vs GCash.
 - [ ] Download the **Excel** and **PDF** reports.
+- [ ] Check the **Playing time** card on the **Reports** page: each player's total time on court, from the start to the finish of every game they played (free games included). It is for your eyes only and is not in the Excel or PDF. If one player's time looks far too long, a game was probably left running; check Match history.
 - [ ] Add a short note to the game day if anything unusual happened (late courts, guests, corrections).
 - [ ] Press **Complete**. This cancels leftovers and freezes the session.
 - [ ] Log out if the device is shared.

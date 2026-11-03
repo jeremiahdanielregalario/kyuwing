@@ -10,6 +10,7 @@ import { Stat } from "@/components/ui/stat";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { formatClock, formatGameDate } from "@/lib/datetime";
 import { GAMEDAY_TYPE_LABELS, formatPeso } from "@/lib/fees";
+import { formatPlayTime, playTimeByPlayer } from "@/lib/play-time";
 import { getFeeReport } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,17 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
     (a, b) => b.gamesPlayed - a.gamesPlayed || a.nickname.localeCompare(b.nickname),
   );
   const matches = report.matches;
+
+  // Time on court per player, from finished games. On-screen only: not in the PDF or Excel downloads.
+  const playTime = playTimeByPlayer(report.matches);
+  const timed = report.rows
+    .map((row) => ({ row, time: playTime.get(row.playerId) }))
+    .filter((entry): entry is { row: (typeof report.rows)[number]; time: NonNullable<typeof entry.time> } =>
+      Boolean(entry.time),
+    )
+    .sort((a, b) => b.time.seconds - a.time.seconds || a.row.nickname.localeCompare(b.row.nickname));
+  const longestTime = timed[0]?.time.seconds ?? 0;
+  const totalTime = timed.reduce((sum, entry) => sum + entry.time.seconds, 0);
 
   return (
     <>
@@ -199,6 +211,46 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
                   </div>
                 ))}
               </div>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <div className="border-line/80 border-b px-4 py-3">
+                <h2 className="font-display text-base font-bold">Playing time</h2>
+                <p className="text-muted text-[11px]">
+                  Time on court per player, from each finished game&apos;s start to finish
+                  {timed.length > 0 && ` · ${formatPlayTime(totalTime)} in total`}. On screen only; the PDF
+                  and Excel downloads leave it out.
+                </p>
+              </div>
+              {timed.length === 0 ? (
+                <p className="text-muted px-4 py-8 text-center text-[12px]">No finished games yet.</p>
+              ) : (
+                <div className="divide-line/50 max-h-[420px] divide-y overflow-y-auto">
+                  {timed.map(({ row, time }) => (
+                    <div key={row.sessionPlayerId} className="px-4 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <LevelBadge level={row.level} />
+                        <span className="min-w-0 flex-1 truncate text-[12px] font-semibold">
+                          {row.nickname}
+                        </span>
+                        <span className="text-muted font-mono text-[10px]">
+                          {time.games} {time.games === 1 ? "game" : "games"} · avg{" "}
+                          {formatPlayTime(time.seconds / time.games)}
+                        </span>
+                        <span className="w-14 text-right font-mono text-[12px] font-bold">
+                          {formatPlayTime(time.seconds)}
+                        </span>
+                      </div>
+                      <div className="bg-cream-deep mt-1.5 h-1 overflow-hidden rounded-full">
+                        <div
+                          className="bg-gold h-full rounded-full"
+                          style={{ width: `${Math.max(4, (time.seconds / longestTime) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
 
             <Card className="p-4">

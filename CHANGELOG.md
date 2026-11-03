@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Playing time per player** — the Reports page has a **Playing time** card: each player's total time on court (from the start to the finish of every game they played, free games included) with games and average per game. It is on screen only and is not included in the PDF or Excel downloads.
 - **Leave requests from the live link** — a player on the shared link can type their official nickname under **Leaving already?** and the queue master is notified within seconds: a pop-up plus a **Leaving the game day** banner with **Confirm** and **Keep in queue**. Confirming marks them done and removes any suggested game they were lined up for. Duplicate requests are folded together and a declined player waits five minutes before asking again.
 - **Download QR** on the Pay online card, so the GCash QR can be saved and scanned from a phone's gallery.
 - **Regenerate pairings** — if the auto-generated pairings aren't to the queue master's liking, **Regenerate** (header) redoes every suggested court and the shuffle button on a game redoes just that one, including games in Next up. Press as often as needed: rejected lineups never come back, and nothing is replaced unless a new arrangement exists.
