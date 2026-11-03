@@ -29,7 +29,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 - **Player search** — search now also matches notes, and a Clear button resets all filters at once.
 - **Player categories** — "Inactive" and "Alumni" are now separate player types (Active, Inactive, Alumni, Applicant) in the roster, sign-ups, board, and fee rules.
 - **Level pickers** — level dropdowns show only the level (`C+`) instead of appending the bracket name (`C+ · Intermediate`).
-- **Bracket spread** — the players page chart is now a bar chart with the count above each bracket and a baseline, replacing the thin progress bars.
+- **Bracket spread** — the players page chart is now a bar chart with the count above each bracket and a baseline, colour-coded per bracket (E grey, D blue, C green, B amber, A rose) to match the level badges.
 - Negative peso amounts now format as `-₱250` instead of `₱-250`.
 - PDF exports use `PHP 250` instead of `₱250` because standard PDF fonts lack the peso glyph.
 

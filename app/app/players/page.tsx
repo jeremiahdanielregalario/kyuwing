@@ -2,8 +2,9 @@ import { Users } from "lucide-react";
 import { PlayerManager } from "@/components/app/player-manager";
 import { PageHeader } from "@/components/ui/page-header";
 import { Stat } from "@/components/ui/stat";
-import { LEVELS, bracketOf } from "@/lib/levels";
+import { LEVELS, bracketOf, levelTone } from "@/lib/levels";
 import { getPlayers } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Players" };
@@ -69,12 +70,15 @@ export default async function PlayersPage() {
           {byBracket.map((row) => {
             const barPx =
               row.count === 0 ? 3 : Math.max(12, Math.round((row.count / maxBracket) * 104));
+            const tone = levelTone(row.bracket);
             return (
               <div key={row.bracket} className="flex flex-col items-center">
-                <span className="text-ink mb-1.5 font-mono text-[12px] font-bold tabular-nums">{row.count}</span>
+                <span className={cn("mb-1.5 font-mono text-[12px] font-bold tabular-nums", tone.text)}>
+                  {row.count}
+                </span>
                 <div className="flex w-full items-end justify-center" style={{ height: 104 }}>
                   <div
-                    className="bg-forest w-full max-w-16 rounded-t-lg transition-all duration-500"
+                    className={cn("w-full max-w-16 rounded-t-lg transition-all duration-500", tone.solid)}
                     style={{ height: barPx }}
                   />
                 </div>
@@ -83,11 +87,14 @@ export default async function PlayersPage() {
           })}
         </div>
         <div className="mt-2 grid grid-cols-5 gap-2 sm:gap-4">
-          {byBracket.map((row) => (
-            <div key={row.bracket} className="text-center">
-              <span className="font-display text-base font-extrabold">{row.bracket}</span>
-            </div>
-          ))}
+          {byBracket.map((row) => {
+            const tone = levelTone(row.bracket);
+            return (
+              <div key={row.bracket} className="text-center">
+                <span className={cn("font-display text-base font-extrabold", tone.text)}>{row.bracket}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
