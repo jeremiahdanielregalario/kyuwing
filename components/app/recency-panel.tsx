@@ -26,7 +26,7 @@ import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils";
 
 /** Logged lists shown before "Show all". */
-const RECENT_LISTS = 6;
+const RECENT_LISTS = 3;
 
 const BAND_STYLES: Record<
   RecencySnapshot["band"],
