@@ -169,6 +169,24 @@
     background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.35) 100%);
   }
 
+  /*
+   * Waiting courts are yellow, like Queue Maestro's. Inside the card the cream
+   * and gold tokens flip to ink (and ink accents to gold), so the same court
+   * card markup stays readable on the light surface.
+   */
+  .court-surface-waiting {
+    --color-cream: #0a0a0a;
+    --color-lime: #0a0a0a;
+    --color-forest-deep: #ffd600;
+    background:
+      radial-gradient(120% 110% at 50% -10%, rgb(255 255 255 / 0.45), transparent 60%),
+      linear-gradient(158deg, #ffe45c 0%, #f2c200 100%);
+  }
+
+  .court-surface-waiting::after {
+    background: radial-gradient(120% 90% at 50% 50%, transparent 60%, rgb(0 0 0 / 0.1) 100%);
+  }
+
   .gold-rule {
     background: linear-gradient(90deg, var(--color-lime-deep), var(--color-lime), var(--color-lime-deep));
   }

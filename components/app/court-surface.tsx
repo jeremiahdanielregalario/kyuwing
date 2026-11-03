@@ -10,10 +10,21 @@ export function CourtLines({
   tone = "live",
 }: {
   className?: string;
-  tone?: "live" | "suggested" | "open";
+  tone?: "live" | "suggested" | "open" | "waiting";
 }) {
-  const line = tone === "open" ? "rgb(251 250 245 / 0.22)" : "rgb(251 250 245 / 0.42)";
-  const net = tone === "open" ? "rgb(255 214 0 / 0.35)" : "rgb(255 214 0 / 0.7)";
+  // Waiting courts sit on yellow, so their lines and net are drawn in ink.
+  const line =
+    tone === "waiting"
+      ? "rgb(10 10 10 / 0.3)"
+      : tone === "open"
+        ? "rgb(251 250 245 / 0.22)"
+        : "rgb(251 250 245 / 0.42)";
+  const net =
+    tone === "waiting"
+      ? "rgb(10 10 10 / 0.55)"
+      : tone === "open"
+        ? "rgb(255 214 0 / 0.35)"
+        : "rgb(255 214 0 / 0.7)";
 
   return (
     <svg

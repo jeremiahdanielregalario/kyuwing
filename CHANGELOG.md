@@ -6,7 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
-- **Waiting courts** — set games ahead of time on court-style cards below the courts: drop four players in or press Pair, even while courts are open. Waiting games run in order and take the next court that frees up; edit, remove, or drag them onto a free court.
+- **Waiting courts** — set games ahead of time on court-style cards below the courts: drop four players in or press Pair, even while courts are open. Waiting games run in order and take the next court that frees up; edit, remove, or drag them onto a free court. Waiting courts are yellow, like Queue Maestro's, so they stand apart from the green courts.
 - **Shareable live view** — **Share live view** on the board gives a view-only link for the group chat. Players see the courts, the Next up line, and the waiting order, updating every few seconds, and can type their nickname to see if they're next. No login; nicknames and levels only.
 - **Non-affiliate player type** — for plus-ones from outside the association, with its own fee rules (a higher ₱30 per-game rate in production). Available in the roster, sign-ups, walk-ins, imports (`non-affiliate`, `plus one`, or `guest`), and the fee matrix.
 - **Add court** — add a court to the current block from the live board, mid-session. A game waiting in Next up moves straight onto it.

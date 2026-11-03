@@ -1422,6 +1422,12 @@ function FreeTag() {
   );
 }
 
+/**
+ * Waiting courts flip the gold and ink tokens for their yellow surface, so their
+ * buttons use fixed colours instead of the accent variant: black with gold text.
+ */
+const WAITING_BUTTON = "!bg-[#0a0a0a] !text-[#ffd600] hover:!bg-[#2a2a2a]";
+
 function CourtCard({
   court,
   name,
@@ -1484,11 +1490,12 @@ function CourtCard({
         ref={setCourtRef}
         className={cn(
           "court-surface relative overflow-hidden rounded-2xl border-2 border-dashed transition",
-          isCompleted ? "opacity-60" : "border-cream/20",
+          waiting && "court-surface-waiting",
+          isCompleted ? "opacity-60" : waiting ? "border-cream/30" : "border-cream/20",
           courtOver && "border-lime ring-lime/40 ring-2",
         )}
       >
-        <CourtLines tone="open" />
+        <CourtLines tone={waiting ? "waiting" : "open"} />
         <div className="relative p-3">
           <div className="flex items-center justify-between">
             <span className="text-cream/70 inline-flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
@@ -1525,7 +1532,7 @@ function CourtCard({
               size="sm"
               onClick={onPair}
               disabled={pending || isCompleted}
-              className="h-8"
+              className={cn("h-8", waiting && WAITING_BUTTON)}
             >
               <Wand2 className="h-3.5 w-3.5" /> Pair
             </Button>
@@ -1545,12 +1552,13 @@ function CourtCard({
       ref={setCourtRef}
       className={cn(
         "court-surface relative overflow-hidden rounded-2xl border transition",
+        waiting && "court-surface-waiting",
         live ? "border-lime/45 shadow-gold" : waiting ? "border-lime/30 border-dashed" : "border-lime/20",
         courtOver && "border-lime ring-lime/50 ring-2",
         isDragging && "opacity-60",
       )}
     >
-      <CourtLines tone={live ? "live" : "suggested"} />
+      <CourtLines tone={live ? "live" : waiting ? "waiting" : "suggested"} />
       <div className="relative p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
@@ -1644,7 +1652,7 @@ function CourtCard({
               title={
                 canStart ? undefined : "Every court is in use — this game takes the next one that frees up"
               }
-              className="h-8 flex-1"
+              className={cn("h-8 flex-1", waiting && WAITING_BUTTON)}
             >
               <Play className="h-3.5 w-3.5" /> Start
             </Button>
