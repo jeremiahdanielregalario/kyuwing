@@ -71,7 +71,10 @@ export default async function LoginPage({
             />
             <div className="border-line/70 mt-4 border-t pt-3 text-center text-[11px]">
               {mode === "admin" ? (
-                <Link href={`/login?next=${encodeURIComponent(next)}`} className="text-muted hover:text-ink font-semibold transition">
+                <Link
+                  href={`/login?next=${encodeURIComponent(next)}`}
+                  className="text-muted hover:text-ink font-semibold transition"
+                >
                   ← Queue-master sign-in
                 </Link>
               ) : (
@@ -91,13 +94,14 @@ export default async function LoginPage({
               {mode === "admin" ? (
                 <>
                   The developer session can hide optional UI for everyone. Keep{" "}
-                  <span className="font-mono">ADMIN_PIN</span> private and different from the queue-master PIN.
+                  <span className="font-mono">ADMIN_PIN</span> private and different from the queue-master
+                  PIN.
                 </>
               ) : (
                 <>
                   The PIN only unlocks this browser. For official game days, set a strong{" "}
-                  <span className="font-mono">QUEUE_MASTER_PIN</span> in the deployment settings and share it only
-                  with the assigned queue masters.
+                  <span className="font-mono">QUEUE_MASTER_PIN</span> in the deployment settings and share it
+                  only with the assigned queue masters.
                 </>
               )}
             </p>
@@ -130,7 +134,9 @@ export default async function LoginPage({
           <div className="max-w-md">
             <Sparkles className="text-lime h-7 w-7" />
             <p className="font-brand mt-5 text-3xl leading-[1.04] tracking-tight uppercase">
-              &ldquo;Four courts. Thirty players. One queue master.&rdquo;
+              3C&apos;s: Competency. Commitment.
+              <br />
+              Camaraderie.
             </p>
             <p className="text-cream/60 mt-4 text-[13px] leading-relaxed">
               Kyuwing keeps the matches balanced, the wait times visible, and the fees honest — while you keep
