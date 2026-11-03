@@ -95,9 +95,8 @@ export function UiTrimProvider({
     if (!enabled) return;
 
     document.body.classList.add("trim-mode");
-    let frame = 0;
+    let timer = 0;
     const measure = () => {
-      frame = 0;
       const next: Badge[] = [];
       const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-trim-id]"));
       for (const node of nodes) {
@@ -113,7 +112,13 @@ export function UiTrimProvider({
       setBadges((current) => (badgeSignature(current) === badgeSignature(next) ? current : next));
     };
     const schedule = () => {
-      if (!frame) frame = window.requestAnimationFrame(measure);
+      if (timer) return;
+      // A timeout (rather than rAF) keeps the ✕ badges working when the tab is
+      // backgrounded or the browser throttles animation frames.
+      timer = window.setTimeout(() => {
+        timer = 0;
+        measure();
+      }, 80);
     };
 
     schedule();
@@ -131,7 +136,7 @@ export function UiTrimProvider({
     return () => {
       document.body.classList.remove("trim-mode");
       window.clearInterval(interval);
-      if (frame) window.cancelAnimationFrame(frame);
+      if (timer) window.clearTimeout(timer);
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
       observer.disconnect();
