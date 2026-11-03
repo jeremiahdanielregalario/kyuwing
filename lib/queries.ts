@@ -14,6 +14,7 @@ import type {
 import { currentSlotIndex, elapsedMinutes, parseCourtPlan, type CourtSlot } from "./datetime";
 import { computeFee } from "./fees";
 import { levelLabel } from "./levels";
+import { recencySummary, toRecencySnapshot, type RecencyEntry, type RecencySnapshot } from "./recency";
 
 const gameDayInclude = {
   venue: true,
@@ -224,6 +225,58 @@ export async function getPlayers() {
   return prisma.player.findMany({
     orderBy: [{ active: "desc" }, { nickname: "asc" }],
   });
+}
+
+export type AttendanceEventDto = {
+  id: string;
+  date: string;
+  label: string | null;
+  kind: "GAMEDAY" | "TOURNAMENT";
+  played: number;
+  waitlist: number;
+};
+
+export type AttendanceOverview = {
+  events: AttendanceEventDto[];
+  byPlayer: Record<string, RecencySnapshot>;
+};
+
+/**
+ * All imported attendance lists plus a per-player recency snapshot.
+ * Lists are small (a club plays a few times a month), so we score in memory.
+ */
+export async function getAttendanceOverview(): Promise<AttendanceOverview> {
+  const events = await prisma.attendanceEvent.findMany({
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    include: { entries: { select: { playerId: true, status: true } } },
+  });
+
+  const rowsByPlayer = new Map<string, RecencyEntry[]>();
+  for (const event of events) {
+    for (const entry of event.entries) {
+      const rows = rowsByPlayer.get(entry.playerId) ?? [];
+      rows.push({ date: event.date, status: entry.status });
+      rowsByPlayer.set(entry.playerId, rows);
+    }
+  }
+
+  const now = new Date();
+  const byPlayer: Record<string, RecencySnapshot> = {};
+  for (const [playerId, rows] of rowsByPlayer) {
+    byPlayer[playerId] = toRecencySnapshot(recencySummary(rows, now));
+  }
+
+  return {
+    events: events.map((event) => ({
+      id: event.id,
+      date: event.date.toISOString(),
+      label: event.label,
+      kind: event.kind,
+      played: event.entries.filter((entry) => entry.status === "PLAYED").length,
+      waitlist: event.entries.filter((entry) => entry.status === "WAITLIST").length,
+    })),
+    byPlayer,
+  };
 }
 
 export async function getVenuesWithFees() {

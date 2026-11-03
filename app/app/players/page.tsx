@@ -1,16 +1,18 @@
 import { Users } from "lucide-react";
 import { PlayerManager } from "@/components/app/player-manager";
+import { RecencyPanel } from "@/components/app/recency-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { Stat } from "@/components/ui/stat";
+import { manilaDateKey } from "@/lib/datetime";
 import { LEVELS, bracketOf, levelTone } from "@/lib/levels";
-import { getPlayers } from "@/lib/queries";
+import { getAttendanceOverview, getPlayers } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Players" };
 
 export default async function PlayersPage() {
-  const players = await getPlayers();
+  const [players, attendance] = await Promise.all([getPlayers(), getAttendanceOverview()]);
   const active = players.filter((player) => player.active).length;
   const alumni = players.filter((player) => player.category === "ALUMNI").length;
   const applicants = players.filter((player) => player.category === "APPLICANT").length;
@@ -105,7 +107,14 @@ export default async function PlayersPage() {
         </div>
       </div>
 
-      <PlayerManager players={records} />
+      <RecencyPanel
+        events={attendance.events}
+        snapshots={attendance.byPlayer}
+        playerCount={players.length}
+        today={manilaDateKey()}
+      />
+
+      <PlayerManager players={records} recency={attendance.byPlayer} />
 
       <p data-trim-id="players.level-legend" className="text-muted text-[11px] leading-relaxed">
         Level labels: {LEVELS.map((level) => level.label).join(" · ")}. Full names are optional; nicknames are

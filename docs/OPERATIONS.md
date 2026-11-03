@@ -95,6 +95,27 @@ Requests are soft. The board shows a badge when one was honored. If a request is
 - [ ] Press **Complete**. This cancels leftovers and freezes the session.
 - [ ] Log out if the device is shared.
 
+## Logging attendance for recency
+
+The **Players** page has a **Playing recency** section. It separates people who still play from people who have drifted away, using the lists posted in the group chat.
+
+1. Open **Players → Log attendance**.
+2. Pick the date and whether it was a **Game day** or a **Tournament**.
+3. Paste the whole chat message into **Played**. Numbering, blank slots, and headers (title, date, time) are ignored, and anything under a `Waitlist:` line is counted as waitlisted. You can also paste a waitlist separately into the second box.
+4. Save. Any nickname that is not in the player database is listed in a warning; add those players, delete the list, and log it again.
+
+How players are banded:
+
+| Band          | Meaning                                                                        |
+| ------------- | ------------------------------------------------------------------------------ |
+| Playing often | Active in the last 30 days and plays regularly (score 55+)                     |
+| Playing       | Played or waitlisted in the last 30 days                                       |
+| Cooling off   | Last seen 31–90 days ago                                                       |
+| Dormant       | Not seen in over 90 days                                                       |
+| No history    | Not on any logged list                                                         |
+
+The score (0–100) sorts the **Recency** column. Each list counts less as it ages (half weight after 60 days, none after a year), and a waitlist place counts 40% of a game, because joining the waitlist still shows the player wants to play.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | What to do |

@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Playing recency** — log game-day and tournament lists pasted from the group chat (played and waitlist) on the Players page. Each player gets a recency score and a band (Playing often, Playing, Cooling off, Dormant, No history), shown as a sortable column in the player database.
 - **Developer UI customization** — a separate `ADMIN_PIN` unlocks a developer sign-in at `/login?mode=admin`. "Customize UI" turns on trim mode: click any highlighted optional text or panel to hide it for everyone, on every device. Hidden pieces are stored globally and can be restored individually or all at once.
 - **UP BadAss identity** — the app now uses the association's black, gold, and paper-white palette, the official wordmark, the 2015/Diliman story, the mission and vision, and the three core values (Competency, Commitment, Camaraderie) on the landing page and login screen.
 - **Drag and drop courts** — drag a match card onto another court to swap them, drag a player chip onto another slot to swap players, and drop four waiting players onto an open court to build a match by hand.

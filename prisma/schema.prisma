@@ -41,6 +41,16 @@ enum PlayerCategory {
   APPLICANT
 }
 
+enum AttendanceKind {
+  GAMEDAY
+  TOURNAMENT
+}
+
+enum AttendanceStatus {
+  PLAYED
+  WAITLIST
+}
+
 enum GameDayType {
   REGULAR
   TIPID
@@ -127,9 +137,37 @@ model Player {
   matchPlayers     MatchPlayer[]
   pairingRequests  PairingRequest[] @relation("RequestingPlayer")
   targetedRequests PairingRequest[] @relation("TargetPlayer")
+  attendance       AttendanceEntry[]
 
   @@index([level])
   @@index([active])
+}
+
+/// One past game day or tournament, imported from a chat list.
+model AttendanceEvent {
+  id        String           @id @default(cuid())
+  date      DateTime         @db.Date
+  label     String?
+  kind      AttendanceKind   @default(GAMEDAY)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  entries AttendanceEntry[]
+
+  @@index([date])
+}
+
+model AttendanceEntry {
+  id       String           @id @default(cuid())
+  eventId  String
+  playerId String
+  status   AttendanceStatus @default(PLAYED)
+
+  event  AttendanceEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  player Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, playerId])
+  @@index([playerId])
 }
 
 model GameDay {

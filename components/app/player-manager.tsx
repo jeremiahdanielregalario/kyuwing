@@ -31,6 +31,8 @@ import {
 } from "@/lib/actions/players";
 import { CATEGORY_SHORT } from "@/lib/fees";
 import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
+import type { RecencySnapshot } from "@/lib/recency";
+import { RecencyBadge, recencyCaption } from "@/components/app/recency-panel";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,12 +77,18 @@ const EMPTY_FORM: FormState = {
 type ImportSummary = { created: number; updated: number; total: number; errors: string[] };
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
-type SortKey = "nickname" | "level" | "category" | "contact" | "status";
+type SortKey = "nickname" | "level" | "category" | "contact" | "status" | "recency";
 type SortDir = "asc" | "desc";
 
 const CATEGORY_ORDER: Record<string, number> = { ACTIVE: 0, INACTIVE: 1, ALUMNI: 2, APPLICANT: 3 };
 
-export function PlayerManager({ players }: { players: PlayerRecord[] }) {
+export function PlayerManager({
+  players,
+  recency,
+}: {
+  players: PlayerRecord[];
+  recency: Record<string, RecencySnapshot>;
+}) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
@@ -138,6 +146,9 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
           // Active players first when ascending.
           diff = Number(b.active) - Number(a.active);
           break;
+        case "recency":
+          diff = (recency[a.id]?.score ?? -1) - (recency[b.id]?.score ?? -1);
+          break;
         default:
           diff = a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" });
       }
@@ -160,7 +171,8 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
       setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir("asc");
+      // Recency is most useful hottest-first; the rest read naturally A→Z.
+      setSortDir(key === "recency" ? "desc" : "asc");
     }
   };
 
@@ -279,8 +291,9 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
           <Select
             value={sortKey}
             onChange={(event) => {
-              setSortKey(event.target.value as SortKey);
-              setSortDir("asc");
+              const next = event.target.value as SortKey;
+              setSortKey(next);
+              setSortDir(next === "recency" ? "desc" : "asc");
             }}
             className="h-9 w-auto min-w-[8.5rem] text-[12px]"
             aria-label="Sort players by"
@@ -290,6 +303,7 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
             <option value="category">Sort: Type</option>
             <option value="contact">Sort: Contact</option>
             <option value="status">Sort: Status</option>
+            <option value="recency">Sort: Recency</option>
           </Select>
           <button
             type="button"
@@ -409,6 +423,15 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
                       Status {sortIcon("status")}
                     </button>
                   </th>
+                  <th className="px-2 py-2.5 font-bold">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("recency")}
+                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                    >
+                      Recency {sortIcon("recency")}
+                    </button>
+                  </th>
                   <th className="px-4 py-2.5 text-right font-bold">Actions</th>
                 </tr>
               </thead>
@@ -437,6 +460,16 @@ export function PlayerManager({ players }: { players: PlayerRecord[] }) {
                       ) : (
                         <Badge tone="neutral">Archived</Badge>
                       )}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <div className="flex flex-col items-start gap-0.5">
+                        <RecencyBadge snapshot={recency[player.id]} />
+                        {recencyCaption(recency[player.id]) && (
+                          <span className="text-muted font-mono text-[9px]">
+                            {recencyCaption(recency[player.id])}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-1">

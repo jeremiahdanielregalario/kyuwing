@@ -69,6 +69,8 @@ Free Supabase projects pause after a period of inactivity. A weekly game day is 
 4. Deploy.
 5. Deploy, then point the `badass-kyuwing.vercel.app` alias at the production deployment (or rename the project to `badass-kyuwing`).
 
+> **Migrations do not run on deploy.** `pnpm build` is `prisma generate && next build`. When a change adds a folder under `prisma/migrations/`, run `pnpm db:deploy` against the production database **before** deploying the code. With Neon, `DIRECT_URL` is the same URL as `DATABASE_URL` without `-pooler` in the host.
+
 ### Option B — CLI
 
 ```bash
