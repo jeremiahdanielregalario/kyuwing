@@ -2,7 +2,7 @@ import { Users } from "lucide-react";
 import { PlayerManager } from "@/components/app/player-manager";
 import { PageHeader } from "@/components/ui/page-header";
 import { Stat } from "@/components/ui/stat";
-import { BRACKET_LABELS, LEVELS, bracketOf } from "@/lib/levels";
+import { LEVELS, bracketOf } from "@/lib/levels";
 import { getPlayers } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -70,9 +70,6 @@ export default async function PlayersPage() {
             <div key={row.bracket} className="flex items-center gap-3 sm:flex-col sm:items-start">
               <div className="flex w-16 items-baseline gap-1.5 sm:w-auto">
                 <span className="font-display text-xl font-extrabold">{row.bracket}</span>
-                <span className="text-muted text-[10px]">
-                  {BRACKET_LABELS[row.bracket as keyof typeof BRACKET_LABELS]}
-                </span>
               </div>
               <div className="bg-cream-deep h-2 flex-1 overflow-hidden rounded-full sm:w-full">
                 <div
