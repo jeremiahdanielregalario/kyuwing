@@ -34,7 +34,8 @@ export function parseNameList(input: string): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
 
-  for (const rawLine of input.split(/\r?\n/)) {
+  // Tabs separate cells when a list is copied from a spreadsheet or a grid.
+  for (const rawLine of input.split(/\r?\n|\t/)) {
     let line = rawLine.trim();
     if (!line) continue;
 

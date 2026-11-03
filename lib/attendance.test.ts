@@ -64,6 +64,17 @@ describe("parseNameList", () => {
     ]);
   });
 
+  it("splits tab-separated grids into one name per cell", () => {
+    expect(parseNameList("EJ\tGelo\tPJ\nYvana\tWilford\t\tJP\nEJ")).toEqual([
+      "EJ",
+      "Gelo",
+      "PJ",
+      "Yvana",
+      "Wilford",
+      "JP",
+    ]);
+  });
+
   it("ignores pasted event headers, dates and times", () => {
     expect(
       parseNameList("Official MEGA Game Day (KBC)\nNov 2, 2026; Monday\n10AM - 3PM\n1. Jgops"),
