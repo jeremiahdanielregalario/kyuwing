@@ -6,7 +6,7 @@ import { BookOpen, CalendarDays, LayoutDashboard, MapPin, Users, Wallet } from "
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/app", label: "Live board", short: "Board", icon: LayoutDashboard },
+  { href: "/app", label: "Live board", short: "Board", icon: LayoutDashboard, liveBoard: true },
   { href: "/app/gamedays", label: "Game days", short: "Days", icon: CalendarDays },
   { href: "/app/players", label: "Players", short: "Players", icon: Users },
   { href: "/app/venues", label: "Venues & fees", short: "Fees", icon: Wallet },
@@ -25,16 +25,34 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AppNav() {
+export function AppNav({ currentGameDayId }: { currentGameDayId: string | null }) {
   const pathname = usePathname();
   return (
     <nav className="mt-8 space-y-1">
       {navItems.map((item) => {
         const active = isActive(pathname, item.href);
+        const disabled = item.liveBoard && !currentGameDayId;
+        const href = item.liveBoard && currentGameDayId ? `/app/gamedays/${currentGameDayId}` : item.href;
+
+        if (disabled) {
+          return (
+            <span
+              key={item.href}
+              title="No active game day"
+              className="group flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold opacity-35"
+            >
+              <span className="bg-cream/10 text-cream/70 grid h-8 w-8 place-items-center rounded-lg transition-colors">
+                <item.icon className="h-4 w-4" />
+              </span>
+              {item.label}
+            </span>
+          );
+        }
+
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={href}
             className={cn(
               "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all",
               active
@@ -60,17 +78,35 @@ export function AppNav() {
   );
 }
 
-export function MobileNav() {
+export function MobileNav({ currentGameDayId }: { currentGameDayId: string | null }) {
   const pathname = usePathname();
   return (
     <nav className="border-line bg-paper/95 fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
       <div className="grid grid-cols-5">
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);
+          const disabled = item.liveBoard && !currentGameDayId;
+          const href = item.liveBoard && currentGameDayId ? `/app/gamedays/${currentGameDayId}` : item.href;
+
+          if (disabled) {
+            return (
+              <span
+                key={item.href}
+                title="No active game day"
+                className="flex cursor-not-allowed flex-col items-center gap-1 py-2.5 text-[10px] font-semibold opacity-30"
+              >
+                <span className="text-muted grid h-8 w-8 place-items-center rounded-full transition-colors">
+                  <item.icon className="h-4.5 w-4.5" />
+                </span>
+                {item.short}
+              </span>
+            );
+          }
+
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={href}
               className={cn(
                 "flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors",
                 active ? "text-ink" : "text-muted",

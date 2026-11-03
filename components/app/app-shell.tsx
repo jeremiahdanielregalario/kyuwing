@@ -6,10 +6,12 @@ import { logoutAction } from "@/lib/actions/auth";
 export function AppShell({
   name,
   admin,
+  currentGameDayId,
   children,
 }: {
   name: string;
   admin: boolean;
+  currentGameDayId: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -30,7 +32,7 @@ export function AppShell({
         </div>
 
         <div className="relative flex min-h-0 flex-1 flex-col">
-          <AppNav />
+          <AppNav currentGameDayId={currentGameDayId} />
 
           <div className="mt-auto space-y-3">
             <div className="border-cream/12 bg-cream/[0.04] rounded-2xl border p-3.5">
@@ -87,7 +89,7 @@ export function AppShell({
         </main>
       </div>
 
-      <MobileNav />
+      <MobileNav currentGameDayId={currentGameDayId} />
     </div>
   );
 }
