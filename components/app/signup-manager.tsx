@@ -6,7 +6,6 @@ import {
   Check,
   ChevronRight,
   ClipboardPaste,
-  Crosshair,
   HeartHandshake,
   Link2,
   Plus,
@@ -35,7 +34,6 @@ import {
 import type { BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT } from "@/lib/fees";
 import { LEVELS } from "@/lib/levels";
-import { formatDuration } from "@/lib/datetime";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,11 +75,6 @@ export function SignupManager({
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [search, setSearch] = React.useState("");
   const [tab, setTab] = React.useState<"all" | "expected" | "waiting" | "done">("all");
-  const [manageId, setManageId] = React.useState<string | null>(null);
-  const [manageOpenedAt, setManageOpenedAt] = React.useState(0);
-  const [partnerId, setPartnerId] = React.useState("");
-  const [requestType, setRequestType] = React.useState<"PAIR_WITH" | "PLAY_AGAINST">("PAIR_WITH");
-  const [requestTarget, setRequestTarget] = React.useState("");
   const [quickOpen, setQuickOpen] = React.useState(false);
   const [pasteOpen, setPasteOpen] = React.useState(false);
   const [pasteText, setPasteText] = React.useState("");
@@ -123,16 +116,6 @@ export function SignupManager({
     expected: players.filter((player) => player.status === "EXPECTED").length,
     waiting: players.filter((player) => player.status === "WAITING").length,
     done: players.filter((player) => player.status === "DONE").length,
-  };
-
-  const managed = players.find((player) => player.sessionPlayerId === manageId) ?? null;
-
-  const openManage = (player: BoardPlayer) => {
-    setManageId(player.sessionPlayerId);
-    setManageOpenedAt(Date.now());
-    setPartnerId(player.permanentPartnerId ?? "");
-    setRequestType("PAIR_WITH");
-    setRequestTarget("");
   };
 
   const addNewPlayer = () => {
@@ -237,94 +220,24 @@ export function SignupManager({
           ) : (
             <div className="divide-line/60 divide-y">
               {filtered.map((player) => (
-                <div
+                <PlayerRow
                   key={player.sessionPlayerId}
-                  className="hover:bg-cream/30 flex flex-wrap items-center gap-3 px-4 py-3 transition"
-                >
-                  <Avatar name={player.nickname} level={player.levelLabel} size="md" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-[13px] font-semibold">{player.nickname}</p>
-                      <Badge tone={statusTone(player.status)}>{statusLabel(player.status)}</Badge>
-                      {player.priority && <Badge tone="lime">Priority</Badge>}
-                    </div>
-                    <div className="text-muted mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
-                      <span>{CATEGORY_SHORT[player.category]}</span>
-                      <span>· {player.gamesPlayed} games</span>
-                      {player.joinedAt && (
-                        <span>
-                          · arrived{" "}
-                          {new Date(player.joinedAt).toLocaleTimeString("en-PH", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            timeZone: "Asia/Manila",
-                          })}
-                        </span>
-                      )}
-                      {player.permanentPartnerNickname && (
-                        <span className="text-forest inline-flex items-center gap-0.5">
-                          <Link2 className="h-2.5 w-2.5" /> {player.permanentPartnerNickname}
-                        </span>
-                      )}
-                      {player.requests.map((request) => (
-                        <span
-                          key={request.id}
-                          className={cn(
-                            "inline-flex items-center gap-0.5",
-                            request.type === "PAIR_WITH" ? "text-forest" : "text-coral",
-                          )}
-                        >
-                          {request.type === "PAIR_WITH" ? (
-                            <HeartHandshake className="h-2.5 w-2.5" />
-                          ) : (
-                            <Crosshair className="h-2.5 w-2.5" />
-                          )}
-                          {request.targetNickname}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <LevelBadge level={player.level} />
-
-                  <div className="flex items-center gap-1">
-                    {player.status === "EXPECTED" && (
-                      <Button
-                        size="sm"
-                        variant="accent"
-                        onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                        disabled={pending}
-                      >
-                        <UserCheck className="h-3.5 w-3.5" /> Check in
-                      </Button>
-                    )}
-                    {player.status === "WAITING" && (
-                      <Button size="sm" variant="paper" onClick={() => openManage(player)} disabled={pending}>
-                        <Link2 className="h-3.5 w-3.5" /> Pair
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => openManage(player)} disabled={pending}>
-                      Details
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setConfirmSpec({
-                          title: `Remove ${player.nickname} from this game day?`,
-                          description: "They can be added back later with check-in or as a walk-in.",
-                          confirmLabel: "Remove player",
-                          cancelLabel: "Keep player",
-                          tone: "danger",
-                          onConfirm: () => act(() => removePlayerFromGameDay(player.sessionPlayerId)),
-                        })
-                      }
-                      disabled={pending}
-                      className="text-muted hover:bg-coral-soft hover:text-coral grid h-8 w-8 place-items-center rounded-full transition"
-                      aria-label={`Remove ${player.nickname}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
+                  player={player}
+                  players={players}
+                  gameDayId={gameDayId}
+                  pending={pending}
+                  act={act}
+                  onRemove={() =>
+                    setConfirmSpec({
+                      title: `Remove ${player.nickname} from this game day?`,
+                      description: "They can be added back later with check-in or as a walk-in.",
+                      confirmLabel: "Remove player",
+                      cancelLabel: "Keep player",
+                      tone: "danger",
+                      onConfirm: () => act(() => removePlayerFromGameDay(player.sessionPlayerId)),
+                    })
+                  }
+                />
               ))}
             </div>
           )}
@@ -427,195 +340,6 @@ export function SignupManager({
           The wait timer starts at that moment, and only checked-in players are paired.
         </div>
       </div>
-
-      {/* Manage player modal */}
-      <Modal
-        open={Boolean(managed)}
-        onClose={() => setManageId(null)}
-        title={managed ? `${managed.nickname} · ${managed.levelLabel}` : "Player"}
-        description="Set a permanent partner or log a pairing request."
-        size="md"
-      >
-        {managed && (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={statusTone(managed.status)}>{statusLabel(managed.status)}</Badge>
-              <Badge tone="outline">{CATEGORY_SHORT[managed.category]}</Badge>
-              <Badge tone="outline">{managed.gamesPlayed} games today</Badge>
-              {managed.status === "WAITING" && managed.queuedAt && (
-                <Badge tone="neutral">
-                  Waiting {formatDuration(Math.max(0, manageOpenedAt - Date.parse(managed.queuedAt)) / 1000)}
-                </Badge>
-              )}
-            </div>
-
-            <div className="border-line bg-cream/30 rounded-2xl border p-3.5">
-              <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">
-                Permanent partner
-              </p>
-              <p className="text-muted mt-1 text-[11px]">
-                They will be kept on the same team every time both are available.
-              </p>
-              <div className="mt-2 flex gap-2">
-                <Select
-                  value={partnerId}
-                  onChange={(event) => setPartnerId(event.target.value)}
-                  className="h-9 text-[12px]"
-                >
-                  <option value="">No permanent partner</option>
-                  {players
-                    .filter((player) => player.sessionPlayerId !== managed.sessionPlayerId)
-                    .map((player) => (
-                      <option key={player.sessionPlayerId} value={player.playerId}>
-                        {player.nickname} · {player.levelLabel}
-                      </option>
-                    ))}
-                </Select>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    act(() => setPermanentPartner(gameDayId, managed.playerId, partnerId || null))
-                  }
-                  disabled={pending}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-
-            <div className="border-line bg-cream/30 rounded-2xl border p-3.5">
-              <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Pairing requests</p>
-              {managed.requests.length > 0 ? (
-                <div className="mt-2 space-y-1.5">
-                  {managed.requests.map((request) => (
-                    <div
-                      key={request.id}
-                      className="border-line/70 bg-paper flex items-center gap-2 rounded-lg border px-2.5 py-2"
-                    >
-                      {request.type === "PAIR_WITH" ? (
-                        <HeartHandshake className="text-forest h-3.5 w-3.5" />
-                      ) : (
-                        <Crosshair className="text-coral h-3.5 w-3.5" />
-                      )}
-                      <span className="flex-1 text-[11px]">
-                        {request.type === "PAIR_WITH" ? "Partner with" : "Play against"}{" "}
-                        <span className="font-semibold">{request.targetNickname}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => act(() => deletePairingRequest(request.id))}
-                        disabled={pending}
-                        className="text-muted hover:bg-coral-soft hover:text-coral grid h-6 w-6 place-items-center rounded-full"
-                        aria-label="Remove request"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted mt-1 text-[11px]">
-                  No special requests. The engine will pair them normally.
-                </p>
-              )}
-
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <Select
-                  value={requestType}
-                  onChange={(event) => setRequestType(event.target.value as "PAIR_WITH" | "PLAY_AGAINST")}
-                  className="h-9 text-[12px]"
-                >
-                  <option value="PAIR_WITH">Partner with</option>
-                  <option value="PLAY_AGAINST">Play against</option>
-                </Select>
-                <Select
-                  value={requestTarget}
-                  onChange={(event) => setRequestTarget(event.target.value)}
-                  className="h-9 text-[12px]"
-                >
-                  <option value="">Pick a player…</option>
-                  {players
-                    .filter((player) => player.sessionPlayerId !== managed.sessionPlayerId)
-                    .map((player) => (
-                      <option key={player.sessionPlayerId} value={player.playerId}>
-                        {player.nickname} · {player.levelLabel}
-                      </option>
-                    ))}
-                </Select>
-                <Button
-                  size="sm"
-                  variant="accent"
-                  disabled={!requestTarget || pending}
-                  onClick={() =>
-                    act(
-                      () => createPairingRequest(gameDayId, managed.playerId, requestType, requestTarget),
-                      () => setRequestTarget(""),
-                    )
-                  }
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add
-                </Button>
-              </div>
-            </div>
-
-            <div className="border-line/70 flex flex-wrap gap-2 border-t pt-4">
-              {managed.status === "EXPECTED" && (
-                <Button
-                  size="sm"
-                  variant="accent"
-                  onClick={() => act(() => checkInPlayer(managed.sessionPlayerId))}
-                  disabled={pending}
-                >
-                  <UserCheck className="h-3.5 w-3.5" /> Check in
-                </Button>
-              )}
-              {managed.status === "WAITING" && managed.gamesPlayed === 0 && (
-                <Button
-                  size="sm"
-                  variant="paper"
-                  onClick={() =>
-                    act(
-                      () => undoCheckIn(managed.sessionPlayerId),
-                      () => setManageId(null),
-                    )
-                  }
-                  disabled={pending}
-                >
-                  <Undo2 className="h-3.5 w-3.5" /> Undo check-in
-                </Button>
-              )}
-              {managed.status === "WAITING" && (
-                <Button
-                  size="sm"
-                  variant="paper"
-                  onClick={() =>
-                    act(
-                      () => markPlayerDone(managed.sessionPlayerId),
-                      () => setManageId(null),
-                    )
-                  }
-                  disabled={pending}
-                >
-                  <Check className="h-3.5 w-3.5" /> Done for the day
-                </Button>
-              )}
-              {managed.status === "DONE" && (
-                <Button
-                  size="sm"
-                  variant="paper"
-                  onClick={() => act(() => requeuePlayer(managed.sessionPlayerId))}
-                  disabled={pending}
-                >
-                  <ChevronRight className="h-3.5 w-3.5" /> Requeue
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setManageId(null)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       {/* Quick create player */}
       <Modal
@@ -726,4 +450,210 @@ function statusTone(status: string): "green" | "amber" | "neutral" | "lime" | "s
   if (status === "EXPECTED") return "amber";
   if (status === "PLAYING") return "sky";
   return "neutral";
+}
+
+/**
+ * One sign-up, with everything the queue master sets for a player right on the row:
+ * check in / undo / done, a permanent partner (saves as soon as it is picked), and
+ * pairing requests. No dialog to open first.
+ */
+function PlayerRow({
+  player,
+  players,
+  gameDayId,
+  pending,
+  act,
+  onRemove,
+}: {
+  player: BoardPlayer;
+  players: BoardPlayer[];
+  gameDayId: string;
+  pending: boolean;
+  act: (fn: () => Promise<AnyResult>, onSuccess?: () => void) => void;
+  onRemove: () => void;
+}) {
+  const [requestType, setRequestType] = React.useState<"PAIR_WITH" | "PLAY_AGAINST">("PAIR_WITH");
+  const [requestTarget, setRequestTarget] = React.useState("");
+  // Shows the partner just picked until the saved value comes back.
+  const [partnerChoice, setPartnerChoice] = React.useState<string | null>(null);
+  const partner = partnerChoice ?? player.permanentPartnerId ?? "";
+  const others = players.filter((row) => row.sessionPlayerId !== player.sessionPlayerId);
+  const settable = player.status !== "DONE";
+
+  return (
+    <div className="hover:bg-cream/30 px-4 py-3 transition">
+      <div className="flex flex-wrap items-center gap-3">
+        <Avatar name={player.nickname} level={player.levelLabel} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[13px] font-semibold">{player.nickname}</p>
+            <Badge tone={statusTone(player.status)}>{statusLabel(player.status)}</Badge>
+            {player.priority && <Badge tone="lime">Priority</Badge>}
+          </div>
+          <div className="text-muted mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
+            <span>{CATEGORY_SHORT[player.category]}</span>
+            <span>· {player.gamesPlayed} games</span>
+            {player.joinedAt && (
+              <span>
+                · arrived{" "}
+                {new Date(player.joinedAt).toLocaleTimeString("en-PH", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  timeZone: "Asia/Manila",
+                })}
+              </span>
+            )}
+          </div>
+        </div>
+        <LevelBadge level={player.level} />
+
+        <div className="flex flex-wrap items-center gap-1">
+          {player.status === "EXPECTED" && (
+            <Button
+              size="sm"
+              variant="accent"
+              onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
+              disabled={pending}
+            >
+              <UserCheck className="h-3.5 w-3.5" /> Check in
+            </Button>
+          )}
+          {player.status === "WAITING" && player.gamesPlayed === 0 && (
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => act(() => undoCheckIn(player.sessionPlayerId))}
+              disabled={pending}
+            >
+              <Undo2 className="h-3.5 w-3.5" /> Undo check-in
+            </Button>
+          )}
+          {player.status === "WAITING" && (
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => act(() => markPlayerDone(player.sessionPlayerId))}
+              disabled={pending}
+            >
+              <Check className="h-3.5 w-3.5" /> Done for the day
+            </Button>
+          )}
+          {player.status === "DONE" && (
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => act(() => requeuePlayer(player.sessionPlayerId))}
+              disabled={pending}
+            >
+              <ChevronRight className="h-3.5 w-3.5" /> Requeue
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={pending}
+            className="text-muted hover:bg-coral-soft hover:text-coral grid h-8 w-8 place-items-center rounded-full transition"
+            aria-label={`Remove ${player.nickname}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {settable && (
+        <div className="mt-2.5 grid gap-2 pl-0 sm:pl-12 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+          <label className="flex min-w-0 items-center gap-2">
+            <span className="text-muted inline-flex shrink-0 items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase">
+              <Link2 className="h-3 w-3" /> Partner
+            </span>
+            <Select
+              value={partner}
+              disabled={pending}
+              aria-label={`Permanent partner for ${player.nickname}`}
+              onChange={(event) => {
+                const value = event.target.value;
+                setPartnerChoice(value);
+                act(
+                  () => setPermanentPartner(gameDayId, player.playerId, value || null),
+                  () => setPartnerChoice(null),
+                );
+              }}
+              className="h-8 min-w-0 text-[12px]"
+            >
+              <option value="">None</option>
+              {others.map((row) => (
+                <option key={row.sessionPlayerId} value={row.playerId}>
+                  {row.nickname} · {row.levelLabel}
+                </option>
+              ))}
+            </Select>
+          </label>
+
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="text-muted inline-flex shrink-0 items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase">
+              <HeartHandshake className="h-3 w-3" /> Requests
+            </span>
+            {player.requests.map((request) => (
+              <span
+                key={request.id}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border py-0.5 pr-1 pl-2 text-[11px]",
+                  request.type === "PAIR_WITH"
+                    ? "border-forest/30 text-forest"
+                    : "border-coral/40 text-coral",
+                )}
+              >
+                {request.type === "PAIR_WITH" ? "with" : "vs"}{" "}
+                <span className="font-semibold">{request.targetNickname}</span>
+                <button
+                  type="button"
+                  onClick={() => act(() => deletePairingRequest(request.id))}
+                  disabled={pending}
+                  className="hover:bg-coral-soft grid h-4 w-4 place-items-center rounded-full"
+                  aria-label={`Remove request ${request.targetNickname}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            <Select
+              value={requestType}
+              onChange={(event) => setRequestType(event.target.value as "PAIR_WITH" | "PLAY_AGAINST")}
+              aria-label={`Request type for ${player.nickname}`}
+              className="h-8 w-auto text-[12px]"
+            >
+              <option value="PAIR_WITH">Partner with</option>
+              <option value="PLAY_AGAINST">Play against</option>
+            </Select>
+            <Select
+              value={requestTarget}
+              onChange={(event) => setRequestTarget(event.target.value)}
+              aria-label={`Request player for ${player.nickname}`}
+              className="h-8 w-auto min-w-0 text-[12px]"
+            >
+              <option value="">Pick a player…</option>
+              {others.map((row) => (
+                <option key={row.sessionPlayerId} value={row.playerId}>
+                  {row.nickname} · {row.levelLabel}
+                </option>
+              ))}
+            </Select>
+            <Button
+              size="sm"
+              variant="accent"
+              disabled={!requestTarget || pending}
+              onClick={() =>
+                act(
+                  () => createPairingRequest(gameDayId, player.playerId, requestType, requestTarget),
+                  () => setRequestTarget(""),
+                )
+              }
+            >
+              <Plus className="h-3.5 w-3.5" /> Add
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

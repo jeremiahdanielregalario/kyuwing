@@ -6,7 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
-- **Undo check-in** — an undo arrow on a waiting player's row (and **Undo check-in** in their Sign-ups panel) puts a mistaken check-in back to Expected. It is refused, with the reason, for someone on court, already done, who has played games (use Done instead), or who is lined up for a game.
+- **Undo check-in** — an undo arrow on a waiting player's row (and **Undo check-in** on their Sign-ups row) puts a mistaken check-in back to Expected. It is refused, with the reason, for someone on court, already done, who has played games (use Done instead), or who is lined up for a game.
 - **Create a game day from the Messenger list** — paste the sign-up chat message (title, date, time, `QM:`/`FIN:` lines and the numbered names) into **New game day** and the venue, date, type, times, queue master, finance member and every player are filled in. All names must be official nicknames: full names and `@` mentions get a one-tap fix, typos get suggestions, duplicates can be removed, and creating is blocked until the whole list is clean (checked again on the server). **Paste Messenger list** on the Sign-ups page adds players who joined the chat later, without removing or duplicating anyone.
 - **Plan ahead with the waiting courts** — a waiting game no longer needs four idle players. It can include players still on court, or already in an earlier waiting game, when they are expected to be done by the time it starts (about 15 minutes a game): with 6 players and 4 on court, queue the next game with the 2 waiting plus 2 of those finishing. Add as many waiting games as you like, beyond the reserved courts. Each shows who it is waiting on and when it should start. Nobody can be on two playing courts at once: pressing Start while a player is still on another court explains who and when, and offers **Re-pair this game**. Freed courts take the first planned game whose players are all free.
 - **Playing time per player** — the Reports page's **Player leaderboard** ranks players by games and shows each one's total time on court (from the start to the finish of every game they played, free games included) with the average per game. It is on screen only and is not included in the PDF or Excel downloads.
@@ -49,6 +49,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Sign-ups rows have everything on the row** — permanent partner (saves as soon as you pick), pairing requests (with remove), Check in, Undo check-in and Done for the day are right on each player's row. The Details dialog and the separate Pair button are gone.
 - The Game days page no longer shows **New game day** twice when it is empty; the header button is the only one.
 - Fixed the TOTAL row of the PDF and Excel fee tables, which was shifted under the wrong columns.
 - The login screen's side quote now reads the UP BadAss 3C's: Competency. Commitment. Camaraderie.

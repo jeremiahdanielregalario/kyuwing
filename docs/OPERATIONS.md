@@ -46,7 +46,7 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 | Lane | Meaning |
 | --- | --- |
 | **Expected** | Signed up, not checked in. Not pairable. |
-| **Waiting** | Checked in, in the queue, timer running. Pairable. If you checked in the wrong person, press the undo arrow on their row (or **Undo check-in** in their Sign-ups panel) to put them back to **Expected**; the toast offers **Check in again**. It only works for someone who has not played and is not lined up for a game; after that, use **Done**. |
+| **Waiting** | Checked in, in the queue, timer running. Pairable. If you checked in the wrong person, press the undo arrow on their row (or **Undo check-in** on their Sign-ups row) to put them back to **Expected**; the toast offers **Check in again**. It only works for someone who has not played and is not lined up for a game; after that, use **Done**. |
 | **Playing** | On court in a live match. Not pairable. |
 | **Done** | Finished for the day. Not pairable; games and fees are kept. |
 
@@ -89,7 +89,7 @@ Press **Done**. Their games and fees stay. Do not remove them from the game day 
 Press **Requeue**. They re-enter Waiting with a fresh timer.
 
 **Two players always want to partner.**
-Set a **permanent partner** on one of them. The engine will never split them across the net and will bench them together rather than break the pair.
+On the **Sign-ups** page, pick a **permanent partner** from the Partner menu on one of their rows (it saves as soon as you choose; the pair is set both ways). Pairing requests (partner with, play against) are on the same row. The engine will never split them across the net and will bench them together rather than break the pair.
 
 **Two players want to play each other once.**
 Add a **Play against** request. It is honored when the match stays fair.
