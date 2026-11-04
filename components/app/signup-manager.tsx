@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronRight,
+  ClipboardPaste,
   Crosshair,
   HeartHandshake,
   Link2,
@@ -41,6 +42,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
+import { SignupTextPanel } from "@/components/app/signup-text-panel";
+import { addPlayersFromText } from "@/lib/actions/signup-text";
+import type { SignupCheck } from "@/lib/signup-check";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +81,9 @@ export function SignupManager({
   const [requestType, setRequestType] = React.useState<"PAIR_WITH" | "PLAY_AGAINST">("PAIR_WITH");
   const [requestTarget, setRequestTarget] = React.useState("");
   const [quickOpen, setQuickOpen] = React.useState(false);
+  const [pasteOpen, setPasteOpen] = React.useState(false);
+  const [pasteText, setPasteText] = React.useState("");
+  const [pasteCheck, setPasteCheck] = React.useState<SignupCheck | null>(null);
   const [quick, setQuick] = React.useState({ nickname: "", level: "C", category: "ACTIVE" });
   const [addQuery, setAddQuery] = React.useState("");
 
@@ -392,6 +399,9 @@ export function SignupManager({
           </div>
 
           <div className="border-line/70 mt-3 grid grid-cols-2 gap-2 border-t pt-3">
+            <Button size="sm" variant="accent" className="col-span-2" onClick={() => setPasteOpen(true)}>
+              <ClipboardPaste className="h-3.5 w-3.5" /> Paste Messenger list
+            </Button>
             <Button
               size="sm"
               variant="paper"
@@ -591,6 +601,43 @@ export function SignupManager({
       </Modal>
 
       {/* Quick create player */}
+      <Modal
+        open={pasteOpen}
+        onClose={() => setPasteOpen(false)}
+        title="Paste the Messenger list"
+        description="Adds everyone on the list who is not signed up yet. Nobody is removed. Re-paste it whenever players update the chat."
+        size="lg"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPasteOpen(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() =>
+                act(
+                  () => addPlayersFromText(gameDayId, pasteText),
+                  () => {
+                    setPasteOpen(false);
+                    setPasteText("");
+                  },
+                )
+              }
+              loading={pending}
+              disabled={!pasteCheck?.ready}
+            >
+              <ClipboardPaste className="h-4 w-4" /> Add to sign-ups
+            </Button>
+          </>
+        }
+      >
+        <SignupTextPanel
+          text={pasteText}
+          onTextChange={setPasteText}
+          gameDayId={gameDayId}
+          onChecked={setPasteCheck}
+        />
+      </Modal>
+
       <Modal
         open={quickOpen}
         onClose={() => setQuickOpen(false)}

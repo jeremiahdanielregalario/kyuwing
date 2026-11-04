@@ -63,6 +63,8 @@ export const gameDayCreateSchema = z.object({
   notes: z.string().trim().max(500).optional().nullable(),
   queueMasterName: z.string().trim().max(60).optional().nullable(),
   financeMemberName: z.string().trim().max(60).optional().nullable(),
+  /** A pasted Messenger sign-up list; every name must be an official nickname, and those players are added. */
+  signupText: z.string().max(20000).optional().nullable(),
   /** Pesos per court per hour; set to split the court cost among players. */
   courtRatePerHour: z.coerce.number().int().min(1).max(100000).optional().nullable(),
 });

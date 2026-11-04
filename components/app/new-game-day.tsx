@@ -2,12 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Plus, Trash2 } from "lucide-react";
+import { CalendarPlus, ClipboardPaste, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createGameDay } from "@/lib/actions/gamedays";
 import { courtName, parseCourtNumbers } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { CourtRateField } from "@/components/app/court-rate-field";
+import { SignupTextPanel } from "@/components/app/signup-text-panel";
+import type { SignupCheck } from "@/lib/signup-check";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 
@@ -55,6 +57,12 @@ export function NewGameDayButton({
   const [queueMasterName, setQueueMasterName] = React.useState(defaultQueueMaster);
   const [financeMemberName, setFinanceMemberName] = React.useState("");
   const [courtRate, setCourtRate] = React.useState("");
+  // The Messenger sign-up list, when the game day is started from one.
+  const [listText, setListText] = React.useState("");
+  const [listCheck, setListCheck] = React.useState<SignupCheck | null>(null);
+  const appliedHeader = React.useRef("");
+  const listBlocked = Boolean(listText.trim()) && !listCheck?.ready;
+  const listPlayers = listCheck?.ready ? listCheck.lines.filter((line) => !line.waitlist).length : 0;
   const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue)] : []);
   const [pending, startTransition] = React.useTransition();
 
@@ -64,6 +72,47 @@ export function NewGameDayButton({
     setVenueId(id);
     const venue = venues.find((item) => item.id === id);
     if (venue) setSlots([makeSlot(venue)]);
+  };
+
+  // Fill the form from the list's header (venue, date, type, times, QM and FIN) when it changes.
+  const applyList = (check: SignupCheck | null) => {
+    setListCheck(check);
+    if (!check) {
+      appliedHeader.current = "";
+      return;
+    }
+    const header = check.header;
+    const roleName = (role: "QM" | "FIN") =>
+      check.lines.find((line) => line.role === role && line.status === "ok")?.nickname ?? null;
+    const key = JSON.stringify([
+      header.title,
+      header.type,
+      header.venueId,
+      header.date,
+      header.start,
+      header.end,
+    ]);
+    if (key !== appliedHeader.current) {
+      appliedHeader.current = key;
+      const venue = venues.find((item) => item.id === header.venueId) ?? selectedVenue;
+      if (header.venueId) setVenueId(header.venueId);
+      if (header.date) setDate(header.date);
+      setType(header.type);
+      if (header.title) setName(header.title);
+      if (venue) {
+        setSlots([
+          {
+            ...makeSlot(venue),
+            start: header.start ?? venue.defaultStart,
+            end: header.end ?? venue.defaultEnd,
+          },
+        ]);
+      }
+    }
+    const qm = roleName("QM");
+    const fin = roleName("FIN");
+    if (qm) setQueueMasterName(qm);
+    if (fin) setFinanceMemberName(fin);
   };
 
   const addSlot = () => {
@@ -101,6 +150,7 @@ export function NewGameDayButton({
         notes,
         queueMasterName,
         financeMemberName,
+        signupText: listText.trim() ? listText : null,
         courtRatePerHour: courtRate ? Number(courtRate) : null,
         courtPlan: slots.map(({ numbers, ...slot }) => {
           const courtLabels = parseCourtNumbers(numbers);
@@ -141,13 +191,30 @@ export function NewGameDayButton({
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={submit} loading={pending}>
+            {listBlocked && (
+              <span className="text-muted mr-auto text-[11px]">Fix the names in the list first.</span>
+            )}
+            <Button onClick={submit} loading={pending} disabled={listBlocked}>
               <CalendarPlus className="h-4 w-4" /> Create game day
+              {listPlayers > 0 && ` · ${listPlayers} players`}
             </Button>
           </>
         }
       >
         <div className="space-y-4">
+          <details className="border-line bg-paper group rounded-2xl border" open={Boolean(listText)}>
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold">
+              <ClipboardPaste className="h-4 w-4" />
+              Start from the Messenger list
+              <span className="text-muted ml-1 text-[11px] font-normal">
+                Paste it and the game day and its players are filled in for you.
+              </span>
+            </summary>
+            <div className="border-line border-t p-4">
+              <SignupTextPanel text={listText} onTextChange={setListText} onChecked={applyList} />
+            </div>
+          </details>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Venue">
               <Select value={venueId} onChange={(event) => changeVenue(event.target.value)}>

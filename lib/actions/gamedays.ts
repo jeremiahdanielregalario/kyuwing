@@ -25,6 +25,7 @@ import {
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
 import { GAME_MINUTES, isFreeBy, planTimeline, playerAvailableAt } from "@/lib/planning";
+import { checkSignup, notReadyReason } from "@/lib/signup-check";
 import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import {
   chargesSchema,
@@ -138,6 +139,24 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
   const venue = await prisma.venue.findUnique({ where: { id: parsed.data.venueId } });
   if (!venue) return fail("Pick a venue.");
 
+  // A pasted Messenger list: nothing is created unless every name is an official nickname.
+  let playerIds: string[] = [];
+  let listQueueMaster: string | null = null;
+  let listFinance: string | null = null;
+  if (parsed.data.signupText?.trim()) {
+    const check = await checkSignup(parsed.data.signupText);
+    if (!check.ready) return fail(notReadyReason(check));
+    const confirmed = check.lines.filter((line) => !line.waitlist);
+    const nicknames = [...new Set(confirmed.map((line) => line.nickname!))];
+    const found = await prisma.player.findMany({
+      where: { nickname: { in: nicknames } },
+      select: { id: true },
+    });
+    playerIds = found.map((player) => player.id);
+    listQueueMaster = confirmed.find((line) => line.role === "QM")?.nickname ?? null;
+    listFinance = confirmed.find((line) => line.role === "FIN")?.nickname ?? null;
+  }
+
   const date = dateOnlyFromKey(parsed.data.date);
   const fallbackName = `${venue.shortName} · ${formatGameDate(date, { weekday: true, year: false })}`;
   const gameDay = await prisma.gameDay.create({
@@ -148,14 +167,22 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
       type: parsed.data.type,
       courtPlan: parsed.data.courtPlan,
       notes: parsed.data.notes || null,
-      queueMasterName: parsed.data.queueMasterName || null,
-      financeMemberName: parsed.data.financeMemberName || null,
+      queueMasterName: parsed.data.queueMasterName || listQueueMaster || null,
+      financeMemberName: parsed.data.financeMemberName || listFinance || null,
       courtRatePerHour: parsed.data.courtRatePerHour ?? null,
+      ...(playerIds.length
+        ? { players: { create: playerIds.map((playerId) => ({ playerId, status: "EXPECTED" as const })) } }
+        : {}),
     },
   });
 
   refreshGameDay(gameDay.id);
-  return ok("Game day created. Add your sign-ups next.", { id: gameDay.id });
+  return ok(
+    playerIds.length
+      ? `Game day created with ${playerIds.length} players from the list. Check them in as they arrive.`
+      : "Game day created. Add your sign-ups next.",
+    { id: gameDay.id },
+  );
 }
 
 export async function updateGameDay(input: unknown): Promise<ActionResult> {
