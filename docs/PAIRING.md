@@ -125,6 +125,10 @@ The number of courts is the number of currently free courts in the active block,
 
 ### Next up (queued games)
 
+### Placed players (fill the rest)
+
+The queue master can drop 1 to 3 players on a court's slots and press Pair. `generateMatches` takes `seeds` (player and side) and an explicit `courtNumber`; the seeds go to the engine as `mustInclude` plus `sides`, which keeps players placed on the same side as partners and different sides as opponents, and orients the returned teams to the sides they were put. The rest of the match is chosen as usual. Seeds must be waiting and free (or, for the waiting court, free by the game's estimated start), a team holds two, and four seeds are refused because that is already a full court. Tests: "placed players (sides)" in `lib/pairing.test.ts`.
+
 ### Planning ahead (waiting courts)
 
 `lib/planning.ts` estimates when courts free up (`GAME_MINUTES` = 15 per game) and when each game in the waiting line should start: every game takes the court that frees first and holds it for a game's length. A player's `availableAt` is the end of their live game or of the latest waiting game they are in. When fewer than four idle players are waiting, `generateMatches` (queueing) widens the pool to anyone whose `availableAt` is at or before the new game's start and passes everyone idle as `mustInclude`, so idle players always play first and players on court only fill the gaps. Live and planned games count as history so the same four are not repeated.

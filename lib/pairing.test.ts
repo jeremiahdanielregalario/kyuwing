@@ -294,3 +294,54 @@ describe("must include", () => {
     );
   });
 });
+
+describe("placed players (sides)", () => {
+  const players = [
+    player("a", "C"),
+    player("b", "C+"),
+    player("c", "C"),
+    player("d", "C-"),
+    player("e", "C"),
+    player("f", "C+"),
+  ];
+  const teamOf = (suggestion: NonNullable<ReturnType<typeof findBestMatch>>, id: string) =>
+    suggestion.team1.some((row) => row.id === id) ? 1 : 2;
+
+  it("keeps two players placed on the same side as partners", () => {
+    const suggestion = findBestMatch(players, [], {
+      scarcity: false,
+      mustInclude: ["a", "b"],
+      sides: { a: 1, b: 1 },
+    })!;
+    expect(teamOf(suggestion, "a")).toBe(1);
+    expect(teamOf(suggestion, "b")).toBe(1);
+  });
+
+  it("keeps players placed on different sides as opponents, on the sides they were put", () => {
+    const suggestion = findBestMatch(players, [], {
+      scarcity: false,
+      mustInclude: ["a", "b"],
+      sides: { a: 2, b: 1 },
+    })!;
+    expect(teamOf(suggestion, "a")).toBe(2);
+    expect(teamOf(suggestion, "b")).toBe(1);
+  });
+
+  it("fills the remaining slots with other players", () => {
+    const suggestion = findBestMatch(players, [], { scarcity: false, mustInclude: ["a"], sides: { a: 1 } })!;
+    expect(suggestion.playerIds).toContain("a");
+    expect(suggestion.playerIds).toHaveLength(4);
+    expect(new Set(suggestion.playerIds).size).toBe(4);
+  });
+
+  it("puts a lone placed player on the side they were put", () => {
+    expect(teamOf(findBestMatch(players, [], { mustInclude: ["d"], sides: { d: 2 } })!, "d")).toBe(2);
+    expect(teamOf(findBestMatch(players, [], { mustInclude: ["d"], sides: { d: 1 } })!, "d")).toBe(1);
+  });
+
+  it("is unchanged without placements", () => {
+    expect(findBestMatch(players, [], { scarcity: false, sides: {} })).toEqual(
+      findBestMatch(players, [], { scarcity: false }),
+    );
+  });
+});

@@ -743,6 +743,13 @@ export async function generateMatches(
     /** Suggested games being regenerated: treated as free, avoided, and swapped out for the new ones. */
     replaceMatchIds?: string[];
     seed?: number;
+    /** Fill this specific court (an open one) rather than the first free court. */
+    courtNumber?: number;
+    /**
+     * Players the queue master already put on the court (1 to 3), with the side they were put
+     * on. They stay on it, keeping partners and opponents, and the engine fills the rest.
+     */
+    seeds?: Array<{ playerId: string; team: 1 | 2 }>;
   } = {},
 ): Promise<ActionResult<{ matches: number }>> {
   const authError = await guard();
@@ -784,6 +791,7 @@ export async function generateMatches(
   if (
     !replacing.length &&
     !options.queue &&
+    !options.seeds?.length &&
     freeCourts.length > 0 &&
     active.some((match) => match.courtNumber === QUEUED_COURT)
   ) {
@@ -871,6 +879,35 @@ export async function generateMatches(
     );
   }
 
+  // Players placed by hand: they must be able to play (waiting and free), and stay on the court.
+  const seeds = options.seeds ?? [];
+  if (seeds.length > 0) {
+    if (replacing.length)
+      return fail("Regenerate redoes a whole game. Clear the court first to place players by hand.");
+    if (new Set(seeds.map((seed) => seed.playerId)).size !== seeds.length)
+      return fail("A player can only be placed once.");
+    if (seeds.length > 3) return fail("Four players already fill the court. Start it instead.");
+    if (
+      seeds.filter((seed) => seed.team === 1).length > 2 ||
+      seeds.filter((seed) => seed.team === 2).length > 2
+    )
+      return fail("A team has only two places.");
+    const available = new Set(waiting.map((row) => row.playerId));
+    const unavailable = seeds.find((seed) => !available.has(seed.playerId));
+    if (unavailable) {
+      const who =
+        gameDay.players.find((row) => row.playerId === unavailable.playerId)?.player.nickname ?? "A player";
+      return fail(
+        `${who} can't be placed right now. They need to be checked in and waiting, and not already in another game.`,
+      );
+    }
+  }
+  if (!queueing && options.courtNumber !== undefined && !freeCourts.includes(options.courtNumber)) {
+    return fail(`${courtName(slot, options.courtNumber)} already has a game.`);
+  }
+  // Real courts to fill: the one asked for, or the free ones in order.
+  const targetCourts = !queueing && options.courtNumber !== undefined ? [options.courtNumber] : freeCourts;
+
   const requestsByPlayer = new Map<string, PairingPlayer["requests"]>();
   for (const request of gameDay.requests) {
     const current = requestsByPlayer.get(request.playerId) ?? [];
@@ -918,11 +955,21 @@ export async function generateMatches(
     ),
   ];
   const suggestions = suggestMatches(pairingPlayers, history, {
-    courts: queueing ? 1 : Math.max(1, Math.min(freeCourts.length, maxMatches ?? freeCourts.length)),
+    courts: queueing ? 1 : Math.max(1, Math.min(targetCourts.length, maxMatches ?? targetCourts.length)),
     round: nextRound,
     scarcity: waiting.length < 10,
     // Planning ahead: everyone who is free right now plays first; players still on court only fill the gaps.
-    mustInclude: widened ? uncommitted.map((row) => row.playerId) : undefined,
+    // Players placed by hand are always in the game, on the sides they were put.
+    mustInclude:
+      seeds.length || widened
+        ? [
+            ...new Set([
+              ...(widened ? uncommitted.map((row) => row.playerId) : []),
+              ...seeds.map((seed) => seed.playerId),
+            ]),
+          ]
+        : undefined,
+    sides: seeds.length ? Object.fromEntries(seeds.map((seed) => [seed.playerId, seed.team])) : undefined,
     variety: replacing.length
       ? { seed: options.seed ?? Math.floor(Math.random() * 2 ** 31), avoid: rejected }
       : undefined,
@@ -956,7 +1003,7 @@ export async function generateMatches(
           gameDayId,
           ...(keptCreatedAt ? { createdAt: keptCreatedAt } : {}),
           ...(replacing.length ? { rejected } : {}),
-          courtNumber: queueing ? QUEUED_COURT : freeCourts[index],
+          courtNumber: queueing ? QUEUED_COURT : targetCourts[index],
           round: nextRound,
           status: "SUGGESTED",
           players: {
@@ -982,7 +1029,7 @@ export async function generateMatches(
   if (replacing.length) {
     const where = queueing
       ? "in Next up"
-      : `on ${freeCourts
+      : `on ${targetCourts
           .slice(0, disjointSuggestions.length)
           .map((court) => courtName(slot, court))
           .join(", ")}`;
@@ -1003,7 +1050,7 @@ export async function generateMatches(
     );
   }
   return ok(
-    `${disjointSuggestions.length} ${disjointSuggestions.length === 1 ? "match" : "matches"} suggested on ${freeCourts
+    `${disjointSuggestions.length} ${disjointSuggestions.length === 1 ? "match" : "matches"} suggested on ${targetCourts
       .slice(0, disjointSuggestions.length)
       .map((court) => courtName(slot, court))
       .join(", ")}. Review and start.`,

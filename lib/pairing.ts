@@ -37,6 +37,12 @@ export type PairingOptions = {
   /** Players who must be in the match, e.g. everyone already waiting when planning ahead. */
   mustInclude?: string[];
   /**
+   * Where the queue master put some players (1 or 2 = a side of the net). Players given the
+   * same side stay partners, different sides stay opponents, and the returned teams are
+   * oriented to match. Used when a court is started by hand and the engine fills the rest.
+   */
+  sides?: Record<string, 1 | 2>;
+  /**
    * Asks for a different answer than the best one, for "regenerate". The seed
    * adds a small, repeatable shake to the scores so near-equal arrangements
    * trade places, and `avoid` lists arrangements (see `arrangementKey`) that
@@ -434,6 +440,23 @@ export function findBestMatch(
       const team1 = left.map((index) => combo[index]);
       const team2 = right.map((index) => combo[index]);
 
+      // Players placed by hand keep their partners and their opponents.
+      if (options.sides) {
+        const placed = combo.filter((candidate) => options.sides![candidate.id] !== undefined);
+        let consistent = true;
+        for (let i = 0; i < placed.length && consistent; i += 1) {
+          for (let j = i + 1; j < placed.length; j += 1) {
+            const together = team1.includes(placed[i]) === team1.includes(placed[j]);
+            const wantTogether = options.sides[placed[i].id] === options.sides[placed[j].id];
+            if (together !== wantTogether) {
+              consistent = false;
+              break;
+            }
+          }
+        }
+        if (!consistent) continue;
+      }
+
       // A permanent pair must stay on the same side of the net.
       let valid = true;
       for (const team of [team1, team2]) {
@@ -468,6 +491,16 @@ export function findBestMatch(
       ) {
         best = suggestion;
       }
+    }
+  }
+
+  // Show the placed players on the side they were put on.
+  if (best && options.sides) {
+    const anchor = [...best.team1, ...best.team2].find(
+      (candidate) => options.sides![candidate.id] !== undefined,
+    );
+    if (anchor && best.team1.includes(anchor) !== (options.sides[anchor.id] === 1)) {
+      [best.team1, best.team2] = [best.team2, best.team1];
     }
   }
 

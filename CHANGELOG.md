@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Set initial players on a court and let Pair fill the rest** — drop one to three players onto an empty court (or waiting court), then press **Fill the rest**: they stay on the side you put them (same team = partners, different teams = opponents) and the pairing engine fills the empty places. **Pair** now always fills the court you press it on.
 - **Reorder the waiting line** — each waiting game has up/down arrows to move it earlier or later, and a waiting game can be dragged onto another to take its place. Games take free courts in the new order.
 - **Undo check-in** — an undo arrow on a waiting player's row (and **Undo check-in** on their Sign-ups row) puts a mistaken check-in back to Expected. It is refused, with the reason, for someone on court, already done, who has played games (use Done instead), or who is lined up for a game.
 - **Create a game day from the Messenger list** — paste the sign-up chat message (title, date, time, `QM:`/`FIN:` lines and the numbered names) into **New game day** and the venue, date, type, times, queue master, finance member and every player are filled in. All names must be official nicknames: full names and `@` mentions get a one-tap fix, typos get suggestions, duplicates can be removed, and creating is blocked until the whole list is clean (checked again on the server). **Paste Messenger list** on the Sign-ups page adds players who joined the chat later, without removing or duplicating anyone.

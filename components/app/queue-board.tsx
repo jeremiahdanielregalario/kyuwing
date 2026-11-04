@@ -527,6 +527,21 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     });
   };
 
+  // Pair a court. Players already dropped on it stay (on the side they were put), and the engine
+  // fills the empty places. With none dropped it pairs all four.
+  const pairCourt = (court: number) => {
+    const seeds = (drafts[court] ?? EMPTY_DRAFT).flatMap((playerId, index) =>
+      playerId ? [{ playerId, team: (index < 2 ? 1 : 2) as 1 | 2 }] : [],
+    );
+    act(
+      () =>
+        court === QUEUED_COURT
+          ? generateMatches(data.gameDay.id, slotIndex, 1, { queue: true, seeds })
+          : generateMatches(data.gameDay.id, slotIndex, 1, { courtNumber: court, seeds }),
+      () => setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT })),
+    );
+  };
+
   // Undo a check-in made by mistake; the toast offers to put them straight back.
   const undoCheckInFor = (sessionPlayerId: string) => {
     startTransition(async () => {
@@ -1081,7 +1096,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         now={now}
                         pending={pending}
                         isCompleted={isCompleted}
-                        onPair={() => act(() => generateMatches(data.gameDay.id, slotIndex, 1))}
+                        onPair={() => pairCourt(court)}
                         onStart={(id) => requestStart(1, (free) => startGame(id, free))}
                         onRegenerate={(id) => act(() => regenerateMatches(data.gameDay.id, slotIndex, id))}
                         onFinish={finishMatch}
@@ -1157,9 +1172,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                             now={now}
                             pending={pending}
                             isCompleted={isCompleted}
-                            onPair={() =>
-                              act(() => generateMatches(data.gameDay.id, slotIndex, 1, { queue: true }))
-                            }
+                            onPair={() => pairCourt(QUEUED_COURT)}
                             onStart={(id) => requestStart(1, (free) => startGame(id, free))}
                             onRegenerate={(id) =>
                               act(() => regenerateMatches(data.gameDay.id, slotIndex, id))
@@ -2047,7 +2060,11 @@ function CourtCard({
           </div>
           <div className="mt-2.5 flex items-center justify-between gap-2">
             <span className="text-cream/40 text-[10px]">
-              {waiting ? "Drop four players to set the next game" : "Drop four waiting players"}
+              {draft.some(Boolean)
+                ? `Pair fills the other ${draft.filter((id) => !id).length}`
+                : waiting
+                  ? "Drop players, or Pair for all four"
+                  : "Drop waiting players, or Pair for all four"}
             </span>
             <Button
               variant="accent"
@@ -2056,7 +2073,7 @@ function CourtCard({
               disabled={pending || isCompleted}
               className={cn("h-8", waiting && WAITING_BUTTON)}
             >
-              <Wand2 className="h-3.5 w-3.5" /> Pair
+              <Wand2 className="h-3.5 w-3.5" /> {draft.some(Boolean) ? "Fill the rest" : "Pair"}
             </Button>
           </div>
         </div>
