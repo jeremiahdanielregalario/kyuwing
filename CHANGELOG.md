@@ -48,6 +48,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- The Game days page no longer shows **New game day** twice when it is empty; the header button is the only one.
 - Fixed the TOTAL row of the PDF and Excel fee tables, which was shifted under the wrong columns.
 - The login screen's side quote now reads the UP BadAss 3C's: Competency. Commitment. Camaraderie.
 - The queue master sign-in name field starts empty with "EJ Mallilin" as placeholder text instead of a pre-filled "Queue Master". Leaving it blank still signs in as Queue Master.

@@ -50,14 +50,7 @@ export default async function GameDaysPage() {
         <EmptyState
           icon={<CalendarDays className="h-5 w-5" />}
           title="No game days yet"
-          description="Create your first game day, pick the venue, and add court blocks. Then build the sign-up list."
-          action={
-            <NewGameDayButton
-              venues={venues}
-              defaultDate={manilaDateKey()}
-              defaultQueueMaster={session?.name ?? ""}
-            />
-          }
+          description="Use New game day above: paste the Messenger list, or pick the venue and add court blocks. Then build the sign-up list."
         />
       ) : (
         <div className="space-y-8">
