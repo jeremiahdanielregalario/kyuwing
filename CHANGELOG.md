@@ -49,7 +49,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
-- **Sign-ups rows have everything on the row** — permanent partner (saves as soon as you pick), pairing requests (with remove), Check in, Undo check-in and Done for the day are right on each player's row. The Details dialog and the separate Pair button are gone.
+- **Sign-ups rows: settings behind a gear** — each player's row stays compact, with Check in, Undo check-in, Done for the day and Remove on it. A gear icon beside them opens that player's permanent partner (saves as soon as you pick) and pairing requests (with remove) right under the row, no dialog. A small dot on the gear and tags on the row show when a partner or request is set. The Details dialog and separate Pair button are gone.
 - The Game days page no longer shows **New game day** twice when it is empty; the header button is the only one.
 - Fixed the TOTAL row of the PDF and Excel fee tables, which was shifted under the wrong columns.
 - The login screen's side quote now reads the UP BadAss 3C's: Competency. Commitment. Camaraderie.

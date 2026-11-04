@@ -6,10 +6,12 @@ import {
   Check,
   ChevronRight,
   ClipboardPaste,
+  Crosshair,
   HeartHandshake,
   Link2,
   Plus,
   Search,
+  Settings2,
   Trash2,
   Undo2,
   UserCheck,
@@ -479,6 +481,8 @@ function PlayerRow({
   const partner = partnerChoice ?? player.permanentPartnerId ?? "";
   const others = players.filter((row) => row.sessionPlayerId !== player.sessionPlayerId);
   const settable = player.status !== "DONE";
+  const [open, setOpen] = React.useState(false);
+  const hasSettings = Boolean(player.permanentPartnerNickname) || player.requests.length > 0;
 
   return (
     <div className="hover:bg-cream/30 px-4 py-3 transition">
@@ -503,6 +507,27 @@ function PlayerRow({
                 })}
               </span>
             )}
+            {player.permanentPartnerNickname && (
+              <span className="text-forest inline-flex items-center gap-0.5">
+                <Link2 className="h-2.5 w-2.5" /> {player.permanentPartnerNickname}
+              </span>
+            )}
+            {player.requests.map((request) => (
+              <span
+                key={request.id}
+                className={cn(
+                  "inline-flex items-center gap-0.5",
+                  request.type === "PAIR_WITH" ? "text-forest" : "text-coral",
+                )}
+              >
+                {request.type === "PAIR_WITH" ? (
+                  <HeartHandshake className="h-2.5 w-2.5" />
+                ) : (
+                  <Crosshair className="h-2.5 w-2.5" />
+                )}
+                {request.targetNickname}
+              </span>
+            ))}
           </div>
         </div>
         <LevelBadge level={player.level} />
@@ -517,6 +542,26 @@ function PlayerRow({
             >
               <UserCheck className="h-3.5 w-3.5" /> Check in
             </Button>
+          )}
+          {settable && (
+            <button
+              type="button"
+              onClick={() => setOpen((value) => !value)}
+              aria-expanded={open}
+              aria-label={`Partner and pairing settings for ${player.nickname}`}
+              title="Permanent partner and pairing requests"
+              className={cn(
+                "relative grid h-8 w-8 place-items-center rounded-full border transition",
+                open
+                  ? "border-ink bg-ink text-cream"
+                  : "border-line text-muted hover:bg-cream-deep hover:text-ink bg-white",
+              )}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {hasSettings && !open && (
+                <span className="bg-gold absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-white" />
+              )}
+            </button>
           )}
           {player.status === "WAITING" && player.gamesPlayed === 0 && (
             <Button
@@ -560,8 +605,8 @@ function PlayerRow({
         </div>
       </div>
 
-      {settable && (
-        <div className="mt-2.5 grid gap-2 pl-0 sm:pl-12 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+      {settable && open && (
+        <div className="border-line bg-cream/40 mt-2.5 grid gap-2 rounded-2xl border p-3 sm:ml-12 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
           <label className="flex min-w-0 items-center gap-2">
             <span className="text-muted inline-flex shrink-0 items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase">
               <Link2 className="h-3 w-3" /> Partner
