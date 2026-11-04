@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Undo2,
   UserCheck,
   UserRoundPlus,
   Users,
@@ -22,6 +23,7 @@ import {
   addAllActivePlayers,
   addPlayerToGameDay,
   checkInPlayer,
+  undoCheckIn,
   createPairingRequest,
   createQuickPlayer,
   deletePairingRequest,
@@ -565,6 +567,21 @@ export function SignupManager({
                   disabled={pending}
                 >
                   <UserCheck className="h-3.5 w-3.5" /> Check in
+                </Button>
+              )}
+              {managed.status === "WAITING" && managed.gamesPlayed === 0 && (
+                <Button
+                  size="sm"
+                  variant="paper"
+                  onClick={() =>
+                    act(
+                      () => undoCheckIn(managed.sessionPlayerId),
+                      () => setManageId(null),
+                    )
+                  }
+                  disabled={pending}
+                >
+                  <Undo2 className="h-3.5 w-3.5" /> Undo check-in
                 </Button>
               )}
               {managed.status === "WAITING" && (

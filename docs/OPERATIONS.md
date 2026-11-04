@@ -46,7 +46,7 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 | Lane | Meaning |
 | --- | --- |
 | **Expected** | Signed up, not checked in. Not pairable. |
-| **Waiting** | Checked in, in the queue, timer running. Pairable. |
+| **Waiting** | Checked in, in the queue, timer running. Pairable. If you checked in the wrong person, press the undo arrow on their row (or **Undo check-in** in their Sign-ups panel) to put them back to **Expected**; the toast offers **Check in again**. It only works for someone who has not played and is not lined up for a game; after that, use **Done**. |
 | **Playing** | On court in a live match. Not pairable. |
 | **Done** | Finished for the day. Not pairable; games and fees are kept. |
 

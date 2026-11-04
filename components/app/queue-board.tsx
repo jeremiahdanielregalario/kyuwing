@@ -37,11 +37,11 @@ import {
   Link2,
   Pencil,
   Shuffle,
+  Undo2,
   Play,
   Plus,
   Gift,
   Minus,
-  Undo2,
   AlarmClock,
   Search,
   Settings2,
@@ -65,6 +65,7 @@ import {
   restoreMatch,
   cancelMatch,
   checkInPlayer,
+  undoCheckIn,
   clearSuggestedMatches,
   completeMatch,
   createManualMatch,
@@ -496,6 +497,22 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       } else {
         toast.error(result.error);
       }
+      await mutate();
+    });
+  };
+
+  // Undo a check-in made by mistake; the toast offers to put them straight back.
+  const undoCheckInFor = (sessionPlayerId: string) => {
+    startTransition(async () => {
+      const result = await undoCheckIn(sessionPlayerId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message ?? "Check-in undone.", {
+        duration: 8000,
+        action: { label: "Check in again", onClick: () => act(() => checkInPlayer(sessionPlayerId)) },
+      });
       await mutate();
     });
   };
@@ -1275,6 +1292,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                       now={now}
                       pending={pending}
                       onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
+                      onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
                       onDone={() =>
                         setConfirmSpec({
                           title: `Mark ${player.nickname} done for the day?`,
@@ -2295,6 +2313,7 @@ function QueueRow({
   now,
   pending,
   onCheckIn,
+  onUndoCheckIn,
   onDone,
   onRequeue,
   onPriority,
@@ -2305,6 +2324,7 @@ function QueueRow({
   now: number;
   pending: boolean;
   onCheckIn: () => void;
+  onUndoCheckIn: () => void;
   onDone: () => void;
   onRequeue: () => void;
   onPriority: () => void;
@@ -2416,6 +2436,18 @@ function QueueRow({
             >
               <Star className={cn("h-3.5 w-3.5", player.priority && "fill-current")} />
             </button>
+            {player.gamesPlayed === 0 && (
+              <button
+                type="button"
+                onClick={onUndoCheckIn}
+                disabled={pending}
+                className="text-muted hover:bg-cream-deep hover:text-ink grid h-7 w-7 place-items-center rounded-full transition"
+                title="Undo check-in (checked in by mistake)"
+                aria-label={`Undo check-in for ${player.nickname}`}
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={onDone}

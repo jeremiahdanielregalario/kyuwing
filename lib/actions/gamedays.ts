@@ -22,6 +22,7 @@ import {
   timeToMinutes,
   withoutCourt,
 } from "@/lib/datetime";
+import { canUndoCheckIn } from "@/lib/check-in";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
 import { GAME_MINUTES, isFreeBy, planTimeline, playerAvailableAt } from "@/lib/planning";
@@ -462,6 +463,51 @@ export async function removePlayerFromGameDay(sessionPlayerId: string): Promise<
 
   refreshGameDay(row.gameDayId);
   return ok("Player removed from this game day.");
+}
+
+/**
+ * Takes a check-in back, for a mistake: the player goes back to "expected" with no
+ * queue time. Not for someone on court, done, who has played, or who is lined up
+ * for a game, since those are not a plain mistake (see `canUndoCheckIn`).
+ */
+export async function undoCheckIn(sessionPlayerId: string): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const row = await prisma.sessionPlayer.findUnique({
+    where: { id: sessionPlayerId },
+    include: { player: true },
+  });
+  if (!row) return fail("Sign-up not found.");
+
+  const lined = await prisma.match.findFirst({
+    where: { gameDayId: row.gameDayId, status: "SUGGESTED", players: { some: { playerId: row.playerId } } },
+    select: { courtNumber: true },
+  });
+  const name = await courtNamer(row.gameDayId);
+  const verdict = canUndoCheckIn({
+    nickname: row.player.nickname,
+    status: row.status,
+    gamesPlayed: row.gamesPlayed,
+    linedUpFor: lined
+      ? lined.courtNumber === QUEUED_COURT
+        ? "a waiting game"
+        : name(lined.courtNumber)
+      : null,
+  });
+  if (!verdict.allow) return fail(verdict.reason);
+
+  await prisma.$transaction([
+    prisma.sessionPlayer.update({
+      where: { id: sessionPlayerId },
+      data: { status: "EXPECTED", joinedAt: null, queuedAt: null },
+    }),
+    // A pending "I'm leaving" request means nothing for someone who is not checked in.
+    prisma.leaveRequest.deleteMany({ where: { sessionPlayerId, status: "PENDING" } }),
+  ]);
+
+  refreshGameDay(row.gameDayId);
+  return ok(`${row.player.nickname}'s check-in was undone. They are back to expected.`);
 }
 
 export async function checkInPlayer(sessionPlayerId: string): Promise<ActionResult> {
