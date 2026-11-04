@@ -80,3 +80,31 @@ export function playerAvailableAt(input: {
   for (const start of input.plannedStarts) at = Math.max(at, start + GAME_MS);
   return at;
 }
+
+/**
+ * New position in the waiting line: moves `id` to `toIndex` (clamped), leaving
+ * the others in their order. Returns null when nothing changes.
+ */
+export function moveInLine(ids: string[], id: string, toIndex: number): string[] | null {
+  const from = ids.indexOf(id);
+  if (from < 0) return null;
+  const target = Math.max(0, Math.min(ids.length - 1, toIndex));
+  if (target === from) return null;
+  const next = [...ids];
+  next.splice(from, 1);
+  next.splice(target, 0, id);
+  return next;
+}
+
+/**
+ * The waiting line is ordered by creation time, so reordering hands the existing
+ * times back out in the new order. Times are made strictly increasing so equal
+ * ones cannot tie.
+ */
+export function lineTimes(existing: number[]): number[] {
+  const times: number[] = [];
+  for (const time of [...existing].sort((a, b) => a - b)) {
+    times.push(times.length === 0 ? time : Math.max(time, times[times.length - 1] + 1));
+  }
+  return times;
+}

@@ -131,6 +131,8 @@ The number of courts is the number of currently free courts in the active block,
 
 Rules: waiting-court games can contain players on court or in other waiting games; real-court games still take waiting players only. At `startMatch`, only a **live** game blocks a player (`PLAYER_STILL_PLAYING`, with the expected finish time), and the board offers to re-pair. `promoteQueuedGames` moves only planned games whose four players are all free onto a freed court. Tests: `lib/planning.test.ts`, and "must include" in `lib/pairing.test.ts`.
 
+The waiting line is ordered by `Match.createdAt` (then id). `reorderQueuedGame` moves a game with `moveInLine` and hands the existing timestamps back out in the new order (`lineTimes`, strictly increasing so equal times cannot tie), so promotion and the planning timeline follow the new order with no extra column.
+
 ### Regenerate
 
 `regenerateMatches` swaps suggested games for different ones: all suggestions on the courts, or one game (on a court or in Next up) by id. It re-runs the same engine with `variety`: a repeatable pseudo-random shake of at most 30 cost points (under one level step, so fairness is not given up) plus an `avoid` list of arrangements, keyed by `arrangementKey` (who plays with whom, ignoring which side is "team 1"). Each replacement game stores what was rejected in `Match.rejected`, so successive presses never bring back an earlier lineup. The old games are deleted only in the same transaction that creates the new ones; if no other arrangement exists the suggestions stay as they were and the board says why. A regenerated Next up game keeps its place in line. Tests are in `lib/pairing.test.ts` ("regenerating with variety").

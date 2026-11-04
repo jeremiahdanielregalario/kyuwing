@@ -7,6 +7,7 @@ import useSWR from "swr";
 import { toast } from "sonner";
 import {
   closestCenter,
+  type CollisionDetection,
   DndContext,
   DragOverlay,
   KeyboardSensor,
@@ -37,6 +38,8 @@ import {
   Link2,
   Pencil,
   Shuffle,
+  ChevronUp,
+  ChevronDown,
   Undo2,
   Play,
   Plus,
@@ -70,6 +73,7 @@ import {
   completeMatch,
   createManualMatch,
   generateMatches,
+  reorderQueuedGame,
   regenerateMatches,
   confirmLeaveRequest,
   declineLeaveRequest,
@@ -87,6 +91,7 @@ import {
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
+import { canDropOn } from "@/lib/drag-targets";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
@@ -178,6 +183,18 @@ type DropTarget =
   | { kind: "court"; courtNumber: number; matchId?: string }
   | { kind: "slot"; matchId: string; team: number; slot: number; playerId: string }
   | { kind: "draft-slot"; courtNumber: number; index: number };
+
+/** Only offer a drag the targets it can land on (see `canDropOn`). */
+const collisionFor: CollisionDetection = (args) =>
+  closestCenter({
+    ...args,
+    droppableContainers: args.droppableContainers.filter((container) =>
+      canDropOn(
+        args.active.data.current as DragPayload | undefined,
+        container.data.current as DropTarget | undefined,
+      ),
+    ),
+  });
 
 const EMPTY_DRAFT: Array<string | null> = [null, null, null, null];
 
@@ -301,6 +318,15 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     if (active.kind === "match") {
       if (over.kind === "court" && over.courtNumber !== QUEUED_COURT) {
         act(() => moveMatchToCourt(active.matchId, over.courtNumber));
+      } else if (
+        // A waiting game dropped on another waiting game takes its place in line.
+        over.kind === "court" &&
+        over.courtNumber === QUEUED_COURT &&
+        over.matchId &&
+        active.courtNumber === QUEUED_COURT
+      ) {
+        const toIndex = queued.findIndex((game) => game.id === over.matchId);
+        if (toIndex >= 0) act(() => reorderQueuedGame(data.gameDay.id, active.matchId, toIndex));
       }
       return;
     }
@@ -652,7 +678,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionFor}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveDrag(null)}
@@ -1137,6 +1163,16 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                             onStart={(id) => requestStart(1, (free) => startGame(id, free))}
                             onRegenerate={(id) =>
                               act(() => regenerateMatches(data.gameDay.id, slotIndex, id))
+                            }
+                            onMoveUp={
+                              match && index > 0
+                                ? () => act(() => reorderQueuedGame(data.gameDay.id, match.id, index - 1))
+                                : undefined
+                            }
+                            onMoveDown={
+                              match && index < queued.length - 1
+                                ? () => act(() => reorderQueuedGame(data.gameDay.id, match.id, index + 1))
+                                : undefined
                             }
                             onFinish={finishMatch}
                             onEdit={openEdit}
@@ -1906,6 +1942,8 @@ function CourtCard({
   onPair,
   onStart,
   onRegenerate,
+  onMoveUp,
+  onMoveDown,
   onFinish,
   onEdit,
   onCancel,
@@ -1927,6 +1965,9 @@ function CourtCard({
   onStart: (id: string) => void;
   /** Swaps this suggested game for a different arrangement. */
   onRegenerate: (id: string) => void;
+  /** Waiting games only: move this game up or down the line. Absent at the ends. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   onFinish: (match: BoardMatch) => void;
   onEdit: (match: BoardMatch) => void;
   onCancel: (id: string) => void;
@@ -2077,6 +2118,30 @@ function CourtCard({
               {live ? "Live" : waiting ? (queuePosition === 1 ? "Up next" : "Waiting") : "Suggested"}
             </span>
             {match.free && <FreeTag />}
+            {waiting && !isCompleted && (onMoveUp || onMoveDown) && (
+              <span className="flex items-center">
+                <button
+                  type="button"
+                  onClick={onMoveUp}
+                  disabled={!onMoveUp || pending}
+                  aria-label={`Move ${name} up the line`}
+                  title="Earlier in line"
+                  className="text-cream/70 hover:text-cream hover:bg-cream/10 grid h-6 w-6 place-items-center rounded-full disabled:opacity-25"
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onMoveDown}
+                  disabled={!onMoveDown || pending}
+                  aria-label={`Move ${name} down the line`}
+                  title="Later in line"
+                  className="text-cream/70 hover:text-cream hover:bg-cream/10 grid h-6 w-6 place-items-center rounded-full disabled:opacity-25"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
             {onRemove && !isCompleted && (
               <RemoveCourtButton name={name} live={live} pending={pending} onRemove={onRemove} />
             )}

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { GAME_MINUTES, courtFreeAt, isFreeBy, planTimeline, playerAvailableAt } from "./planning";
+import {
+  GAME_MINUTES,
+  courtFreeAt,
+  isFreeBy,
+  lineTimes,
+  moveInLine,
+  planTimeline,
+  playerAvailableAt,
+} from "./planning";
 
 const MIN = 60_000;
 const now = Date.parse("2026-11-04T10:00:00Z");
@@ -89,5 +97,33 @@ describe("player availability", () => {
     const finishing = playerAvailableAt({ now, liveStartedAt: now - 5 * MIN, plannedStarts: [] });
     expect(isFreeBy(now, start)).toBe(true); // the two who are waiting
     expect(isFreeBy(finishing, start)).toBe(true); // the four on court, done exactly when the court frees
+  });
+});
+
+describe("moveInLine", () => {
+  const line = ["a", "b", "c", "d"];
+
+  it("moves a game up, down, to the front and to the back", () => {
+    expect(moveInLine(line, "c", 1)).toEqual(["a", "c", "b", "d"]);
+    expect(moveInLine(line, "a", 2)).toEqual(["b", "c", "a", "d"]);
+    expect(moveInLine(line, "d", 0)).toEqual(["d", "a", "b", "c"]);
+    expect(moveInLine(line, "a", 3)).toEqual(["b", "c", "d", "a"]);
+  });
+
+  it("clamps the position, and returns null when nothing changes", () => {
+    expect(moveInLine(line, "a", 99)).toEqual(["b", "c", "d", "a"]);
+    expect(moveInLine(line, "b", -5)).toEqual(["b", "a", "c", "d"]);
+    expect(moveInLine(line, "b", 1)).toBeNull();
+    expect(moveInLine(line, "zzz", 0)).toBeNull();
+  });
+});
+
+describe("lineTimes", () => {
+  it("keeps the same times, in order", () => {
+    expect(lineTimes([30, 10, 20])).toEqual([10, 20, 30]);
+  });
+
+  it("breaks ties so the order is never ambiguous", () => {
+    expect(lineTimes([10, 10, 10])).toEqual([10, 11, 12]);
   });
 });

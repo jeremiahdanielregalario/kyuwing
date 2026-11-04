@@ -25,7 +25,14 @@ import {
 import { canUndoCheckIn } from "@/lib/check-in";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
-import { GAME_MINUTES, isFreeBy, planTimeline, playerAvailableAt } from "@/lib/planning";
+import {
+  GAME_MINUTES,
+  isFreeBy,
+  lineTimes,
+  moveInLine,
+  planTimeline,
+  playerAvailableAt,
+} from "@/lib/planning";
 import { checkSignup, notReadyReason } from "@/lib/signup-check";
 import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import {
@@ -1033,6 +1040,42 @@ export async function regenerateMatches(
     queue: queued,
     replaceMatchIds: targets.map((match) => match.id),
   });
+}
+
+/** Moves a game in the waiting line to a new place (0 is next up). Others keep their order. */
+export async function reorderQueuedGame(
+  gameDayId: string,
+  matchId: string,
+  toIndex: number,
+): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+  if (!Number.isInteger(toIndex)) return fail("Pick a place in the line.");
+
+  const line = await prisma.match.findMany({
+    where: { gameDayId, status: "SUGGESTED", courtNumber: QUEUED_COURT },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { id: true, createdAt: true },
+  });
+  const next = moveInLine(
+    line.map((match) => match.id),
+    matchId,
+    toIndex,
+  );
+  if (!line.some((match) => match.id === matchId)) return fail("That game is no longer in the waiting line.");
+  if (!next) return ok("Already there.");
+
+  const times = lineTimes(line.map((match) => match.createdAt.getTime()));
+  await prisma.$transaction(
+    next.map((id, index) =>
+      prisma.match.update({ where: { id }, data: { createdAt: new Date(times[index]) } }),
+    ),
+  );
+
+  refreshGameDay(gameDayId);
+  return ok(
+    next.indexOf(matchId) === 0 ? "Now up next." : `Moved to place ${next.indexOf(matchId) + 1} in line.`,
+  );
 }
 
 export async function clearSuggestedMatches(gameDayId: string): Promise<ActionResult> {

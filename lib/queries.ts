@@ -130,7 +130,7 @@ export async function getBoardData(gameDayId: string, slotParam?: number | null)
     prisma.match.findMany({
       where: { gameDayId, status: { in: ["SUGGESTED", "LIVE"] } },
       include: { players: { include: { player: true } } },
-      orderBy: [{ courtNumber: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ courtNumber: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     }),
     prisma.match.findMany({
       where: { gameDayId, status: "COMPLETED" },

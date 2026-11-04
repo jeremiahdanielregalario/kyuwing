@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Reorder the waiting line** — each waiting game has up/down arrows to move it earlier or later, and a waiting game can be dragged onto another to take its place. Games take free courts in the new order.
 - **Undo check-in** — an undo arrow on a waiting player's row (and **Undo check-in** on their Sign-ups row) puts a mistaken check-in back to Expected. It is refused, with the reason, for someone on court, already done, who has played games (use Done instead), or who is lined up for a game.
 - **Create a game day from the Messenger list** — paste the sign-up chat message (title, date, time, `QM:`/`FIN:` lines and the numbered names) into **New game day** and the venue, date, type, times, queue master, finance member and every player are filled in. All names must be official nicknames: full names and `@` mentions get a one-tap fix, typos get suggestions, duplicates can be removed, and creating is blocked until the whole list is clean (checked again on the server). **Paste Messenger list** on the Sign-ups page adds players who joined the chat later, without removing or duplicating anyone.
 - **Plan ahead with the waiting courts** — a waiting game no longer needs four idle players. It can include players still on court, or already in an earlier waiting game, when they are expected to be done by the time it starts (about 15 minutes a game): with 6 players and 4 on court, queue the next game with the 2 waiting plus 2 of those finishing. Add as many waiting games as you like, beyond the reserved courts. Each shows who it is waiting on and when it should start. Nobody can be on two playing courts at once: pressing Start while a player is still on another court explains who and when, and offers **Re-pair this game**. Freed courts take the first planned game whose players are all free.
@@ -49,6 +50,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- Fixed dragging a court card onto a player's box: while dragging, only valid targets are offered, so a court no longer highlights or looks like it snaps into a box meant for players. Courts go onto courts or waiting games; players go onto player boxes and empty slots.
 - **Sign-ups rows: settings behind a gear** — each player's row stays compact, with Check in, Undo check-in, Done for the day and Remove on it. A gear icon beside them opens that player's permanent partner (saves as soon as you pick) and pairing requests (with remove) right under the row, no dialog. A small dot on the gear and tags on the row show when a partner or request is set. The Details dialog and separate Pair button are gone.
 - The Game days page no longer shows **New game day** twice when it is empty; the header button is the only one.
 - Fixed the TOTAL row of the PDF and Excel fee tables, which was shifted under the wrong columns.
