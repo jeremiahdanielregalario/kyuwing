@@ -1112,7 +1112,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             <Button
               onClick={() => act(() => generateMatches(data.gameDay.id, slotIndex))}
               disabled={pending || isCompleted}
-              className="flex-1 sm:flex-none"
+              className="basis-full sm:basis-auto"
             >
               {courtsFull ? (
                 <>
@@ -1157,7 +1157,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     {slot ? `Block ${slot.start}–${slot.end}` : ""}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {suggested.length > 0 && (
                     <>
                       <Button

@@ -32,7 +32,7 @@ export function buttonVariants({
   };
 
   return cn(
-    "press focus-visible:outline-forest inline-flex items-center justify-center gap-2 rounded-full font-semibold select-none focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50",
+    "press focus-visible:outline-forest inline-flex items-center justify-center gap-2 rounded-full font-semibold whitespace-nowrap select-none focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50",
     variants[variant],
     sizes[size],
     className,
