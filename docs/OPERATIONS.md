@@ -61,6 +61,7 @@ Everything below works two ways: **tap to move** (easiest on a phone) or drag an
 
 - **Tap to move.** Tap a player (their outlined name box in the queue, or their box on a court) or a court's grip handle (⠿ in the header). A black bar at the bottom says what you're moving, and every place it can go lights up. Tap one of them to put it there. Tap the same thing again, press **Cancel**, or press Esc to put it back down. On a court, a lit-up player box means "put them here instead"; an empty slot says **Tap to put here**; a whole court shows **Move to**, **Swap with** or **Take this place in line**.
 - **Drag and drop.** Grab the same things and drop them on a target; it lands on the slot under your pointer or finger. On a phone or tablet, press and hold for a moment before dragging, so a quick swipe still scrolls; the dragged name floats just above your finger. To reach the courts from the queue on a phone, hold the dragged name near the top of the screen and the page scrolls up.
+- **Split screen (phones and small tablets).** The board keeps the courts on top and the queue in a panel above the bottom navigation, so names drag straight up onto a court. Hold a dragged name just above the panel to scroll down to lower courts (the closer to the panel, the faster), or near the top of the screen to scroll up. Letting go over the panel cancels the drag. Use the search icon to find a player and the chevron to shrink the panel. **Split screen** in the Courts header switches it off or on for that device.
 
 What each move does:
 

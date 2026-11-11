@@ -44,6 +44,7 @@ import {
   Shuffle,
   ChevronUp,
   ChevronDown,
+  PanelBottom,
   Undo2,
   Play,
   Plus,
@@ -228,6 +229,9 @@ const collisionFor: CollisionDetection = (args) => {
   };
   const point = args.pointerCoordinates;
   if (!point) return closestCenter(scoped);
+  // Over the phone's queue panel there is nothing to drop on: letting go there cancels the drag.
+  const panel = document.querySelector("[data-queue-panel]")?.getBoundingClientRect();
+  if (panel && point.y >= panel.top && point.y <= panel.bottom) return [];
   const under = pointerWithin(scoped);
   if (under.length > 0) return under;
   return closestCenter({
@@ -248,6 +252,59 @@ const overlayAtPointer: Modifier = ({ activatorEvent, activeNodeRect, transform 
 };
 
 const EMPTY_DRAFT: Array<string | null> = [null, null, null, null];
+
+/** Phones and tablets below `lg`, where the queue is not a side column. */
+const NARROW_QUERY = "(max-width: 1023.98px)";
+function useNarrowScreen() {
+  return React.useSyncExternalStore(
+    (onChange) => {
+      const media = window.matchMedia(NARROW_QUERY);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(NARROW_QUERY).matches,
+    () => false,
+  );
+}
+
+/** Split screen on phones (courts above, queue panel below); on unless turned off on this device. */
+const SPLIT_KEY = "kyuwing.board-split";
+const splitListeners = new Set<() => void>();
+function readSplit() {
+  try {
+    return window.localStorage.getItem(SPLIT_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+function useSplitPreference(): [boolean, (on: boolean) => void] {
+  const on = React.useSyncExternalStore(
+    (onChange) => {
+      splitListeners.add(onChange);
+      window.addEventListener("storage", onChange);
+      return () => {
+        splitListeners.delete(onChange);
+        window.removeEventListener("storage", onChange);
+      };
+    },
+    readSplit,
+    () => true,
+  );
+  const set = (value: boolean) => {
+    try {
+      window.localStorage.setItem(SPLIT_KEY, value ? "on" : "off");
+    } catch {
+      // Private mode: the choice just isn't remembered.
+    }
+    splitListeners.forEach((listener) => listener());
+  };
+  return [on, set];
+}
+
+/** The split queue panel's height: a bit under half the space between the header and the nav. */
+const QUEUE_PANEL_HEIGHT = "calc((100dvh - 8.25rem - env(safe-area-inset-bottom)) * 0.46)";
+/** Dragging into this band just above the queue panel scrolls the courts down. */
+const SCROLL_BAND = 64;
 
 function lineupOf(match: BoardMatch) {
   const order = (team: BoardMatch["team1"]) =>
@@ -324,6 +381,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // On touch the drag chip floats above the finger so the finger doesn't hide it.
   const [dragByTouch, setDragByTouch] = React.useState(false);
   const mounted = useMounted();
+  const narrow = useNarrowScreen();
+  const [splitPreferred, setSplitPreferred] = useSplitPreference();
+  const [queueMinimized, setQueueMinimized] = React.useState(false);
+  const [queueSearchOpen, setQueueSearchOpen] = React.useState(false);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     // Press and hold to pick up on a tablet, so a quick swipe still scrolls the queue.
@@ -559,6 +620,35 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const courtNumbers = Array.from({ length: courtCount }, (_, index) => index + 1);
   const isDraft = data.gameDay.status === "DRAFT";
   const isCompleted = data.gameDay.status === "COMPLETED";
+  const split = narrow && splitPreferred && !isCompleted;
+
+  // Split screen: holding a dragged name just above the queue panel scrolls the courts down.
+  // (dnd-kit's own auto-scroll covers the top edge; its bottom edge is under the panel.)
+  React.useEffect(() => {
+    if (!split || !activeDrag) return;
+    // Read the finger straight from the events: dnd-kit's drag delta also counts page scrolling.
+    let y: number | null = null;
+    const track = (event: Event) => {
+      y = eventPoint(event)?.y ?? y;
+    };
+    window.addEventListener("touchmove", track, { passive: true });
+    window.addEventListener("mousemove", track, { passive: true });
+    let frame = 0;
+    const tick = () => {
+      const panelTop = document.querySelector("[data-queue-panel]")?.getBoundingClientRect().top;
+      if (y !== null && panelTop !== undefined && y < panelTop && y > panelTop - SCROLL_BAND) {
+        // "instant": the page's smooth scrolling would restart every frame and crawl.
+        window.scrollBy({ top: Math.ceil((y - (panelTop - SCROLL_BAND)) / 5), behavior: "instant" });
+      }
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("touchmove", track);
+      window.removeEventListener("mousemove", track);
+    };
+  }, [split, activeDrag]);
   const unrated = data.players.filter((player) => isUnrated(player.level) && player.status !== "DONE");
   const unratedKey = unrated
     .map((player) => player.playerId)
@@ -839,6 +929,79 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       .sort((a, b) => levelValue(b.level) - levelValue(a.level));
   }, [data.activeMatches, data.players, editMatch]);
 
+  // The queue's tabs, search and list: in the side card, or in the split-screen panel on phones.
+  const queueTabs = (
+    <>
+      {(
+        [
+          ["waiting", "Waiting"],
+          ["playing", "On court"],
+          ["expected", "Expected"],
+          ["done", "Done"],
+        ] as Array<[QueueTab, string]>
+      ).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setTab(value)}
+          className={cn(
+            "press shrink-0 rounded-full px-3 py-2 text-[11px] font-semibold",
+            tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
+          )}
+        >
+          {label}
+          <span className={cn("ml-1 font-mono text-[9px]", tab === value ? "text-lime/80" : "text-muted/70")}>
+            {tabCounts[value]}
+          </span>
+        </button>
+      ))}
+    </>
+  );
+  const queueSearch = (
+    <>
+      <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Find a player…"
+        className="h-9 pl-8 text-[12px]"
+      />
+    </>
+  );
+  const queueList =
+    visible.length === 0 ? (
+      <div className="text-muted px-3 py-10 text-center text-[12px]">
+        {query ? "No player matches that search." : `No players ${tab === "waiting" ? "waiting" : tab}.`}
+      </div>
+    ) : (
+      <div className="space-y-1">
+        {visible.map((player) => (
+          <QueueRow
+            key={player.sessionPlayerId}
+            draggable={
+              (player.status === "WAITING" || player.status === "PLAYING") && !pending && !isCompleted
+            }
+            player={player}
+            now={now}
+            pending={pending}
+            onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
+            onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
+            onDone={() =>
+              setConfirmSpec({
+                title: `Mark ${player.nickname} done for the day?`,
+                description: "They leave the board and stop receiving games.",
+                confirmLabel: "Mark done",
+                cancelLabel: "Not yet",
+                onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
+              })
+            }
+            onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
+            onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
+          />
+        ))}
+      </div>
+    );
+
   return (
     <TapMoveContext value={tapMove}>
       <DndContext
@@ -1108,7 +1271,13 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
           </Card>
 
           {/* Main actions stay in reach while scrolling the courts and queue. */}
-          <div className="glass border-line/60 bg-cream/80 sticky top-15 z-20 -mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-2.5 sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-8 lg:px-8">
+          <div
+            className={cn(
+              "glass border-line/60 bg-cream/80 z-20 -mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-2.5 sm:-mx-6 sm:px-6 lg:sticky lg:top-0 lg:-mx-8 lg:px-8",
+              // In split screen the courts need the height, so the bar scrolls away with the page.
+              split ? "relative" : "sticky top-15",
+            )}
+          >
             <Button
               onClick={() => act(() => generateMatches(data.gameDay.id, slotIndex))}
               disabled={pending || isCompleted}
@@ -1200,6 +1369,20 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         Clear
                       </button>
                     </>
+                  )}
+                  {narrow && !isCompleted && (
+                    <Button
+                      variant={split ? "dark" : "paper"}
+                      size="sm"
+                      onClick={() => {
+                        setSplitPreferred(!split);
+                        setQueueMinimized(false);
+                      }}
+                      aria-pressed={split}
+                      title="Courts on top, the queue in a panel below, so names drag straight onto a court"
+                    >
+                      <PanelBottom className="h-3.5 w-3.5" /> Split screen
+                    </Button>
                   )}
                   {slot && !isCompleted && (
                     <Button variant="paper" size="sm" onClick={openAddCourt} disabled={pending}>
@@ -1427,110 +1610,104 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               )}
             </div>
 
-            <Card className="h-fit lg:sticky lg:top-24">
-              <div className="border-line/80 border-b px-4 pt-4 pb-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
-                  <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
-                    <Users className="h-3 w-3" /> {data.players.length}
-                  </span>
-                </div>
-                <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">
-                  {(
-                    [
-                      ["waiting", "Waiting"],
-                      ["playing", "On court"],
-                      ["expected", "Expected"],
-                      ["done", "Done"],
-                    ] as Array<[QueueTab, string]>
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setTab(value)}
-                      className={cn(
-                        "press shrink-0 rounded-full px-3 py-2 text-[11px] font-semibold",
-                        tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
-                      )}
+            {split ? (
+              <>
+                {/* Room under the courts for the panel, so the last court can scroll above it. */}
+                <div aria-hidden="true" style={{ height: queueMinimized ? "3.75rem" : QUEUE_PANEL_HEIGHT }} />
+                {mounted &&
+                  createPortal(
+                    <section
+                      data-queue-panel
+                      data-trim-id="board.queue-panel"
+                      aria-label="The queue"
+                      style={{ height: queueMinimized ? undefined : QUEUE_PANEL_HEIGHT }}
+                      className="border-line bg-paper fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex flex-col rounded-t-3xl border-t shadow-[0_-14px_32px_-20px_rgb(10_10_10/0.45)] lg:hidden"
                     >
-                      {label}
-                      <span
-                        className={cn(
-                          "ml-1 font-mono text-[9px]",
-                          tab === value ? "text-lime/80" : "text-muted/70",
+                      <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
+                        <div className="hide-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto">
+                          {queueTabs}
+                        </div>
+                        {!queueMinimized && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (queueSearchOpen) setQuery("");
+                              setQueueSearchOpen((value) => !value);
+                            }}
+                            className={cn(
+                              "press grid h-9 w-9 shrink-0 place-items-center rounded-full",
+                              queueSearchOpen || query
+                                ? "bg-forest text-cream"
+                                : "text-muted hover:bg-cream-deep hover:text-ink",
+                            )}
+                            aria-label={queueSearchOpen ? "Close search" : "Find a player"}
+                            aria-pressed={queueSearchOpen}
+                          >
+                            <Search className="h-4 w-4" />
+                          </button>
                         )}
-                      >
-                        {tabCounts[value]}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="relative mt-3">
-                  <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
-                  <Input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Find a player…"
-                    className="h-9 pl-8 text-[12px]"
-                  />
-                </div>
-              </div>
-
-              <div className="px-2 py-2 lg:max-h-[min(62vh,640px)] lg:overflow-y-auto">
-                {visible.length === 0 ? (
-                  <div className="text-muted px-3 py-10 text-center text-[12px]">
-                    {query
-                      ? "No player matches that search."
-                      : `No players ${tab === "waiting" ? "waiting" : tab}.`}
+                        <button
+                          type="button"
+                          onClick={() => setQueueMinimized((value) => !value)}
+                          className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                          aria-label={queueMinimized ? "Show the queue" : "Hide the queue"}
+                          aria-expanded={!queueMinimized}
+                        >
+                          {queueMinimized ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      {!queueMinimized && (
+                        <>
+                          {(queueSearchOpen || query) && (
+                            <div className="px-3 pb-2">
+                              <div className="relative">{queueSearch}</div>
+                            </div>
+                          )}
+                          <div className="border-line/70 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-2 py-1.5">
+                            {queueList}
+                          </div>
+                        </>
+                      )}
+                    </section>,
+                    document.body,
+                  )}
+              </>
+            ) : (
+              <Card className="h-fit lg:sticky lg:top-24">
+                <div className="border-line/80 border-b px-4 pt-4 pb-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
+                    <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
+                      <Users className="h-3 w-3" /> {data.players.length}
+                    </span>
                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    {visible.map((player) => (
-                      <QueueRow
-                        key={player.sessionPlayerId}
-                        draggable={
-                          (player.status === "WAITING" || player.status === "PLAYING") &&
-                          !pending &&
-                          !isCompleted
-                        }
-                        player={player}
-                        now={now}
-                        pending={pending}
-                        onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                        onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
-                        onDone={() =>
-                          setConfirmSpec({
-                            title: `Mark ${player.nickname} done for the day?`,
-                            description: "They leave the board and stop receiving games.",
-                            confirmLabel: "Mark done",
-                            cancelLabel: "Not yet",
-                            onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
-                          })
-                        }
-                        onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
-                        onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+                  <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">{queueTabs}</div>
+                  <div className="relative mt-3">{queueSearch}</div>
+                </div>
 
-              <div
-                data-trim-id="board.queue-footer"
-                className="border-line/80 flex items-center justify-between border-t px-4 py-3"
-              >
-                <span className="text-muted text-[11px]">
-                  Longest wait{" "}
-                  <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
-                </span>
-                <Link
-                  href={`/app/gamedays/${data.gameDay.id}/signups`}
-                  className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+                <div className="px-2 py-2 lg:max-h-[min(62vh,640px)] lg:overflow-y-auto">{queueList}</div>
+
+                <div
+                  data-trim-id="board.queue-footer"
+                  className="border-line/80 flex items-center justify-between border-t px-4 py-3"
                 >
-                  Manage sign-ups <ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-            </Card>
+                  <span className="text-muted text-[11px]">
+                    Longest wait{" "}
+                    <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
+                  </span>
+                  <Link
+                    href={`/app/gamedays/${data.gameDay.id}/signups`}
+                    className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+                  >
+                    Manage sign-ups <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </Card>
+            )}
           </div>
 
           <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
@@ -2124,7 +2301,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             <div
               role="status"
               data-trim-id="board.tap-move"
-              className="bg-ink text-paper shadow-float fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl px-4 py-3 lg:bottom-6"
+              className={cn(
+                "bg-ink text-paper shadow-float fixed inset-x-3 z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl px-4 py-3 lg:bottom-6",
+                split ? "top-[4.25rem]" : "bottom-[calc(5rem+env(safe-area-inset-bottom))]",
+              )}
             >
               <span className="bg-gold animate-pulse-soft h-2.5 w-2.5 shrink-0 rounded-full" />
               <p className="min-w-0 flex-1 text-[13px] leading-snug">
