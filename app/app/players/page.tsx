@@ -124,17 +124,17 @@ export default async function PlayersPage() {
         today={manilaDateKey()}
       />
 
-      <AwardsPanel
-        tournaments={awards.tournaments}
-        nicknames={players.map((player) => player.nickname)}
-        today={manilaDateKey()}
-      />
-
       <PlayerManager
         players={records}
         recency={attendance.byPlayer}
         history={attendance.historyByPlayer}
         awards={awards.byPlayer}
+      />
+
+      <AwardsPanel
+        tournaments={awards.tournaments}
+        nicknames={players.map((player) => player.nickname)}
+        today={manilaDateKey()}
       />
 
       <p data-trim-id="players.level-legend" className="text-muted text-[11px] leading-relaxed">
