@@ -54,8 +54,6 @@ import {
   Search,
   Settings2,
   Share2,
-  Copy,
-  ExternalLink,
   Star,
   UserCheck,
   UserRoundPlus,
@@ -123,6 +121,7 @@ import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog"
 import { haptic } from "@/lib/haptics";
 import type { ActionFailureCode } from "@/lib/action-result";
 import { UnratedLevelsPrompt } from "@/components/app/unrated-levels-prompt";
+import { ShareLiveDialog, useLiveLinkShared } from "@/components/app/share-live-dialog";
 import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string; code?: ActionFailureCode };
@@ -345,7 +344,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [renameTarget, setRenameTarget] = React.useState<{ court: number; name: string } | null>(null);
   const [renameLabel, setRenameLabel] = React.useState("");
   const [renameEveryBlock, setRenameEveryBlock] = React.useState(true);
-  const [shareUrl, setShareUrl] = React.useState(livePath);
   const [newCourtLabel, setNewCourtLabel] = React.useState("");
   const [freePrompt, setFreePrompt] = React.useState<{
     count: number;
@@ -677,8 +675,27 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const startReminder = isCompleted
     ? []
     : gamesToStart(suggested, { now, movedIds: promotedIds, laterIds: startLaterIds });
+  // Once the game day is live, remind the queue master to post the live link in the group chat
+  // (until it has been copied, shared or downloaded on this device). Waits for other prompts.
+  const [liveLinkShared, markLiveLinkShared] = useLiveLinkShared(data.gameDay.id);
+  const [shareReminderLater, setShareReminderLater] = React.useState(false);
+  const shareReminderOpen =
+    data.gameDay.status === "LIVE" &&
+    !liveLinkShared &&
+    !shareReminderLater &&
+    !shareOpen &&
+    !confirmSpec &&
+    !freePrompt &&
+    !editMatch &&
+    !unratedOpen &&
+    !checkOpen &&
+    !walkOpen &&
+    !addCourtOpen &&
+    !renameTarget &&
+    !endPromptOpen;
   const startReminderOpen =
     startReminder.length > 0 &&
+    !shareReminderOpen &&
     !confirmSpec &&
     !freePrompt &&
     !editMatch &&
@@ -1105,14 +1122,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={() => {
-                  setShareUrl(`${window.location.origin}${livePath}`);
-                  setShareOpen(true);
-                }}
-              >
+              <Button variant="accent" size="sm" onClick={() => setShareOpen(true)}>
                 <Share2 className="h-3.5 w-3.5" /> Share live view
               </Button>
               <Link href={`/app/gamedays/${data.gameDay.id}/reports`} className="hidden sm:inline-flex">
@@ -2057,46 +2067,23 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             </p>
           </Modal>
 
-          {/* Share live view modal */}
-          <Modal
-            open={shareOpen}
+          {/* Share live view: opened from the header, or on its own as a reminder once the day is live */}
+          <ShareLiveDialog
+            open={shareOpen || shareReminderOpen}
+            reminder={!shareOpen && shareReminderOpen}
             onClose={() => setShareOpen(false)}
-            title="Share the live queue"
-            description="Anyone with this link can watch the courts, the Next up line, and the waiting order. They can't change anything."
-            size="sm"
-            footer={
-              <>
-                <a href={shareUrl} target="_blank" rel="noreferrer">
-                  <Button variant="ghost">
-                    <ExternalLink className="h-4 w-4" /> Open
-                  </Button>
-                </a>
-                <Button
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(shareUrl);
-                      toast.success("Link copied. Paste it in the group chat.");
-                    } catch {
-                      toast.error("Copy failed. Select the link and copy it.");
-                    }
-                  }}
-                >
-                  <Copy className="h-4 w-4" /> Copy link
-                </Button>
-              </>
-            }
-          >
-            <Input
-              value={shareUrl}
-              readOnly
-              onFocus={(event) => event.currentTarget.select()}
-              className="font-mono text-[12px]"
-            />
-            <p className="text-muted mt-3 text-[11px]">
-              Players see nicknames and levels only, never full names, contacts, or fees. They can type their
-              nickname to see if they are next.
-            </p>
-          </Modal>
+            onLater={() => {
+              setShareReminderLater(true);
+              setShareOpen(false);
+            }}
+            onShared={() => {
+              // Keep the dialog open (they may still want the QR code), just stop reminding.
+              if (shareReminderOpen) setShareOpen(true);
+              markLiveLinkShared();
+            }}
+            gameDay={data.gameDay}
+            livePath={livePath}
+          />
 
           {/* Rename court modal */}
           <Modal
