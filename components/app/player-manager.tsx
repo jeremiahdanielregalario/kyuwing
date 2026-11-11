@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
   History,
   Medal,
+  MoreHorizontal,
   Pencil,
   Plus,
   RotateCcw,
@@ -118,6 +119,8 @@ export function PlayerManager({
   const [sortDir, setSortDir] = React.useState<SortDir>("asc");
   const [historyFor, setHistoryFor] = React.useState<PlayerRecord | null>(null);
   const [awardsFor, setAwardsFor] = React.useState<PlayerRecord | null>(null);
+  /** Phones: the player whose actions sheet (history, edit, archive, delete) is open. */
+  const [actionsFor, setActionsFor] = React.useState<PlayerRecord | null>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -381,8 +384,8 @@ export function PlayerManager({
       </div>
 
       <Card className="overflow-hidden">
-        <div className="border-line/80 flex items-center justify-between border-b px-4 py-3">
-          <div>
+        <div className="border-line/80 flex items-center justify-between gap-3 border-b px-4 py-3">
+          <div className="min-w-0">
             <h2 className="font-display text-base font-bold">Player database</h2>
             <p className="text-muted text-[11px]">
               {filtered.length} of {players.length} players · 19 levels, E- to A+
@@ -391,13 +394,14 @@ export function PlayerManager({
           <div className="flex items-center gap-3">
             <Button
               size="sm"
+              className="whitespace-nowrap"
               variant={statusFilter === "archived" ? "primary" : "outline"}
               onClick={() => setStatusFilter(statusFilter === "archived" ? "active" : "archived")}
             >
               <Archive className="h-3.5 w-3.5" />{" "}
               {statusFilter === "archived" ? "Hide archive" : "Show archive"}
             </Button>
-            <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
+            <span className="text-muted hidden items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase sm:inline-flex">
               <Users className="h-3.5 w-3.5" /> UP BadAss roster
             </span>
           </div>
@@ -441,17 +445,22 @@ export function PlayerManager({
                       )}
                     </div>
                   </div>
-                  <PlayerActions
-                    player={player}
-                    pending={pending}
-                    compact
-                    awards={awards[player.id]}
-                    onAwards={() => setAwardsFor(player)}
-                    onHistory={() => setHistoryFor(player)}
-                    onEdit={() => openEdit(player)}
-                    onToggleActive={() => act(() => togglePlayerActive(player.id, !player.active))}
-                    onDelete={() => confirmDelete(player)}
-                  />
+                  <div className="flex shrink-0 items-center">
+                    <AwardsButton
+                      nickname={player.nickname}
+                      awards={awards[player.id]}
+                      onOpen={() => setAwardsFor(player)}
+                      placeholder={false}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setActionsFor(player)}
+                      className="press text-muted hover:bg-cream-deep hover:text-ink grid h-10 w-10 place-items-center rounded-full"
+                      aria-label={`Actions for ${player.nickname}`}
+                    >
+                      <MoreHorizontal className="h-5 w-5" />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -826,6 +835,55 @@ export function PlayerManager({
         </ul>
       </Modal>
 
+      <Modal
+        open={actionsFor !== null}
+        onClose={() => setActionsFor(null)}
+        title={actionsFor?.nickname ?? "Player"}
+        description={actionsFor?.fullName ?? undefined}
+        size="sm"
+      >
+        {actionsFor && (
+          <div className="grid gap-1.5">
+            {[
+              {
+                label: "Attendance history",
+                icon: History,
+                run: () => setHistoryFor(actionsFor),
+              },
+              { label: "Edit player", icon: Pencil, run: () => openEdit(actionsFor) },
+              actionsFor.active
+                ? {
+                    label: "Archive",
+                    icon: Archive,
+                    run: () => act(() => togglePlayerActive(actionsFor.id, false)),
+                  }
+                : {
+                    label: "Reactivate",
+                    icon: RotateCcw,
+                    run: () => act(() => togglePlayerActive(actionsFor.id, true)),
+                  },
+              { label: "Delete", icon: Trash2, run: () => confirmDelete(actionsFor), danger: true },
+            ].map(({ label, icon: Icon, run, danger }) => (
+              <button
+                key={label}
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setActionsFor(null);
+                  run();
+                }}
+                className={cn(
+                  "press border-line/70 bg-cream/40 flex h-12 items-center gap-3 rounded-xl border px-4 text-left text-[13px] font-semibold",
+                  danger ? "text-coral hover:bg-coral-soft" : "hover:bg-cream-deep",
+                )}
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </Modal>
+
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>
   );
@@ -850,12 +908,15 @@ function AwardsButton({
   nickname,
   awards,
   onOpen,
+  placeholder = true,
 }: {
   nickname: string;
   awards: PlayerAward[] | undefined;
   onOpen: () => void;
+  /** Keep an empty slot when there are no awards, so a row of icons stays lined up. */
+  placeholder?: boolean;
 }) {
-  if (!awards || awards.length === 0) return <span aria-hidden className="h-10 w-10" />;
+  if (!awards || awards.length === 0) return placeholder ? <span aria-hidden className="h-10 w-10" /> : null;
   const champion = awards.some((award) => award.place === "CHAMPION");
   return (
     <button
@@ -885,11 +946,10 @@ function AwardsButton({
   );
 }
 
-/** Awards, history, edit, archive and delete for one player. On phones they fold into a 3-column grid. */
+/** Awards, history, edit, archive and delete for one player (tablet and desktop; phones use a sheet). */
 function PlayerActions({
   player,
   pending,
-  compact = false,
   awards,
   onAwards,
   onHistory,
@@ -899,7 +959,6 @@ function PlayerActions({
 }: {
   player: PlayerRecord;
   pending: boolean;
-  compact?: boolean;
   awards: PlayerAward[] | undefined;
   onAwards: () => void;
   onHistory: () => void;
@@ -910,7 +969,7 @@ function PlayerActions({
   const icon =
     "press text-muted hover:bg-cream-deep hover:text-ink grid h-10 w-10 place-items-center rounded-full";
   return (
-    <div className={cn("flex shrink-0 items-center justify-end gap-0.5", compact && "grid grid-cols-3")}>
+    <div className="flex shrink-0 items-center justify-end gap-0.5">
       <AwardsButton nickname={player.nickname} awards={awards} onOpen={onAwards} />
       <button
         type="button"

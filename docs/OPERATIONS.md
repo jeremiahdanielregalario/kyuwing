@@ -156,7 +156,7 @@ The score (0–100) sorts the **Recency** column. Each list counts less as it ag
 
 ## Tournament awards
 
-Players with a tournament podium get a trophy (gold for a title, a medal for runner-up only) as the first icon on their row in the player database. Tapping it lists each podium with the level, tournament, date, and their doubles partner or, for team-format tournaments, their teammates.
+Players with a tournament podium get a trophy (gold for a title, a medal for runner-up only) as the first icon on their row in the player database (on phones, beside the ⋯ button that holds the other player actions). Tapping it lists each podium with the level, tournament, date, and their doubles partner or, for team-format tournaments, their teammates.
 
 To add a tournament, go to **Players → Tournament awards → Add awards** and paste the results:
 
