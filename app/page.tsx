@@ -794,7 +794,7 @@ export default function HomePage() {
           <div>
             <Logo tone="cream" />
             <p className="text-cream/55 mt-4 max-w-xs text-[13px] leading-relaxed">
-              Fair, fast game-day queueing for the UP Badminton Association, Diliman. Competency. Commitment.
+              Fair, fast game-day queueing for the UP Badminton Association in Diliman. Competency. Commitment.
               Camaraderie.
             </p>
             <div className="text-cream/45 mt-5 flex flex-wrap gap-2 text-[10px] tracking-[0.14em] uppercase">
