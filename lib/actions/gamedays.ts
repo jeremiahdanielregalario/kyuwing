@@ -24,7 +24,7 @@ import {
 } from "@/lib/datetime";
 import { canUndoCheckIn } from "@/lib/check-in";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
-import { levelLabel, parseLevel } from "@/lib/levels";
+import { isUnrated, levelLabel, parseLevel } from "@/lib/levels";
 import {
   GAME_MINUTES,
   isFreeBy,
@@ -1137,6 +1137,22 @@ export async function clearSuggestedMatches(gameDayId: string): Promise<ActionRe
   return ok(result.count ? `${result.count} suggestions cleared.` : "No suggestions to clear.");
 }
 
+/** A game cannot start while one of its players is still level X (not rated yet). */
+function unratedIn(matches: { players: { player: { nickname: string; level: string } }[] }[]) {
+  const names = [
+    ...new Set(
+      matches.flatMap((match) =>
+        match.players.filter((row) => isUnrated(row.player.level)).map((row) => row.player.nickname),
+      ),
+    ),
+  ];
+  if (names.length === 0) return null;
+  return fail(
+    `Set a level for ${names.join(", ")} before the game starts. X means their level is not known yet.`,
+    "UNRATED_PLAYERS",
+  );
+}
+
 export async function startMatch(matchId: string, options: { free?: boolean } = {}): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;
@@ -1148,6 +1164,8 @@ export async function startMatch(matchId: string, options: { free?: boolean } = 
   if (!match) return fail("Match not found.");
   const name = await courtNamer(match.gameDayId);
   if (match.status !== "SUGGESTED") return fail("This match is not waiting to start.");
+  const unrated = unratedIn([match]);
+  if (unrated) return unrated;
 
   let court = match.courtNumber;
   let noCourt = false;
@@ -1246,6 +1264,8 @@ export async function startAllSuggested(
     include: { players: { include: { player: true } } },
   });
   if (matches.length === 0) return fail("There are no suggested matches on a court to start.");
+  const unrated = unratedIn(matches);
+  if (unrated) return unrated;
 
   // Guard against stale duplicate suggestions: one player cannot start twice.
   const live = await prisma.match.findMany({
@@ -1820,6 +1840,36 @@ export async function markAllPaid(gameDayId: string): Promise<ActionResult<{ upd
 
   refreshGameDay(gameDayId);
   return ok(updated ? `${updated} players marked paid.` : "Everyone is already marked paid.", { updated });
+}
+
+/** Sets real levels for players still marked X, from the queue board's prompt. */
+export async function setPlayerLevels(
+  gameDayId: string,
+  levels: { playerId: string; level: string }[],
+): Promise<ActionResult<{ updated: number }>> {
+  const authError = await guard();
+  if (authError) return authError;
+  const parsed: { playerId: string; level: NonNullable<ReturnType<typeof parseLevel>> }[] = [];
+  for (const row of levels) {
+    const level = parseLevel(row.level);
+    if (!level || isUnrated(level)) return fail("Pick a level for every player, from E- to A+.");
+    if (typeof row.playerId !== "string" || !row.playerId) return fail("Player not found.");
+    parsed.push({ playerId: row.playerId, level });
+  }
+  if (parsed.length === 0) return fail("Pick at least one level.");
+  // Only players on this game day can be changed from its board.
+  const onDay = await prisma.sessionPlayer.count({
+    where: { gameDayId, playerId: { in: parsed.map((row) => row.playerId) } },
+  });
+  if (onDay !== new Set(parsed.map((row) => row.playerId)).size)
+    return fail("Player not found on this game day.");
+  await prisma.$transaction(
+    parsed.map((row) => prisma.player.update({ where: { id: row.playerId }, data: { level: row.level } })),
+  );
+  refreshGameDay(gameDayId);
+  return ok(parsed.length === 1 ? "Level saved." : `${parsed.length} levels saved.`, {
+    updated: parsed.length,
+  });
 }
 
 export async function createQuickPlayer(

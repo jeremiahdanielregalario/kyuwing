@@ -23,6 +23,7 @@ import {
 import {
   Activity,
   AlertCircle,
+  BadgeHelp,
   LogOut,
   Check,
   ChevronRight,
@@ -90,7 +91,7 @@ import {
 } from "@/lib/actions/gamedays";
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
-import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
+import { LEVEL_OPTIONS, isUnrated, levelLabel, levelValue } from "@/lib/levels";
 import { canDropOn } from "@/lib/drag-targets";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
@@ -115,9 +116,11 @@ import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { haptic } from "@/lib/haptics";
+import type { ActionFailureCode } from "@/lib/action-result";
+import { UnratedLevelsPrompt } from "@/components/app/unrated-levels-prompt";
 import { cn } from "@/lib/utils";
 
-type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
+type AnyResult = { ok: true; message?: string } | { ok: false; error: string; code?: ActionFailureCode };
 type QueueTab = "waiting" | "playing" | "expected" | "done";
 
 const fetcher = async (url: string) => {
@@ -253,6 +256,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [editTeam2, setEditTeam2] = React.useState<string[]>([]);
   const [drafts, setDrafts] = React.useState<Record<number, Array<string | null>>>({});
   const [activeDrag, setActiveDrag] = React.useState<DragPayload | null>(null);
+  // Players still at level X (not rated yet). The prompt opens by itself until "Later" is
+  // pressed for this exact group; a new X player, or a refused start, brings it back.
+  const [unratedDismissed, setUnratedDismissed] = React.useState<string | null>(null);
+  const [unratedForced, setUnratedForced] = React.useState(false);
   const creatingDrafts = React.useRef<Set<number>>(new Set());
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -277,6 +284,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       } else {
         haptic("warning");
         toast.error(result.error);
+        if (result.code === "UNRATED_PLAYERS") setUnratedForced(true);
       }
     });
   };
@@ -458,6 +466,13 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const courtNumbers = Array.from({ length: courtCount }, (_, index) => index + 1);
   const isDraft = data.gameDay.status === "DRAFT";
   const isCompleted = data.gameDay.status === "COMPLETED";
+  const unrated = data.players.filter((player) => isUnrated(player.level) && player.status !== "DONE");
+  const unratedKey = unrated
+    .map((player) => player.playerId)
+    .sort()
+    .join(",");
+  const unratedOpen =
+    !isCompleted && unrated.length > 0 && (unratedForced || unratedDismissed !== unratedKey);
 
   // When the reserved time runs out on the game day itself, ask whether to extend or end.
   const bookedUntil = reservationEnd(plan);
@@ -518,6 +533,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       if (result.ok) {
         haptic("success");
         toast.success(result.message ?? "Started.");
+      } else if (result.code === "UNRATED_PLAYERS") {
+        haptic("warning");
+        toast.error(result.error);
+        setUnratedForced(true);
       } else if (result.code === "PLAYER_STILL_PLAYING") {
         setConfirmSpec({
           title: "Someone is still on court",
@@ -999,6 +1018,11 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
           >
             <UserRoundPlus className="h-4 w-4" /> Walk-in
           </Button>
+          {!isCompleted && unrated.length > 0 && (
+            <Button variant="paper" onClick={() => setUnratedForced(true)} className="flex-1 sm:flex-none">
+              <BadgeHelp className="h-4 w-4" /> Set levels ({unrated.length})
+            </Button>
+          )}
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_370px]">
@@ -1387,6 +1411,19 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         </div>
 
         <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
+        <UnratedLevelsPrompt
+          open={unratedOpen}
+          onClose={() => {
+            setUnratedForced(false);
+            setUnratedDismissed(unratedKey);
+          }}
+          gameDayId={data.gameDay.id}
+          players={unrated}
+          onSaved={() => {
+            setUnratedForced(false);
+            void mutate();
+          }}
+        />
 
         {/* Check-in modal */}
         <Modal
@@ -1489,7 +1526,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   value={walk.level}
                   onChange={(event) => setWalk({ ...walk, level: event.target.value })}
                 >
-                  {LEVELS.map((level) => (
+                  {LEVEL_OPTIONS.map((level) => (
                     <option key={level.key} value={level.key}>
                       {level.label}
                     </option>

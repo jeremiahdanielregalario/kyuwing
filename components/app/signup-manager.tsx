@@ -35,7 +35,7 @@ import {
 } from "@/lib/actions/gamedays";
 import type { BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT } from "@/lib/fees";
-import { LEVELS } from "@/lib/levels";
+import { LEVEL_OPTIONS, type LevelKey } from "@/lib/levels";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -131,7 +131,7 @@ export function SignupManager({
     startTransition(async () => {
       const created = await createQuickPlayer({
         nickname: quick.nickname,
-        level: quick.level as (typeof LEVELS)[number]["key"],
+        level: quick.level as LevelKey,
         category: quick.category as "ACTIVE",
         fullName: null,
         contact: null,
@@ -417,7 +417,7 @@ export function SignupManager({
                 value={quick.level}
                 onChange={(event) => setQuick({ ...quick, level: event.target.value })}
               >
-                {LEVELS.map((level) => (
+                {LEVEL_OPTIONS.map((level) => (
                   <option key={level.key} value={level.key}>
                     {level.label}
                   </option>

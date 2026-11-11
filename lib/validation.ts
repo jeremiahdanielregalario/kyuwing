@@ -21,6 +21,8 @@ export const SKILL_LEVEL_KEYS = [
   "A_MINUS",
   "A",
   "A_PLUS",
+  // Not rated yet.
+  "X",
 ] as const;
 
 export const CATEGORY_KEYS = ["ACTIVE", "INACTIVE", "ALUMNI", "APPLICANT", "NON_AFFILIATE"] as const;

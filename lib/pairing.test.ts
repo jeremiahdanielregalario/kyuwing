@@ -167,6 +167,33 @@ describe("findBestMatch", () => {
   });
 });
 
+describe("unrated (X) players", () => {
+  it("never auto-pairs an X player", () => {
+    const players = [
+      player("x1", "X", { waitMinutes: 90 }),
+      player("c1", "C"),
+      player("c2", "C"),
+      player("c3", "C"),
+      player("c4", "C"),
+    ];
+    const suggestion = findBestMatch(players, [], { scarcity: false });
+    expect(suggestion).not.toBeNull();
+    expect(suggestion!.playerIds).not.toContain("x1");
+  });
+
+  it("returns no match when X players are needed to make four", () => {
+    const players = [player("x1", "X"), player("c1", "C"), player("c2", "C"), player("c3", "C")];
+    expect(findBestMatch(players)).toBeNull();
+    expect(suggestMatches(players, [], { courts: 2 })).toEqual([]);
+  });
+
+  it("keeps an X player the queue master placed by hand", () => {
+    const players = [player("x1", "X"), player("c1", "C"), player("c2", "C"), player("c3", "C")];
+    expect(findBestMatch(players, [], { mustInclude: ["x1"] })!.playerIds).toContain("x1");
+    expect(findBestMatch(players, [], { sides: { x1: 1 } })!.playerIds).toContain("x1");
+  });
+});
+
 describe("suggestMatches", () => {
   it("fills multiple courts without assigning a player twice", () => {
     const players = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"].map((id) =>

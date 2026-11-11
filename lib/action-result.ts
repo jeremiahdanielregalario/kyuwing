@@ -1,5 +1,5 @@
 /** Why a failure happened, when the caller wants to react to it rather than just show it. */
-export type ActionFailureCode = "PLAYER_STILL_PLAYING";
+export type ActionFailureCode = "PLAYER_STILL_PLAYING" | "UNRATED_PLAYERS";
 
 export type ActionResult<T = undefined> =
   { ok: true; message?: string; data?: T } | { ok: false; error: string; code?: ActionFailureCode };

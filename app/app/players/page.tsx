@@ -4,7 +4,7 @@ import { RecencyPanel } from "@/components/app/recency-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { Stat } from "@/components/ui/stat";
 import { manilaDateKey } from "@/lib/datetime";
-import { LEVELS, bracketOf, levelTone } from "@/lib/levels";
+import { LEVELS, bracketOf, isUnrated, levelTone } from "@/lib/levels";
 import { getAttendanceOverview, getPlayers } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +24,11 @@ export default async function PlayersPage() {
 
   const byBracket = ["E", "D", "C", "B", "A"].map((bracket) => ({
     bracket,
-    count: players.filter((player) => player.active && bracketOf(player.level) === bracket).length,
+    count: players.filter(
+      (player) => player.active && !isUnrated(player.level) && bracketOf(player.level) === bracket,
+    ).length,
   }));
+  const unrated = players.filter((player) => player.active && isUnrated(player.level)).length;
   const maxBracket = Math.max(1, ...byBracket.map((row) => row.count));
 
   const records = players.map((player) => ({
@@ -71,6 +74,7 @@ export default async function PlayersPage() {
           </div>
           <span className="text-muted font-mono text-[10px]">
             {LEVELS.length} levels · {active} active
+            {unrated > 0 ? ` · ${unrated} not rated yet (X)` : ""}
           </span>
         </div>
         <div className="border-line mt-5 grid grid-cols-5 gap-2 border-b sm:gap-4">
@@ -118,8 +122,10 @@ export default async function PlayersPage() {
       <PlayerManager players={records} recency={attendance.byPlayer} history={attendance.historyByPlayer} />
 
       <p data-trim-id="players.level-legend" className="text-muted text-[11px] leading-relaxed">
-        Level labels: {LEVELS.map((level) => level.label).join(" · ")}. Full names are optional; nicknames are
-        what the queue board shows. Updating a nickname used on a past game day keeps the same player record.
+        Level labels: {LEVELS.map((level) => level.label).join(" · ")}. X means not rated yet: X players are
+        never auto-paired, and the queue board asks for their level before their game starts. Full names are
+        optional; nicknames are what the queue board shows. Updating a nickname used on a past game day keeps
+        the same player record.
       </p>
     </div>
   );

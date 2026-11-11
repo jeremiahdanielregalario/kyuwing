@@ -32,6 +32,8 @@ enum SkillLevel {
   A_MINUS
   A
   A_PLUS
+  /// Not rated yet (e.g. a new applicant). Never auto-paired; the board asks for a real level.
+  X
 }
 
 enum PlayerCategory {

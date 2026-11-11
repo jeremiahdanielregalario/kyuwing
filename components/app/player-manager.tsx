@@ -33,7 +33,7 @@ import {
   updatePlayer,
 } from "@/lib/actions/players";
 import { CATEGORY_SHORT } from "@/lib/fees";
-import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
+import { LEVEL_OPTIONS, levelLabel, levelValue, type LevelKey } from "@/lib/levels";
 import type { RecencySnapshot } from "@/lib/recency";
 import type { PlayerHistoryItem } from "@/lib/queries";
 import { formatGameDate } from "@/lib/datetime";
@@ -231,7 +231,7 @@ export function PlayerManager({
     const payload = {
       nickname: form.nickname.trim(),
       fullName: form.fullName.trim() || null,
-      level: form.level as (typeof LEVELS)[number]["key"],
+      level: form.level as LevelKey,
       category: form.category,
       contact: form.contact.trim() || null,
       notes: form.notes.trim() || null,
@@ -287,7 +287,7 @@ export function PlayerManager({
           className="h-9 w-auto min-w-[7rem] text-[12px]"
         >
           <option value="ALL">All levels</option>
-          {LEVELS.map((level) => (
+          {LEVEL_OPTIONS.map((level) => (
             <option key={level.key} value={level.key}>
               {level.label}
             </option>
@@ -599,7 +599,7 @@ export function PlayerManager({
                 value={form.level}
                 onChange={(event) => setForm({ ...form, level: event.target.value })}
               >
-                {LEVELS.map((level) => (
+                {LEVEL_OPTIONS.map((level) => (
                   <option key={level.key} value={level.key}>
                     {level.label}
                   </option>

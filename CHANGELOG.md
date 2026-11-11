@@ -6,6 +6,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Level X (not rated yet)** — a player whose official level is not known can be saved as **X**. X players are never auto-paired and their games cannot start; when any are on a game day, the queue board pops up **Set levels** to rate them (**Later** hides it until another X player arrives, and **Set levels (n)** in the action bar brings it back). The Players page counts them separately from the brackets.
+
 - **Player attendance history** — a history icon on each player row opens every logged game day and tournament they played in or were waitlisted for, newest first.
 - **Show archive button** — beside "UP BadAss roster" on the Players page, one tap switches the player database to archived players only, and **Hide archive** switches back.
 - **View logged attendance lists** — each list under **Players → Logged lists** has a **View** button that opens who played and who was waitlisted (nickname and level), so you can check the history of past game days.

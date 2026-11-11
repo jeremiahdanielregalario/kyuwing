@@ -27,15 +27,28 @@ export const LEVELS = [
   { key: SkillLevel.A_PLUS, label: "A+", value: 18, bracket: "A" },
 ] as const;
 
-export type LevelKey = (typeof LEVELS)[number]["key"];
+/**
+ * "X": the player's official level is not known yet (typically a new applicant).
+ * It is not on the ladder: the pairing engine never places an X player by itself,
+ * and the queue board asks for a real level before such a player's game can start.
+ */
+export const UNRATED_LEVEL = { key: SkillLevel.X, label: "X", value: 0, bracket: "E" } as const;
+
+/** Every level a player record can hold, for pickers: the ladder, then X. */
+export const LEVEL_OPTIONS = [...LEVELS, UNRATED_LEVEL] as const;
+
+export function isUnrated(level: SkillLevel | string): boolean {
+  return level === SkillLevel.X || level === "X";
+}
+
+export type LevelKey = (typeof LEVEL_OPTIONS)[number]["key"];
 export type Bracket = (typeof LEVELS)[number]["bracket"];
 
-export const LEVEL_LABELS = Object.fromEntries(LEVELS.map((level) => [level.key, level.label])) as Record<
-  SkillLevel,
-  string
->;
+export const LEVEL_LABELS = Object.fromEntries(
+  LEVEL_OPTIONS.map((level) => [level.key, level.label]),
+) as Record<SkillLevel, string>;
 
-export const LEVEL_BY_LABEL = new Map(LEVELS.map((level) => [level.label.toLowerCase(), level]));
+export const LEVEL_BY_LABEL = new Map(LEVEL_OPTIONS.map((level) => [level.label.toLowerCase(), level]));
 
 export const BRACKET_ORDER: Bracket[] = ["E", "D", "C", "B", "A"];
 
@@ -48,6 +61,7 @@ export const BRACKET_LABELS: Record<Bracket, string> = {
 };
 
 export function levelInfo(level: SkillLevel | string) {
+  if (isUnrated(level)) return UNRATED_LEVEL;
   return LEVELS.find((row) => row.key === level || row.label === level) ?? LEVELS[0];
 }
 
@@ -80,6 +94,7 @@ export function parseLevel(input: string): LevelKey | null {
     .replace(/_/g, "")
     .replace("PLUS", "+")
     .replace("MINUS", "-");
+  if (value === "X") return SkillLevel.X;
   if (value === "DE") return SkillLevel.DE;
   if (value === "CD") return SkillLevel.CD;
   if (value === "BC") return SkillLevel.BC;
@@ -92,6 +107,9 @@ export function parseLevel(input: string): LevelKey | null {
 
 /** Level colour tokens shared by badges and charts. */
 export function levelTone(level: SkillLevel | string) {
+  if (isUnrated(level)) {
+    return { bg: "bg-white", text: "text-muted", ring: "ring-line-strong", solid: "bg-stone-300" };
+  }
   const bracket = bracketOf(level);
   switch (bracket) {
     case "A":

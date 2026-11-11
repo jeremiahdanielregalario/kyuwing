@@ -1,4 +1,4 @@
-import { bracketGap, bracketIndex, levelValue } from "./levels";
+import { bracketGap, bracketIndex, isUnrated, levelValue } from "./levels";
 
 export type PairingRequestKind = "PAIR_WITH" | "PLAY_AGAINST";
 
@@ -394,10 +394,14 @@ function evaluateMatch(
  * spread, repeated pairings, player requests, waiting time and games played.
  */
 export function findBestMatch(
-  players: PairingPlayer[],
+  candidates: PairingPlayer[],
   history: PairingHistoryMatch[] = [],
   options: PairingOptions = {},
 ): PairingSuggestion | null {
+  // An unrated ("X") player is never picked by the engine: their strength is unknown, so any
+  // balance would be a guess. They only play when the queue master places them by hand.
+  const placed = new Set([...(options.mustInclude ?? []), ...Object.keys(options.sides ?? {})]);
+  const players = candidates.filter((player) => !isUnrated(player.level) || placed.has(player.id));
   if (players.length < 4) return null;
 
   const scarcity = options.scarcity ?? players.length < 8;

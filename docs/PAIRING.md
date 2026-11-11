@@ -79,6 +79,10 @@ bracket:    E     |     D      |     C      |     B      |     A
 
 The rule is applied to **teammates**, not opponents. Opponents of different levels are fine as long as the teams balance; the balance term handles the rest.
 
+### Unrated players (X)
+
+`X` means the player's official level is not known yet. It has no place on the ladder, so `findBestMatch` drops X players from the candidates before anything else, unless the queue master placed them by hand (`mustInclude` or `sides`). With fewer than four rated players left, no match is suggested. On the server, `startMatch` and `startAllSuggested` refuse a game with an X player (code `UNRATED_PLAYERS`), and the queue board asks for their levels.
+
 ## Permanent pairs
 
 A permanent pair is mutual: `a.permanentPartnerId === b.id` **and** `b.permanentPartnerId === a.id`.

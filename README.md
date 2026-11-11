@@ -47,6 +47,8 @@ A:   AB  A-  A  A+
 
 Brackets are `E → D → C → B → A`; the engine prefers partners and opponents within the same bracket, tolerates one bracket up or down, and only crosses further when the queue is thin.
 
+A player can also be **X** (not rated yet), typically a new applicant whose official level is not known. X is not on the ladder: the engine never picks an X player by itself, a game with an X player cannot start, and the queue board pops up **Set levels** for any X player on the game day so the queue master can rate them first.
+
 ### Venues
 
 | Code | Venue                     | Default day | Default hours | Default courts |
