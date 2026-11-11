@@ -176,6 +176,10 @@ Both report routes authenticate, stream the file with a `Content-Disposition` fi
 - The pairing search is bounded: it sorts by priority/wait, caps the candidate pool, and evaluates foursomes and splits within that pool. It is not exponential in the full queue size.
 - Server components are used for every page except the interactive board, sign-ups, ledger, settings, and marketing demo.
 
+## Installable app
+
+`app/manifest.ts` serves the web app manifest (standalone display, `start_url` `/app`, icons in `public/icons/`, generated from `app/icon.svg`; `app/apple-icon.png` is the iOS home-screen icon). `public/sw.js` is a minimal service worker registered from the root layout by `ServiceWorkerRegistration` (`components/install-app.tsx`). It only handles navigations: network first, and an inline "You're offline" page if the network fails. It caches nothing, so authenticated board data never lands in a cache, and a deploy takes effect on the next load. `InstallAppButton` captures `beforeinstallprompt` at module load (it can fire before any button mounts), shows the iOS Share → Add to Home Screen steps where there is no install event, and hides in standalone mode or after `appinstalled`.
+
 ## Deliberate non-goals
 
 - Multi-tenant organizations, per-user permissions, and audit logs.

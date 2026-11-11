@@ -208,7 +208,10 @@ If something looks broken:
 
 ## Device tips
 
-- Add Kyuwing to the home screen for a full-screen board.
+- **Install Kyuwing as an app** for a full-screen board with its own icon:
+  - **Android (Chrome, Samsung Internet), or Chrome / Edge on a computer:** tap **Install app** (the download icon in the phone header, the button in the sidebar, or on the sign-in page) and confirm. The browser's own menu (**Install app** / **Add to Home screen**) works too.
+  - **iPhone / iPad:** open Kyuwing in Safari, tap **Share**, then **Add to Home Screen**. The Install app button shows these steps.
+  - The installed app opens straight to the board and updates itself whenever a new version is deployed. It still needs the internet; without it you get a "You're offline" page with **Try again**.
 - Keep the device plugged in or on a power bank.
 - Use one device as the source of truth. Multiple queue masters is fine for viewing, but avoid two people pressing pair at the same time.
 - Screen brightness up; the board is designed to be readable across a court.

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, DM_Sans, JetBrains_Mono, Special_Gothic_Expanded_One } from "next/font/google";
 import { Toaster } from "sonner";
+import { ServiceWorkerRegistration } from "@/components/install-app";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -29,6 +30,13 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "Kyuwing",
+  appleWebApp: {
+    capable: true,
+    title: "Kyuwing",
+    statusBarStyle: "black",
+  },
+  formatDetection: { telephone: false },
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: {
     default: "Kyuwing — the UP BadAss queue board",
@@ -64,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${brand.variable} ${body.variable} ${mono.variable}`}>
       <body className="bg-cream text-ink min-h-screen">
         {children}
+        <ServiceWorkerRegistration />
         <Toaster
           position="top-center"
           toastOptions={{

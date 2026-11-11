@@ -33,6 +33,7 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 | Fees          | Venue/type/category fee rules, per-player ledger, cash/GCash/bank/other                                         |
 | Reports       | Session summary, player breakdown, Excel (`.xlsx`) and PDF export                                               |
 | Ops guide     | In-app queue-master playbook with checklists and FAQs                                                           |
+| Install       | Installable web app (manifest + service worker): its own window and home-screen icon; offline fallback page     |
 
 ### Player levels
 

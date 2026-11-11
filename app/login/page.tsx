@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, ShieldCheck, Sparkles, Timer, Trophy, Users } from "lucide-react";
 import { LoginForm } from "@/components/app/login-form";
+import { InstallAppButton } from "@/components/install-app";
 import { BrandMark, Logo, OrgBadge } from "@/components/logo";
 import { getSession, hasConfiguredAdminPin } from "@/lib/auth";
 
@@ -86,6 +87,10 @@ export default async function LoginPage({
                 </Link>
               )}
             </div>
+          </div>
+
+          <div className="mt-4 flex justify-center">
+            <InstallAppButton variant="inline" />
           </div>
 
           {mode === "admin" && (

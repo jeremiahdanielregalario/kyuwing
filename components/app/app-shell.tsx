@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 import { AppNav, FooterLinks, MobileNav } from "@/components/app/app-nav";
 import { Logo, OrgBadge } from "@/components/logo";
 import { logoutAction } from "@/lib/actions/auth";
+import { InstallAppButton } from "@/components/install-app";
 
 export function AppShell({
   name,
@@ -41,7 +42,8 @@ export function AppShell({
               <p data-trim-id="shell.session-caption" className="text-cream/45 text-[10px]">
                 {admin ? "Developer session" : "Queue master session"}
               </p>
-              <form action={logoutAction} className="mt-3">
+              <InstallAppButton variant="sidebar" className="mt-3" />
+              <form action={logoutAction} className="mt-2">
                 <button
                   type="submit"
                   className="border-cream/15 text-cream/70 hover:border-lime/50 hover:bg-lime/10 hover:text-lime inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-semibold transition"
@@ -69,6 +71,7 @@ export function AppShell({
                 Dev
               </span>
             )}
+            <InstallAppButton variant="icon" />
             <span className="border-cream/15 bg-cream/5 text-cream/70 max-w-[11rem] truncate rounded-full border px-3 py-1.5 text-[11px] font-semibold">
               {name}
             </span>
