@@ -13,7 +13,7 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 - **Arrival is the queue.** Sign-ups are only a list of expected players. A wait timer starts at check-in, not at sign-up.
 - **Balanced games, not random ones.** The engine weighs every foursome and every team split, then picks the fairest available match.
 - **Repeat pairings fade out.** Teammates, opponents, and whole foursomes are penalized if they keep recurring.
-- **Court blocks match reality.** “3 courts from 9–10, 4 courts from 10–12” is a first-class setting.
+- **Court blocks match reality.** Set the game time (say 9 AM–12 PM), then split it: “3 courts from 9–10, 4 courts from 10–12” is a first-class setting, and blocks always stay inside the game time.
 - **Fees follow the games.** Flat fee + per-game rate, by venue, player type, and game-day type.
 - **Reports the treasurer can use.** One click for a formatted Excel workbook or a print-ready PDF.
 

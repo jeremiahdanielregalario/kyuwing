@@ -19,10 +19,10 @@ import {
   normalizeCourtLabel,
   QUEUED_COURT,
   renamedCourt,
-  timeToMinutes,
   withoutCourt,
 } from "@/lib/datetime";
 import { canUndoCheckIn } from "@/lib/check-in";
+import { planProblem } from "@/lib/court-plan";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { isUnrated, levelLabel, parseLevel } from "@/lib/levels";
 import {
@@ -127,12 +127,7 @@ async function promoteQueuedGames(
 }
 
 function validateCourtPlan(plan: Array<{ start: string; end: string }>) {
-  for (const slot of plan) {
-    if (timeToMinutes(slot.end) <= timeToMinutes(slot.start)) {
-      return "Each court block must end after it starts.";
-    }
-  }
-  return null;
+  return planProblem(plan);
 }
 
 export async function createGameDay(input: unknown): Promise<ActionResult<{ id: string }>> {

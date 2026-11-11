@@ -9,7 +9,6 @@ import {
   Clock3,
   LayoutGrid,
   Play,
-  Plus,
   RotateCcw,
   Save,
   Settings2,
@@ -22,6 +21,8 @@ import type { BoardGameDay } from "@/lib/board-types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CourtRateField } from "@/components/app/court-rate-field";
+import { CourtPlanEditor } from "@/components/app/court-plan-editor";
+import { fitPlan, gameTime, planProblem, planWindow } from "@/lib/court-plan";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
@@ -33,16 +34,6 @@ type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
 function dateValue(iso: string) {
   return iso.slice(0, 10);
-}
-
-function makeSlot(index: number): Slot {
-  return {
-    id: `slot-${Date.now()}-${index}`,
-    label: `Block ${index + 1}`,
-    start: index === 0 ? "10:00" : "12:00",
-    end: index === 0 ? "12:00" : "14:00",
-    courts: 3,
-  };
 }
 
 export function GameDaySettings({
@@ -66,7 +57,13 @@ export function GameDaySettings({
   const [courtRate, setCourtRate] = React.useState(
     gameDay.courtRatePerHour ? String(gameDay.courtRatePerHour) : "",
   );
-  const [slots, setSlots] = React.useState<Slot[]>(gameDay.courtPlan);
+  // Blocks always run back to back across the game time (see lib/court-plan.ts).
+  const [slots, setSlots] = React.useState<Slot[]>(() => {
+    const game = planWindow(gameDay.courtPlan);
+    if (!game) return gameDay.courtPlan;
+    const fixed = gameTime(game.start, game.end);
+    return fitPlan(gameDay.courtPlan, fixed.start, fixed.end);
+  });
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [confirmText, setConfirmText] = React.useState("");
@@ -85,12 +82,9 @@ export function GameDaySettings({
   };
 
   const save = () => {
-    if (slots.length === 0) {
-      toast.error("Add at least one court block.");
-      return;
-    }
-    if (slots.some((slot) => slot.end <= slot.start)) {
-      toast.error("Every court block must end after it starts.");
+    const problem = planProblem(slots);
+    if (problem) {
+      toast.error(problem);
       return;
     }
     act(() =>
@@ -107,20 +101,6 @@ export function GameDaySettings({
         courtPlan: slots,
       }),
     );
-  };
-
-  const addSlot = () => {
-    setSlots((current) => {
-      const previous = current[current.length - 1];
-      return [
-        ...current,
-        {
-          ...makeSlot(current.length),
-          start: previous?.end ?? "12:00",
-          courts: previous?.courts ?? 3,
-        },
-      ];
-    });
   };
 
   const totalCourtHours = slots.reduce((sum, slot) => {
@@ -298,7 +278,7 @@ export function GameDaySettings({
             <div>
               <h2 className="font-display text-lg font-bold">Court blocks</h2>
               <p data-trim-id="settings.courts-note" className="text-muted text-[11px]">
-                How many courts are open in each time block.
+                The game time, and how many courts are open in each block of it.
               </p>
             </div>
             <span className="bg-cream-deep text-forest grid h-9 w-9 place-items-center rounded-xl">
@@ -306,123 +286,46 @@ export function GameDaySettings({
             </span>
           </div>
 
-          <div className="mt-4 space-y-2">
-            {slots.map((slot, index) => (
-              <div key={slot.id} className="border-line bg-cream/30 rounded-2xl border p-2.5">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={slot.label}
-                    onChange={(event) =>
-                      setSlots((current) =>
-                        current.map((row, i) => (i === index ? { ...row, label: event.target.value } : row)),
-                      )
-                    }
-                    className="h-9 flex-1 text-[12px]"
-                    aria-label="Block label"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSlots((current) => current.filter((_, i) => i !== index))}
-                    disabled={slots.length === 1}
-                    className="text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 shrink-0 place-items-center rounded-lg transition disabled:opacity-30"
-                    aria-label="Remove block"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="mt-2 grid grid-cols-[1fr_1fr_0.8fr] gap-2">
-                  <label className="block">
-                    <span className="text-muted text-[8px] tracking-wide uppercase">Start</span>
-                    <Input
-                      type="time"
-                      value={slot.start}
-                      onChange={(event) =>
-                        setSlots((current) =>
-                          current.map((row, i) =>
-                            i === index ? { ...row, start: event.target.value } : row,
-                          ),
-                        )
-                      }
-                      className="h-9 text-[12px]"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-muted text-[8px] tracking-wide uppercase">End</span>
-                    <Input
-                      type="time"
-                      value={slot.end}
-                      onChange={(event) =>
-                        setSlots((current) =>
-                          current.map((row, i) => (i === index ? { ...row, end: event.target.value } : row)),
-                        )
-                      }
-                      className="h-9 text-[12px]"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-muted text-[8px] tracking-wide uppercase">Courts</span>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={slot.courts}
-                      onChange={(event) =>
-                        setSlots((current) =>
-                          current.map((row, i) =>
-                            i === index ? { ...row, courts: Number(event.target.value) } : row,
-                          ),
-                        )
-                      }
-                      className="h-9 text-center text-[12px]"
-                    />
-                  </label>
-                </div>
+          <div className="mt-4">
+            <CourtPlanEditor
+              blocks={slots}
+              onChange={setSlots}
+              makeBlock={(from, index) => ({
+                ...from,
+                id: `slot-${Date.now()}-${index}`,
+              })}
+              renderExtra={(slot, _index, update) => (
                 <div className="mt-2">
                   <span
                     data-trim-id="settings.court-names-note"
-                    className="text-muted text-[8px] tracking-wide uppercase"
+                    className="text-muted mb-1 block text-[10px] font-bold tracking-[0.12em] uppercase"
                   >
                     Court names (optional)
                   </span>
-                  <div className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                     {Array.from({ length: slot.courts }, (_, courtIndex) => (
                       <Input
                         key={courtIndex}
                         value={slot.courtLabels?.[courtIndex] ?? ""}
                         placeholder={`Court ${courtIndex + 1}`}
                         maxLength={24}
-                        className="h-8 text-[11px]"
+                        className="h-9 text-[12px]"
                         aria-label={`Court ${courtIndex + 1} name`}
                         onChange={(event) => {
                           const value = event.target.value;
-                          setSlots((current) =>
-                            current.map((row, i) =>
-                              i === index
-                                ? {
-                                    ...row,
-                                    courtLabels: Array.from({ length: row.courts }, (_, position) =>
-                                      position === courtIndex ? value : (row.courtLabels?.[position] ?? ""),
-                                    ),
-                                  }
-                                : row,
+                          update({
+                            courtLabels: Array.from({ length: slot.courts }, (_, position) =>
+                              position === courtIndex ? value : (slot.courtLabels?.[position] ?? ""),
                             ),
-                          );
+                          });
                         }}
                       />
                     ))}
                   </div>
                 </div>
-              </div>
-            ))}
+              )}
+            />
           </div>
-
-          <button
-            type="button"
-            onClick={addSlot}
-            className="text-forest mt-2 inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
-          >
-            <Plus className="h-3 w-3" /> Add another block
-          </button>
 
           <div className="bg-cream-deep/60 mt-4 flex items-center justify-between rounded-xl px-3 py-2 text-[11px]">
             <span className="text-muted inline-flex items-center gap-1.5">
