@@ -2,7 +2,7 @@
 
 **Fair doubles queues for UP BadAss.** Kyuwing runs a badminton game day from sign-up to settlement: arrival-based queueing, balanced auto-pairings, court blocks, fee tracking, and Excel/PDF reports — all from one tablet-friendly board.
 
-> App by **Danyel Regalario** · Built for the UP Badminton Association (UP BadAss), Diliman.
+> App by **Danyel Regalario** · Built for the UP Badminton Association in Diliman (UP BadAss).
 
 ---
 
@@ -246,4 +246,4 @@ Then run `pnpm db:deploy` against the production database.
 
 ## License
 
-[MIT](LICENSE) © Danyel Regalario
+[MIT](LICENSE) © [JD Regalario](https://github.com/jeremiahdanielregalario)
