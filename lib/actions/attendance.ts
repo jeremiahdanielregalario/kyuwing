@@ -21,6 +21,8 @@ export type AttendanceImportSummary = {
 };
 
 export type AttendanceEventInput = {
+  /** Set when editing a logged list: its date, type, label and players are replaced. */
+  id?: string;
   date: string;
   kind: "GAMEDAY" | "TOURNAMENT";
   label?: string;
@@ -36,18 +38,20 @@ export async function logAttendanceEvent(
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return fail("Pick a valid date.");
 
+  const players = await prisma.player.findMany({
+    select: { id: true, nickname: true, fullName: true },
+  });
+  const nicknames = new Set(players.map((player) => nameKey(player.nickname)));
+  const isKnown = (key: string) => nicknames.has(key);
+
   // The played box may hold a whole chat message, including its own "Waitlist:" section.
-  const pasted = parseAttendanceBlock(input.playedText);
+  const pasted = parseAttendanceBlock(input.playedText, isKnown);
   const played = pasted.played;
-  const waitlist = [...pasted.waitlist, ...parseNameList(input.waitlistText)];
+  const waitlist = [...pasted.waitlist, ...parseNameList(input.waitlistText, isKnown)];
 
   if (played.length === 0 && waitlist.length === 0) {
     return fail("Paste at least one nickname into the played or waitlist list.");
   }
-
-  const players = await prisma.player.findMany({
-    select: { id: true, nickname: true, fullName: true },
-  });
 
   // Chat lists use nicknames, so a nickname always wins over a full name, and a
   // full name shared by two players is too ambiguous to match on.
@@ -93,23 +97,37 @@ export async function logAttendanceEvent(
     );
   }
 
+  const fields = {
+    date: dateOnlyFromKey(input.date),
+    kind: input.kind,
+    label: input.label?.trim() || null,
+  };
+  const entries = [...playedIds].map(([playerId, status]) => ({ playerId, status }));
+
   try {
-    const event = await prisma.attendanceEvent.create({
-      data: {
-        date: dateOnlyFromKey(input.date),
-        kind: input.kind,
-        label: input.label?.trim() || null,
-        entries: {
-          create: [...playedIds].map(([playerId, status]) => ({ playerId, status })),
-        },
-      },
-      select: { id: true },
-    });
+    let event: { id: string };
+    if (input.id) {
+      const editId = input.id;
+      const found = await prisma.attendanceEvent.findUnique({ where: { id: editId }, select: { id: true } });
+      if (!found) return fail("That attendance list was removed. Refresh the page.");
+      event = await prisma.$transaction(async (tx) => {
+        await tx.attendanceEntry.deleteMany({ where: { eventId: editId } });
+        await tx.attendanceEntry.createMany({
+          data: entries.map((entry) => ({ ...entry, eventId: editId })),
+        });
+        return tx.attendanceEvent.update({ where: { id: editId }, data: fields, select: { id: true } });
+      });
+    } else {
+      event = await prisma.attendanceEvent.create({
+        data: { ...fields, entries: { create: entries } },
+        select: { id: true },
+      });
+    }
 
     revalidatePath("/app/players");
     const playedCount = [...playedIds.values()].filter((status) => status === "PLAYED").length;
     const waitlistCount = playedIds.size - playedCount;
-    return ok(`Logged ${playedCount} played and ${waitlistCount} waitlisted.`, {
+    return ok(`${input.id ? "Updated" : "Logged"}: ${playedCount} played and ${waitlistCount} waitlisted.`, {
       eventId: event.id,
       played: playedCount,
       waitlist: waitlistCount,

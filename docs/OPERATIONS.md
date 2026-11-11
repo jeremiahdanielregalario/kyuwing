@@ -137,6 +137,8 @@ The **Players** page has a **Playing recency** section. Its counters show Playin
 
 To check who was on a past game day, press **View** on any list under **Logged lists**. It shows the players who played and the waitlist, each with their nickname and current level.
 
+To fix a list, press the pencil (or **Edit** in the View window). The form opens with the date, type, label and nicknames filled in, one per line. Add or remove names, or move them between Played and Waitlist, and press **Save changes**. The same list is updated, so recency and each player's attendance history follow. Names not in the player database are reported and left out, as when logging.
+
 On the player table, the history icon in a player's row lists every logged game day and tournament they attended or were waitlisted for.
 
 How players are banded:

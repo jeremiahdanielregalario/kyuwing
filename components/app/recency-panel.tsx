@@ -9,6 +9,7 @@ import {
   Eye,
   Flame,
   History,
+  Pencil,
   Snowflake,
   Trash2,
   TrendingDown,
@@ -101,6 +102,7 @@ export function RecencyPanel({
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [viewing, setViewing] = React.useState<AttendanceEventDto | null>(null);
 
+  const [editingId, setEditingId] = React.useState<string | undefined>(undefined);
   const [date, setDate] = React.useState(today);
   const [kind, setKind] = React.useState<"GAMEDAY" | "TOURNAMENT">("GAMEDAY");
   const [label, setLabel] = React.useState("");
@@ -114,18 +116,35 @@ export function RecencyPanel({
     return tally;
   }, [snapshots, playerCount]);
 
-  const openDialog = () => {
-    setDate(today);
-    setKind("GAMEDAY");
-    setLabel("");
-    setPlayedText("");
-    setWaitlistText("");
+  /** Opens the form empty to log a new list, or filled in with a logged list to edit it. */
+  const openDialog = (event?: AttendanceEventDto) => {
+    const names = (status: "PLAYED" | "WAITLIST") =>
+      event
+        ? event.players
+            .filter((player) => player.status === status)
+            .map((player) => player.nickname)
+            .join("\n")
+        : "";
+    setEditingId(event?.id);
+    setDate(event ? event.date.slice(0, 10) : today);
+    setKind(event?.kind ?? "GAMEDAY");
+    setLabel(event?.label ?? "");
+    setPlayedText(names("PLAYED"));
+    setWaitlistText(names("WAITLIST"));
+    setViewing(null);
     setOpen(true);
   };
 
   const submit = () => {
     startTransition(async () => {
-      const result = await logAttendanceEvent({ date, kind, label, playedText, waitlistText });
+      const result = await logAttendanceEvent({
+        id: editingId,
+        date,
+        kind,
+        label,
+        playedText,
+        waitlistText,
+      });
       if (!result.ok) {
         haptic("warning");
         toast.error(result.error);
@@ -156,7 +175,7 @@ export function RecencyPanel({
             counts less than playing, and a list fades over time — so people who stopped showing up sink.
           </p>
         </div>
-        <Button size="sm" onClick={openDialog}>
+        <Button size="sm" onClick={() => openDialog()}>
           <ClipboardPaste className="h-3.5 w-3.5" /> Log attendance
         </Button>
       </div>
@@ -207,6 +226,15 @@ export function RecencyPanel({
                 </button>
                 <button
                   type="button"
+                  onClick={() => openDialog(event)}
+                  className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-full"
+                  aria-label="Edit attendance list"
+                  title="Edit"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
                   onClick={() =>
                     setConfirmSpec({
                       title: "Remove this attendance list?",
@@ -252,8 +280,12 @@ export function RecencyPanel({
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Log attendance"
-        description="Paste the names from the chat list. Numbering, blanks, and headers are ignored."
+        title={editingId ? "Edit attendance list" : "Log attendance"}
+        description={
+          editingId
+            ? "One nickname per line. Add, remove or move names between Played and Waitlist, then save."
+            : "Paste the names from the chat list. Numbering, blanks, and headers are ignored."
+        }
         size="lg"
         footer={
           <>
@@ -261,7 +293,8 @@ export function RecencyPanel({
               Cancel
             </Button>
             <Button onClick={submit} loading={pending}>
-              <ClipboardPaste className="h-4 w-4" /> Save list
+              {editingId ? <Pencil className="h-4 w-4" /> : <ClipboardPaste className="h-4 w-4" />}{" "}
+              {editingId ? "Save changes" : "Save list"}
             </Button>
           </>
         }
@@ -323,9 +356,14 @@ export function RecencyPanel({
         description={viewing ? `${viewing.played} played · ${viewing.waitlist} waitlist` : undefined}
         size="lg"
         footer={
-          <Button variant="ghost" onClick={() => setViewing(null)}>
-            Close
-          </Button>
+          <>
+            <Button variant="ghost" onClick={() => viewing && openDialog(viewing)}>
+              <Pencil className="h-4 w-4" /> Edit
+            </Button>
+            <Button variant="ghost" onClick={() => setViewing(null)}>
+              Close
+            </Button>
+          </>
         }
       >
         {viewing && (

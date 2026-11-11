@@ -41,7 +41,11 @@ export function fullNameKeys(fullName: string): string[] {
   return [stored, nameKey(`${first} ${last}`)];
 }
 
-export function parseNameList(input: string): string[] {
+/**
+ * `isKnown` lets a line that is exactly a nickname in the database through even when it looks
+ * like a header (digits, "Bench"), so nothing is dropped when an edited list is saved again.
+ */
+export function parseNameList(input: string, isKnown?: (key: string) => boolean): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
 
@@ -52,12 +56,15 @@ export function parseNameList(input: string): string[] {
 
     // A leading "@" is a Messenger mention of the player.
     line = line.replace(LIST_PREFIX, "").replace(/^@/, "").replace(/\s+/g, " ").trim();
-    if (!line || NOISE_LINE.test(line)) continue;
-    if (!NAME_LINE.test(line)) continue;
-    // Guard against event headers that happen to be short and unpunctuated.
-    if (line.split(" ").length > 4) continue;
-
+    if (!line) continue;
     const key = nameKey(line);
+    if (!isKnown?.(key)) {
+      if (NOISE_LINE.test(line)) continue;
+      if (!NAME_LINE.test(line)) continue;
+      // Guard against event headers that happen to be short and unpunctuated.
+      if (line.split(" ").length > 4) continue;
+    }
+
     if (seen.has(key)) continue;
 
     seen.add(key);
@@ -71,7 +78,10 @@ export function parseNameList(input: string): string[] {
  * Parses a single pasted block that may contain a "Waitlist:" section.
  * Returns the players split into played and waitlisted.
  */
-export function parseAttendanceBlock(input: string): { played: string[]; waitlist: string[] } {
+export function parseAttendanceBlock(
+  input: string,
+  isKnown?: (key: string) => boolean,
+): { played: string[]; waitlist: string[] } {
   const lines = input.split(/\r?\n/);
   const playedLines: string[] = [];
   const waitlistLines: string[] = [];
@@ -87,7 +97,7 @@ export function parseAttendanceBlock(input: string): { played: string[]; waitlis
   }
 
   return {
-    played: parseNameList(playedLines.join("\n")),
-    waitlist: parseNameList(waitlistLines.join("\n")),
+    played: parseNameList(playedLines.join("\n"), isKnown),
+    waitlist: parseNameList(waitlistLines.join("\n"), isKnown),
   };
 }

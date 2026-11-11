@@ -82,6 +82,18 @@ describe("parseNameList", () => {
   });
 });
 
+describe("parseNameList with known nicknames", () => {
+  it("keeps a line that is exactly a known nickname even if it looks like a header", () => {
+    const known = new Set(["jm2", "bench"]);
+    expect(parseNameList("JM2\nBench\nNov 7 2026\nDylan", (key) => known.has(key))).toEqual([
+      "JM2",
+      "Bench",
+      "Dylan",
+    ]);
+    expect(parseNameList("JM2\nBench\nDylan")).toEqual(["Dylan"]);
+  });
+});
+
 describe("parseAttendanceBlock", () => {
   it("splits the played list from the waitlist", () => {
     const { played, waitlist } = parseAttendanceBlock(EXHIBIT_1);
