@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canDropOn, canTapOn, samePick } from "./drag-targets";
+import { canDropOn, canTapOn, eventPoint, samePick } from "./drag-targets";
 
 const court = { kind: "court" };
 const courtWithGame = (matchId: string) => ({ kind: "court", matchId });
@@ -94,5 +94,28 @@ describe("samePick", () => {
       ),
     ).toBe(false);
     expect(samePick(null, { kind: "match", matchId: "a" })).toBe(false);
+  });
+});
+
+describe("eventPoint", () => {
+  it("reads mouse and touch positions", () => {
+    expect(eventPoint({ clientX: 10, clientY: 20 } as unknown as Event)).toEqual({
+      x: 10,
+      y: 20,
+      touch: false,
+    });
+    expect(eventPoint({ touches: [{ clientX: 5, clientY: 6 }] } as unknown as Event)).toEqual({
+      x: 5,
+      y: 6,
+      touch: true,
+    });
+    expect(
+      eventPoint({ touches: [], changedTouches: [{ clientX: 7, clientY: 8 }] } as unknown as Event),
+    ).toEqual({
+      x: 7,
+      y: 8,
+      touch: true,
+    });
+    expect(eventPoint(null)).toBeNull();
   });
 });

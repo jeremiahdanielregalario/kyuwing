@@ -93,6 +93,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- **Dragging on the board** — the dragged player or court chip now sits right under the mouse pointer (it used to appear far away from it) and follows the finger on phones and tablets, floating just above it so the finger doesn't hide it. The drop goes to the slot under the pointer or finger. On phones the queue no longer has its own scroll box, so holding a dragged player near the top of the screen scrolls the page up to the courts. Long-pressing a player no longer opens the iOS callout menu.
 - Excel and PDF reports show levels as `C+`, `A-`, … instead of internal codes like `C_PLUS`.
 - Confirmation dialogs without extra details no longer show an empty strip between the message and the buttons.
 - Board messages name courts by their labels ("Court 5 is live") instead of their position ("Court 1").

@@ -20,6 +20,8 @@ import {
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
+  type Modifier,
+  pointerWithin,
 } from "@dnd-kit/core";
 import {
   Activity,
@@ -93,7 +95,7 @@ import {
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { LEVEL_OPTIONS, isUnrated, levelLabel, levelValue } from "@/lib/levels";
-import { canDropOn, canTapOn, samePick } from "@/lib/drag-targets";
+import { canDropOn, canTapOn, eventPoint, samePick } from "@/lib/drag-targets";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
@@ -210,8 +212,12 @@ const TapMoveContext = React.createContext<TapMove>({
 });
 
 /** Only offer a drag the targets it can land on (see `canDropOn`). */
-const collisionFor: CollisionDetection = (args) =>
-  closestCenter({
+/**
+ * The drop target follows the pointer or finger: the slot under it, else the nearest valid one.
+ * (The drag chip is small and sits above the finger on touch, so its own box is not used.)
+ */
+const collisionFor: CollisionDetection = (args) => {
+  const scoped = {
     ...args,
     droppableContainers: args.droppableContainers.filter((container) =>
       canDropOn(
@@ -219,7 +225,27 @@ const collisionFor: CollisionDetection = (args) =>
         container.data.current as DropTarget | undefined,
       ),
     ),
+  };
+  const point = args.pointerCoordinates;
+  if (!point) return closestCenter(scoped);
+  const under = pointerWithin(scoped);
+  if (under.length > 0) return under;
+  return closestCenter({
+    ...scoped,
+    collisionRect: { top: point.y, left: point.x, bottom: point.y, right: point.x, width: 0, height: 0 },
   });
+};
+
+/** Moves the drag overlay's corner to the pointer; `DragChip` then centres itself on it. */
+const overlayAtPointer: Modifier = ({ activatorEvent, activeNodeRect, transform }) => {
+  const point = eventPoint(activatorEvent);
+  if (!point || !activeNodeRect) return transform;
+  return {
+    ...transform,
+    x: transform.x + point.x - activeNodeRect.left,
+    y: transform.y + point.y - activeNodeRect.top,
+  };
+};
 
 const EMPTY_DRAFT: Array<string | null> = [null, null, null, null];
 
@@ -295,6 +321,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [promotedIds, setPromotedIds] = React.useState<string[]>([]);
   const [startLaterIds, setStartLaterIds] = React.useState<Set<string>>(() => new Set());
   const creatingDrafts = React.useRef<Set<number>>(new Set());
+  // On touch the drag chip floats above the finger so the finger doesn't hide it.
+  const [dragByTouch, setDragByTouch] = React.useState(false);
+  const mounted = useMounted();
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     // Press and hold to pick up on a tablet, so a quick swipe still scrolls the queue.
@@ -447,6 +476,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const handleDragStart = (event: DragStartEvent) => {
     haptic("tap");
     setPicked(null);
+    setDragByTouch(eventPoint(event.activatorEvent)?.touch ?? false);
     setActiveDrag((event.active.data.current as DragPayload | undefined) ?? null);
   };
 
@@ -1446,7 +1476,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                 </div>
               </div>
 
-              <div className="max-h-[min(62vh,640px)] overflow-y-auto px-2 py-2">
+              <div className="px-2 py-2 lg:max-h-[min(62vh,640px)] lg:overflow-y-auto">
                 {visible.length === 0 ? (
                   <div className="text-muted px-3 py-10 text-center text-[12px]">
                     {query
@@ -2070,14 +2100,23 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             )}
           </Modal>
         </div>
-        <DragOverlay dropAnimation={null}>
-          {activeDrag ? (
-            <DragChip
-              drag={activeDrag}
-              courtLabel={activeDrag.kind === "match" ? courtName(slot, activeDrag.courtNumber) : undefined}
-            />
-          ) : null}
-        </DragOverlay>
+        {/* In a portal: the page wrapper keeps a transform from its entry animation, which would
+            make the overlay's fixed position relative to it and put the chip far from the pointer. */}
+        {mounted &&
+          createPortal(
+            <DragOverlay dropAnimation={null} modifiers={[overlayAtPointer]} className="pointer-events-none">
+              {activeDrag ? (
+                <DragChip
+                  drag={activeDrag}
+                  touch={dragByTouch}
+                  courtLabel={
+                    activeDrag.kind === "match" ? courtName(slot, activeDrag.courtNumber) : undefined
+                  }
+                />
+              ) : null}
+            </DragOverlay>,
+            document.body,
+          )}
 
         {picked &&
           !isCompleted &&
@@ -2650,19 +2689,28 @@ function DraftSlot({
   );
 }
 
-function DragChip({ drag, courtLabel }: { drag: DragPayload; courtLabel?: string }) {
+/** The chip under the pointer while dragging: centred on a mouse, just above a finger. */
+function DragChip({ drag, courtLabel, touch }: { drag: DragPayload; courtLabel?: string; touch: boolean }) {
+  const place = cn(
+    "absolute top-0 left-0 -translate-x-1/2 whitespace-nowrap",
+    touch ? "-translate-y-[calc(100%+18px)]" : "-translate-y-1/2",
+  );
   if (drag.kind === "match") {
     return (
-      <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex rotate-2 items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold">
-        <GripVertical className="text-lime h-3.5 w-3.5" /> {courtLabel ?? `Court ${drag.courtNumber}`}
+      <div className={place}>
+        <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex rotate-2 items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold">
+          <GripVertical className="text-lime h-3.5 w-3.5" /> {courtLabel ?? `Court ${drag.courtNumber}`}
+        </div>
       </div>
     );
   }
   return (
-    <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5">
-      <Avatar name={drag.nickname} size="sm" className="h-6 w-6 text-[9px]" />
-      <span className="text-[12px] font-semibold">{drag.nickname}</span>
-      <span className="text-lime/70 font-mono text-[9px] font-bold">{levelLabel(drag.level)}</span>
+    <div className={place}>
+      <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5">
+        <Avatar name={drag.nickname} size="sm" className="h-6 w-6 text-[9px]" />
+        <span className="text-[12px] font-semibold">{drag.nickname}</span>
+        <span className="text-lime/70 font-mono text-[9px] font-bold">{levelLabel(drag.level)}</span>
+      </div>
     </div>
   );
 }
@@ -2732,7 +2780,7 @@ function QueueRow({
         className={cn(
           "flex min-w-0 flex-1 items-center gap-2 rounded-xl",
           draggable &&
-            "border-forest/35 bg-paper hover:border-forest hover:bg-lime/15 cursor-grab touch-manipulation border-2 border-dashed py-1 pr-2 pl-1 shadow-sm transition select-none active:cursor-grabbing",
+            "border-forest/35 bg-paper hover:border-forest hover:bg-lime/15 cursor-grab touch-manipulation border-2 border-dashed py-1 pr-2 pl-1 shadow-sm transition select-none [-webkit-touch-callout:none] active:cursor-grabbing",
           isDragging && "border-lime bg-lime/20 opacity-50",
           isPicked && "border-gold bg-gold/30 ring-gold border-solid ring-2",
         )}

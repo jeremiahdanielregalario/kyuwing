@@ -63,3 +63,16 @@ export function canTapOn(
   if (picked.kind === "queue-player" && picked.status === "PLAYING") return targetCourt === QUEUED_COURT;
   return true;
 }
+
+/** Where a mouse, pointer or touch event happened, in viewport coordinates. */
+export function eventPoint(event: Event | null | undefined): { x: number; y: number; touch: boolean } | null {
+  if (!event) return null;
+  const touches = (event as TouchEvent).touches ?? (event as TouchEvent).changedTouches;
+  const touch = touches?.[0] ?? (event as TouchEvent).changedTouches?.[0];
+  if (touch) return { x: touch.clientX, y: touch.clientY, touch: true };
+  const mouse = event as MouseEvent;
+  if (typeof mouse.clientX === "number") {
+    return { x: mouse.clientX, y: mouse.clientY, touch: (event as PointerEvent).pointerType === "touch" };
+  }
+  return null;
+}

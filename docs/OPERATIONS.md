@@ -60,7 +60,7 @@ Stats at the top show total players, waiting, playing, games completed, busy/ope
 Everything below works two ways: **tap to move** (easiest on a phone) or drag and drop.
 
 - **Tap to move.** Tap a player (their outlined name box in the queue, or their box on a court) or a court's grip handle (⠿ in the header). A black bar at the bottom says what you're moving, and every place it can go lights up. Tap one of them to put it there. Tap the same thing again, press **Cancel**, or press Esc to put it back down. On a court, a lit-up player box means "put them here instead"; an empty slot says **Tap to put here**; a whole court shows **Move to**, **Swap with** or **Take this place in line**.
-- **Drag and drop.** Grab the same things and drop them on a target. On a tablet, press and hold for a moment before dragging, so a quick swipe still scrolls.
+- **Drag and drop.** Grab the same things and drop them on a target; it lands on the slot under your pointer or finger. On a phone or tablet, press and hold for a moment before dragging, so a quick swipe still scrolls; the dragged name floats just above your finger. To reach the courts from the queue on a phone, hold the dragged name near the top of the screen and the page scrolls up.
 
 What each move does:
 
