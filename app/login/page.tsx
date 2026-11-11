@@ -88,24 +88,15 @@ export default async function LoginPage({
             </div>
           </div>
 
-          <div className="border-line/70 bg-cream-deep/50 text-muted mt-6 flex items-start gap-2.5 rounded-2xl border p-3.5 text-[11px] leading-relaxed">
-            <ShieldCheck className="text-forest mt-0.5 h-4 w-4 shrink-0" />
-            <p>
-              {mode === "admin" ? (
-                <>
-                  The developer session can hide optional UI for everyone. Keep{" "}
-                  <span className="font-mono">ADMIN_PIN</span> private and different from the queue-master
-                  PIN.
-                </>
-              ) : (
-                <>
-                  The PIN only unlocks this browser. For official game days, set a strong{" "}
-                  <span className="font-mono">QUEUE_MASTER_PIN</span> in the deployment settings and share it
-                  only with the assigned queue masters.
-                </>
-              )}
-            </p>
-          </div>
+          {mode === "admin" && (
+            <div className="border-line/70 bg-cream-deep/50 text-muted mt-6 flex items-start gap-2.5 rounded-2xl border p-3.5 text-[11px] leading-relaxed">
+              <ShieldCheck className="text-forest mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                The developer session can hide optional UI for everyone. Keep{" "}
+                <span className="font-mono">ADMIN_PIN</span> private and different from the queue-master PIN.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="text-muted flex flex-wrap items-center justify-between gap-2 text-[11px]">
