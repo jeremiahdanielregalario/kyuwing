@@ -72,6 +72,8 @@ export function LoginForm({
             maxLength={40}
             autoComplete="name"
             placeholder={isAdmin ? "Developer" : "EJ Mallillin"}
+            required={!isAdmin}
+            autoFocus={!isAdmin}
           />
         </div>
       </Field>
@@ -87,7 +89,7 @@ export function LoginForm({
             inputMode="numeric"
             autoComplete="current-password"
             placeholder="••••"
-            autoFocus
+            autoFocus={isAdmin}
             maxLength={20}
             disabled={isAdmin && !adminEnabled}
           />

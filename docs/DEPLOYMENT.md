@@ -141,7 +141,7 @@ If you do seed a staging environment, remember to replace the placeholder fees b
 
 1. Open `https://badass-kyuwing.vercel.app`.
 2. Confirm the landing page renders and the pairing demo is interactive.
-3. Open `/login`, sign in with the production PIN.
+3. Open `/login`, sign in with your name and the production PIN.
 4. Create a test game day, add a player, check in, pair, start, finish, and confirm requeue.
 5. Record a payment and download both Excel and PDF.
 6. Delete the test game day.

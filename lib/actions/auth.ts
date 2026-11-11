@@ -12,6 +12,9 @@ export async function loginAction(
   pin: string,
   mode: LoginMode = "master",
 ): Promise<ActionResult> {
+  if (mode === "master" && (!name || name.trim().length === 0)) {
+    return fail("Enter your name so players know who is running the queue.");
+  }
   if (!pin || pin.trim().length === 0) {
     return fail(mode === "admin" ? "Enter the developer PIN." : "Enter the queue master PIN.");
   }
