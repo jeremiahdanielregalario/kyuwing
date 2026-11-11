@@ -13,6 +13,7 @@ import {
   FileJson,
   FileSpreadsheet,
   History,
+  Medal,
   Pencil,
   Plus,
   RotateCcw,
@@ -36,6 +37,7 @@ import { CATEGORY_SHORT } from "@/lib/fees";
 import { LEVEL_OPTIONS, levelLabel, levelValue, type LevelKey } from "@/lib/levels";
 import type { RecencySnapshot } from "@/lib/recency";
 import type { PlayerHistoryItem } from "@/lib/queries";
+import { AWARD_PLACE_LABELS, type PlayerAward } from "@/lib/awards";
 import { formatGameDate } from "@/lib/datetime";
 import { RecencyBadge, recencyCaption } from "@/components/app/recency-panel";
 import { Avatar } from "@/components/ui/avatar";
@@ -98,10 +100,12 @@ export function PlayerManager({
   players,
   recency,
   history,
+  awards,
 }: {
   players: PlayerRecord[];
   recency: Record<string, RecencySnapshot>;
   history: Record<string, PlayerHistoryItem[]>;
+  awards: Record<string, PlayerAward[]>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -113,6 +117,7 @@ export function PlayerManager({
   const [sortKey, setSortKey] = React.useState<SortKey>("nickname");
   const [sortDir, setSortDir] = React.useState<SortDir>("asc");
   const [historyFor, setHistoryFor] = React.useState<PlayerRecord | null>(null);
+  const [awardsFor, setAwardsFor] = React.useState<PlayerRecord | null>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -422,6 +427,11 @@ export function PlayerManager({
                     <div className="flex flex-wrap items-center gap-1.5">
                       <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
                       <LevelBadge level={player.level} />
+                      <AwardsButton
+                        nickname={player.nickname}
+                        awards={awards[player.id]}
+                        onOpen={() => setAwardsFor(player)}
+                      />
                       {!player.active && <Badge tone="neutral">Archived</Badge>}
                     </div>
                     <p className="text-muted truncate text-[10px]">
@@ -507,7 +517,14 @@ export function PlayerManager({
                         <div className="flex items-center gap-2.5">
                           <Avatar name={player.nickname} level={levelLabel(player.level)} />
                           <div className="min-w-0">
-                            <p className="font-semibold">{player.nickname}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-semibold">{player.nickname}</p>
+                              <AwardsButton
+                                nickname={player.nickname}
+                                awards={awards[player.id]}
+                                onOpen={() => setAwardsFor(player)}
+                              />
+                            </div>
                             <p className="text-muted truncate text-[10px]">
                               {player.fullName ?? "No full name"}
                             </p>
@@ -753,8 +770,108 @@ export function PlayerManager({
         )}
       </Modal>
 
+      <Modal
+        open={awardsFor !== null}
+        onClose={() => setAwardsFor(null)}
+        title={awardsFor ? `${awardsFor.nickname} · awards` : "Awards"}
+        description={awardsFor ? awardsSummary(awards[awardsFor.id] ?? []) : undefined}
+        footer={
+          <Button variant="ghost" onClick={() => setAwardsFor(null)}>
+            Close
+          </Button>
+        }
+      >
+        <ul className="space-y-1.5">
+          {awardsFor &&
+            (awards[awardsFor.id] ?? []).map((award) => (
+              <li
+                key={`${award.tournamentId}-${award.division}-${award.place}`}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border px-3 py-2.5",
+                  award.place === "CHAMPION" ? "border-amber-200 bg-amber-50" : "border-line/70 bg-cream/40",
+                )}
+              >
+                <span
+                  className={cn(
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-full",
+                    award.place === "CHAMPION"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-stone-100 text-stone-500",
+                  )}
+                >
+                  {award.place === "CHAMPION" ? (
+                    <Trophy className="h-4 w-4" />
+                  ) : (
+                    <Medal className="h-4 w-4" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-bold">
+                    {AWARD_PLACE_LABELS[award.place]} · {award.division}
+                  </p>
+                  <p className="text-muted truncate text-[11px]">
+                    {award.tournament} · {formatGameDate(award.date, { weekday: false })}
+                  </p>
+                </div>
+                {award.partner && (
+                  <span className="text-right text-[11px]">
+                    <span className="text-muted block text-[9px] font-bold tracking-wide uppercase">
+                      with
+                    </span>
+                    <span className="font-semibold">{award.partner}</span>
+                  </span>
+                )}
+              </li>
+            ))}
+        </ul>
+      </Modal>
+
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>
+  );
+}
+
+function awardsSummary(list: PlayerAward[]): string {
+  const titles = list.filter((award) => award.place === "CHAMPION").length;
+  const runnerUps = list.length - titles;
+  return [
+    titles ? `${titles} title${titles === 1 ? "" : "s"}` : null,
+    runnerUps ? `${runnerUps} runner-up finish${runnerUps === 1 ? "" : "es"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** A trophy beside the nickname of anyone with a tournament podium. Gold when they have a title. */
+function AwardsButton({
+  nickname,
+  awards,
+  onOpen,
+}: {
+  nickname: string;
+  awards: PlayerAward[] | undefined;
+  onOpen: () => void;
+}) {
+  if (!awards || awards.length === 0) return null;
+  const champion = awards.some((award) => award.place === "CHAMPION");
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        "press inline-flex h-7 min-w-7 shrink-0 items-center justify-center gap-0.5 rounded-full border px-1.5 text-[10px] font-bold",
+        champion
+          ? "border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200"
+          : "border-stone-300 bg-stone-100 text-stone-600 hover:bg-stone-200",
+      )}
+      aria-label={`Tournament awards of ${nickname}`}
+      title={awards
+        .map((award) => `${AWARD_PLACE_LABELS[award.place]} · ${award.division} · ${award.tournament}`)
+        .join("\n")}
+    >
+      {champion ? <Trophy className="h-3.5 w-3.5" /> : <Medal className="h-3.5 w-3.5" />}
+      {awards.length > 1 && awards.length}
+    </button>
   );
 }
 

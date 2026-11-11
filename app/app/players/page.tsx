@@ -1,18 +1,23 @@
 import { Users } from "lucide-react";
+import { AwardsPanel } from "@/components/app/awards-panel";
 import { PlayerManager } from "@/components/app/player-manager";
 import { RecencyPanel } from "@/components/app/recency-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { Stat } from "@/components/ui/stat";
 import { manilaDateKey } from "@/lib/datetime";
 import { LEVELS, bracketOf, isUnrated, levelTone } from "@/lib/levels";
-import { getAttendanceOverview, getPlayers } from "@/lib/queries";
+import { getAttendanceOverview, getAwardsOverview, getPlayers } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Players" };
 
 export default async function PlayersPage() {
-  const [players, attendance] = await Promise.all([getPlayers(), getAttendanceOverview()]);
+  const [players, attendance, awards] = await Promise.all([
+    getPlayers(),
+    getAttendanceOverview(),
+    getAwardsOverview(),
+  ]);
   const active = players.filter((player) => player.active).length;
   // Band counts describe the active roster; archived players keep their history.
   const activeIds = new Set(players.filter((player) => player.active).map((player) => player.id));
@@ -119,7 +124,18 @@ export default async function PlayersPage() {
         today={manilaDateKey()}
       />
 
-      <PlayerManager players={records} recency={attendance.byPlayer} history={attendance.historyByPlayer} />
+      <AwardsPanel
+        tournaments={awards.tournaments}
+        nicknames={players.map((player) => player.nickname)}
+        today={manilaDateKey()}
+      />
+
+      <PlayerManager
+        players={records}
+        recency={attendance.byPlayer}
+        history={attendance.historyByPlayer}
+        awards={awards.byPlayer}
+      />
 
       <p data-trim-id="players.level-legend" className="text-muted text-[11px] leading-relaxed">
         Level labels: {LEVELS.map((level) => level.label).join(" · ")}. X means not rated yet: X players are

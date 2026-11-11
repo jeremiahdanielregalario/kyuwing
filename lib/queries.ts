@@ -13,6 +13,7 @@ import type {
 } from "./board-types";
 import { currentSlotIndex, elapsedMinutes, parseCourtPlan, QUEUED_COURT, type CourtSlot } from "./datetime";
 import { buildFeeSchedule, changeDue, extrasTotal } from "./fees";
+import { awardsByPlayer, type AwardRow, type PlayerAward } from "./awards";
 import { levelLabel } from "./levels";
 import { recencySummary, toRecencySnapshot, type RecencyEntry, type RecencySnapshot } from "./recency";
 
@@ -325,6 +326,60 @@ export async function getAttendanceOverview(): Promise<AttendanceOverview> {
     historyByPlayer,
     byPlayer,
   };
+}
+
+export type TournamentDto = {
+  id: string;
+  name: string;
+  date: string;
+  divisions: { name: string; champion: string[]; runnerUp: string[] }[];
+};
+
+export type AwardsOverview = {
+  tournaments: TournamentDto[];
+  byPlayer: Record<string, PlayerAward[]>;
+};
+
+/** Past tournament podiums, for the Players page and each player's awards icon. */
+export async function getAwardsOverview(): Promise<AwardsOverview> {
+  const tournaments = await prisma.tournament.findMany({
+    orderBy: [{ date: "desc" }, { name: "asc" }],
+    include: {
+      awards: {
+        orderBy: [{ position: "asc" }, { place: "asc" }],
+        include: {
+          player1: { select: { id: true, nickname: true } },
+          player2: { select: { id: true, nickname: true } },
+        },
+      },
+    },
+  });
+
+  const rows: AwardRow[] = [];
+  const dtos: TournamentDto[] = [];
+  for (const tournament of tournaments) {
+    const date = tournament.date.toISOString();
+    const divisions = new Map<string, TournamentDto["divisions"][number]>();
+    for (const award of tournament.awards) {
+      const players = [award.player1, ...(award.player2 ? [award.player2] : [])];
+      rows.push({
+        tournamentId: tournament.id,
+        tournament: tournament.name,
+        date,
+        division: award.division,
+        place: award.place,
+        position: award.position,
+        players,
+      });
+      const division = divisions.get(award.division) ?? { name: award.division, champion: [], runnerUp: [] };
+      const nicks = players.map((player) => player.nickname);
+      if (award.place === "CHAMPION") division.champion = nicks;
+      else division.runnerUp = nicks;
+      divisions.set(award.division, division);
+    }
+    dtos.push({ id: tournament.id, name: tournament.name, date, divisions: [...divisions.values()] });
+  }
+  return { tournaments: dtos, byPlayer: awardsByPlayer(rows) };
 }
 
 export async function getVenuesWithFees() {

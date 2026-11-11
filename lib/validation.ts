@@ -40,6 +40,13 @@ export const playerSchema = z.object({
 
 export type PlayerInput = z.infer<typeof playerSchema>;
 
+/** A tournament's podium, pasted as text ("Level A / Champions: Chons & Jced / …"). */
+export const tournamentAwardsSchema = z.object({
+  name: z.string().trim().max(80, "Keep the tournament name under 80 characters"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the tournament date."),
+  text: z.string().trim().min(1, "Paste the results.").max(5000, "That results text is too long."),
+});
+
 /** Extra charges on one player: grips (priced per piece) and any other amount, with a reason. */
 export const chargesSchema = z.object({
   gripCount: z.coerce.number().int("Grips must be a whole number").min(0).max(50),

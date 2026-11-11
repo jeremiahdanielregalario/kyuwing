@@ -147,6 +147,8 @@ model Player {
   pairingRequests  PairingRequest[] @relation("RequestingPlayer")
   targetedRequests PairingRequest[] @relation("TargetPlayer")
   attendance       AttendanceEntry[]
+  awardsAsPlayer1  TournamentAward[] @relation("AwardPlayer1")
+  awardsAsPlayer2  TournamentAward[] @relation("AwardPlayer2")
 
   @@index([level])
   @@index([active])
@@ -177,6 +179,45 @@ model AttendanceEntry {
 
   @@unique([eventId, playerId])
   @@index([playerId])
+}
+
+enum AwardPlace {
+  CHAMPION
+  RUNNER_UP
+}
+
+/// A past tournament whose podium is shown in the player database.
+model Tournament {
+  id        String   @id @default(cuid())
+  name      String
+  date      DateTime @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  awards TournamentAward[]
+
+  @@unique([name, date])
+  @@index([date])
+}
+
+/// One podium team in one division ("Level A") of a tournament. player2 is the doubles partner.
+model TournamentAward {
+  id           String     @id @default(cuid())
+  tournamentId String
+  division     String
+  place        AwardPlace
+  player1Id    String
+  player2Id    String?
+  /// Order the results were entered in, so divisions read top to bottom as pasted.
+  position     Int        @default(0)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player1    Player     @relation("AwardPlayer1", fields: [player1Id], references: [id], onDelete: Cascade)
+  player2    Player?    @relation("AwardPlayer2", fields: [player2Id], references: [id], onDelete: SetNull)
+
+  @@index([tournamentId])
+  @@index([player1Id])
+  @@index([player2Id])
 }
 
 model GameDay {
