@@ -121,8 +121,8 @@ export function AwardsPanel({
         <div>
           <h2 className="font-display text-base font-bold">Tournament awards</h2>
           <p className="text-muted max-w-xl text-[11px]">
-            Champions and runners-up of past tournaments. Players with an award get a trophy beside their
-            nickname in the list below; tap it to see their podiums and partners.
+            Champions and runners-up of past tournaments. Players with an award get a trophy among their row
+            icons below; tap it to see their podiums and partners.
           </p>
         </div>
         <Button size="sm" onClick={() => openForm()}>

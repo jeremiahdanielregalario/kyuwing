@@ -427,11 +427,6 @@ export function PlayerManager({
                     <div className="flex flex-wrap items-center gap-1.5">
                       <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
                       <LevelBadge level={player.level} />
-                      <AwardsButton
-                        nickname={player.nickname}
-                        awards={awards[player.id]}
-                        onOpen={() => setAwardsFor(player)}
-                      />
                       {!player.active && <Badge tone="neutral">Archived</Badge>}
                     </div>
                     <p className="text-muted truncate text-[10px]">
@@ -450,6 +445,8 @@ export function PlayerManager({
                     player={player}
                     pending={pending}
                     compact
+                    awards={awards[player.id]}
+                    onAwards={() => setAwardsFor(player)}
                     onHistory={() => setHistoryFor(player)}
                     onEdit={() => openEdit(player)}
                     onToggleActive={() => act(() => togglePlayerActive(player.id, !player.active))}
@@ -517,14 +514,7 @@ export function PlayerManager({
                         <div className="flex items-center gap-2.5">
                           <Avatar name={player.nickname} level={levelLabel(player.level)} />
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-semibold">{player.nickname}</p>
-                              <AwardsButton
-                                nickname={player.nickname}
-                                awards={awards[player.id]}
-                                onOpen={() => setAwardsFor(player)}
-                              />
-                            </div>
+                            <p className="font-semibold">{player.nickname}</p>
                             <p className="text-muted truncate text-[10px]">
                               {player.fullName ?? "No full name"}
                             </p>
@@ -558,6 +548,8 @@ export function PlayerManager({
                         <PlayerActions
                           player={player}
                           pending={pending}
+                          awards={awards[player.id]}
+                          onAwards={() => setAwardsFor(player)}
                           onHistory={() => setHistoryFor(player)}
                           onEdit={() => openEdit(player)}
                           onToggleActive={() => act(() => togglePlayerActive(player.id, !player.active))}
@@ -842,7 +834,10 @@ function awardsSummary(list: PlayerAward[]): string {
     .join(" · ");
 }
 
-/** A trophy beside the nickname of anyone with a tournament podium. Gold when they have a title. */
+/**
+ * The first row action for anyone with a tournament podium: gold trophy for a title, medal otherwise.
+ * Players without awards get an empty slot so the icons stay lined up.
+ */
 function AwardsButton({
   nickname,
   awards,
@@ -852,34 +847,43 @@ function AwardsButton({
   awards: PlayerAward[] | undefined;
   onOpen: () => void;
 }) {
-  if (!awards || awards.length === 0) return null;
+  if (!awards || awards.length === 0) return <span aria-hidden className="h-10 w-10" />;
   const champion = awards.some((award) => award.place === "CHAMPION");
   return (
     <button
       type="button"
       onClick={onOpen}
       className={cn(
-        "press inline-flex h-7 min-w-7 shrink-0 items-center justify-center gap-0.5 rounded-full border px-1.5 text-[10px] font-bold",
-        champion
-          ? "border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-200"
-          : "border-stone-300 bg-stone-100 text-stone-600 hover:bg-stone-200",
+        "press relative grid h-10 w-10 place-items-center rounded-full",
+        champion ? "text-amber-600 hover:bg-amber-100" : "text-stone-500 hover:bg-stone-100",
       )}
       aria-label={`Tournament awards of ${nickname}`}
       title={awards
         .map((award) => `${AWARD_PLACE_LABELS[award.place]} · ${award.division} · ${award.tournament}`)
         .join("\n")}
     >
-      {champion ? <Trophy className="h-3.5 w-3.5" /> : <Medal className="h-3.5 w-3.5" />}
-      {awards.length > 1 && awards.length}
+      {champion ? <Trophy className="h-4 w-4" /> : <Medal className="h-4 w-4" />}
+      {awards.length > 1 && (
+        <span
+          className={cn(
+            "absolute top-1 right-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 font-mono text-[9px] leading-none font-bold text-white",
+            champion ? "bg-amber-600" : "bg-stone-500",
+          )}
+        >
+          {awards.length}
+        </span>
+      )}
     </button>
   );
 }
 
-/** History, edit, archive and delete for one player. On phones the last three fold into a 2×2 grid. */
+/** Awards, history, edit, archive and delete for one player. On phones they fold into a 3-column grid. */
 function PlayerActions({
   player,
   pending,
   compact = false,
+  awards,
+  onAwards,
   onHistory,
   onEdit,
   onToggleActive,
@@ -888,6 +892,8 @@ function PlayerActions({
   player: PlayerRecord;
   pending: boolean;
   compact?: boolean;
+  awards: PlayerAward[] | undefined;
+  onAwards: () => void;
   onHistory: () => void;
   onEdit: () => void;
   onToggleActive: () => void;
@@ -896,7 +902,8 @@ function PlayerActions({
   const icon =
     "press text-muted hover:bg-cream-deep hover:text-ink grid h-10 w-10 place-items-center rounded-full";
   return (
-    <div className={cn("flex shrink-0 items-center justify-end gap-0.5", compact && "grid grid-cols-2")}>
+    <div className={cn("flex shrink-0 items-center justify-end gap-0.5", compact && "grid grid-cols-3")}>
+      <AwardsButton nickname={player.nickname} awards={awards} onOpen={onAwards} />
       <button
         type="button"
         onClick={onHistory}
