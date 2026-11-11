@@ -115,7 +115,7 @@ export default async function PlayersPage() {
         today={manilaDateKey()}
       />
 
-      <PlayerManager players={records} recency={attendance.byPlayer} />
+      <PlayerManager players={records} recency={attendance.byPlayer} history={attendance.historyByPlayer} />
 
       <p data-trim-id="players.level-legend" className="text-muted text-[11px] leading-relaxed">
         Level labels: {LEVELS.map((level) => level.label).join(" · ")}. Full names are optional; nicknames are

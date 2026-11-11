@@ -5,17 +5,20 @@ import { useRouter } from "next/navigation";
 import {
   Archive,
   ArrowDown,
+  CalendarDays,
   ArrowUp,
   Check,
   ChevronsUpDown,
   Download,
   FileJson,
   FileSpreadsheet,
+  History,
   Pencil,
   Plus,
   RotateCcw,
   Search,
   Trash2,
+  Trophy,
   Upload,
   UserRoundPlus,
   Users,
@@ -32,6 +35,8 @@ import {
 import { CATEGORY_SHORT } from "@/lib/fees";
 import { LEVELS, levelLabel, levelValue } from "@/lib/levels";
 import type { RecencySnapshot } from "@/lib/recency";
+import type { PlayerHistoryItem } from "@/lib/queries";
+import { formatGameDate } from "@/lib/datetime";
 import { RecencyBadge, recencyCaption } from "@/components/app/recency-panel";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -77,7 +82,7 @@ const EMPTY_FORM: FormState = {
 type ImportSummary = { created: number; updated: number; total: number; errors: string[] };
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
-type SortKey = "nickname" | "level" | "category" | "contact" | "status" | "recency";
+type SortKey = "nickname" | "level" | "category" | "status" | "recency";
 type SortDir = "asc" | "desc";
 
 const CATEGORY_ORDER: Record<string, number> = {
@@ -91,9 +96,11 @@ const CATEGORY_ORDER: Record<string, number> = {
 export function PlayerManager({
   players,
   recency,
+  history,
 }: {
   players: PlayerRecord[];
   recency: Record<string, RecencySnapshot>;
+  history: Record<string, PlayerHistoryItem[]>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -104,6 +111,7 @@ export function PlayerManager({
   const [statusFilter, setStatusFilter] = React.useState("active");
   const [sortKey, setSortKey] = React.useState<SortKey>("nickname");
   const [sortDir, setSortDir] = React.useState<SortDir>("asc");
+  const [historyFor, setHistoryFor] = React.useState<PlayerRecord | null>(null);
   const [formOpen, setFormOpen] = React.useState(false);
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [importOpen, setImportOpen] = React.useState(false);
@@ -144,9 +152,6 @@ export function PlayerManager({
           break;
         case "category":
           diff = (CATEGORY_ORDER[a.category] ?? 99) - (CATEGORY_ORDER[b.category] ?? 99);
-          break;
-        case "contact":
-          diff = (a.contact ?? "").localeCompare(b.contact ?? "", undefined, { sensitivity: "base" });
           break;
         case "status":
           // Active players first when ascending.
@@ -308,7 +313,6 @@ export function PlayerManager({
             <option value="nickname">Sort: Name</option>
             <option value="level">Sort: Level</option>
             <option value="category">Sort: Type</option>
-            <option value="contact">Sort: Contact</option>
             <option value="status">Sort: Status</option>
             <option value="recency">Sort: Recency</option>
           </Select>
@@ -370,7 +374,8 @@ export function PlayerManager({
               variant={statusFilter === "archived" ? "primary" : "outline"}
               onClick={() => setStatusFilter(statusFilter === "archived" ? "active" : "archived")}
             >
-              <Archive className="h-3.5 w-3.5" /> {statusFilter === "archived" ? "Hide archive" : "Show archive"}
+              <Archive className="h-3.5 w-3.5" />{" "}
+              {statusFilter === "archived" ? "Hide archive" : "Show archive"}
             </Button>
             <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
               <Users className="h-3.5 w-3.5" /> UP BadAss roster
@@ -426,15 +431,6 @@ export function PlayerManager({
                   <th className="px-2 py-2.5 font-bold">
                     <button
                       type="button"
-                      onClick={() => toggleSort("contact")}
-                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
-                    >
-                      Contact {sortIcon("contact")}
-                    </button>
-                  </th>
-                  <th className="px-2 py-2.5 font-bold">
-                    <button
-                      type="button"
                       onClick={() => toggleSort("status")}
                       className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
                     >
@@ -471,7 +467,6 @@ export function PlayerManager({
                       <LevelBadge level={player.level} />
                     </td>
                     <td className="text-muted px-2 py-2.5 text-[11px]">{CATEGORY_SHORT[player.category]}</td>
-                    <td className="text-muted px-2 py-2.5 text-[11px]">{player.contact ?? "—"}</td>
                     <td className="px-2 py-2.5">
                       {player.active ? (
                         <Badge tone="green">Active</Badge>
@@ -491,6 +486,15 @@ export function PlayerManager({
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryFor(player)}
+                          className="text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-full transition"
+                          aria-label={`Attendance history of ${player.nickname}`}
+                          title="Games & tournaments attended"
+                        >
+                          <History className="h-3.5 w-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => openEdit(player)}
@@ -695,6 +699,49 @@ export function PlayerManager({
             <Download className="h-3.5 w-3.5" /> Download the CSV template
           </a>
         </div>
+      </Modal>
+
+      <Modal
+        open={historyFor !== null}
+        onClose={() => setHistoryFor(null)}
+        title={historyFor ? `${historyFor.nickname} · attendance` : "Attendance"}
+        description={
+          historyFor
+            ? `${(history[historyFor.id] ?? []).filter((item) => item.status === "PLAYED").length} played · ${(history[historyFor.id] ?? []).filter((item) => item.status === "WAITLIST").length} waitlisted, across all logged lists`
+            : undefined
+        }
+        footer={
+          <Button variant="ghost" onClick={() => setHistoryFor(null)}>
+            Close
+          </Button>
+        }
+      >
+        {historyFor && (history[historyFor.id] ?? []).length === 0 ? (
+          <p className="text-muted text-[12px]">Not on any logged list yet.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {historyFor &&
+              (history[historyFor.id] ?? []).map((item) => (
+                <li
+                  key={item.eventId}
+                  className="border-line/70 bg-cream/40 flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px]"
+                >
+                  {item.kind === "TOURNAMENT" ? (
+                    <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  ) : (
+                    <CalendarDays className="text-forest h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span className="font-semibold">{formatGameDate(item.date, { weekday: false })}</span>
+                  <span className="text-muted min-w-0 flex-1 truncate text-[11px]">
+                    {item.label ?? (item.kind === "TOURNAMENT" ? "Tournament" : "Game day")}
+                  </span>
+                  <Badge tone={item.status === "PLAYED" ? "green" : "neutral"}>
+                    {item.status === "PLAYED" ? "Played" : "Waitlist"}
+                  </Badge>
+                </li>
+              ))}
+          </ul>
+        )}
       </Modal>
 
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />

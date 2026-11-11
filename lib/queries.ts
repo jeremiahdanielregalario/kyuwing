@@ -254,8 +254,18 @@ export type AttendanceEventDto = {
   players: { nickname: string; level: string; status: "PLAYED" | "WAITLIST" }[];
 };
 
+export type PlayerHistoryItem = {
+  eventId: string;
+  date: string;
+  label: string | null;
+  kind: "GAMEDAY" | "TOURNAMENT";
+  status: "PLAYED" | "WAITLIST";
+};
+
 export type AttendanceOverview = {
   events: AttendanceEventDto[];
+  /** Every logged list a player appears on, newest first. */
+  historyByPlayer: Record<string, PlayerHistoryItem[]>;
   byPlayer: Record<string, RecencySnapshot>;
 };
 
@@ -274,8 +284,16 @@ export async function getAttendanceOverview(): Promise<AttendanceOverview> {
   });
 
   const rowsByPlayer = new Map<string, RecencyEntry[]>();
+  const historyByPlayer: Record<string, PlayerHistoryItem[]> = {};
   for (const event of events) {
     for (const entry of event.entries) {
+      (historyByPlayer[entry.playerId] ??= []).push({
+        eventId: event.id,
+        date: event.date.toISOString(),
+        label: event.label,
+        kind: event.kind,
+        status: entry.status,
+      });
       const rows = rowsByPlayer.get(entry.playerId) ?? [];
       rows.push({ date: event.date, status: entry.status, kind: event.kind });
       rowsByPlayer.set(entry.playerId, rows);
@@ -304,6 +322,7 @@ export async function getAttendanceOverview(): Promise<AttendanceOverview> {
         }))
         .sort((a, b) => a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" })),
     })),
+    historyByPlayer,
     byPlayer,
   };
 }

@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Player attendance history** — a history icon on each player row opens every logged game day and tournament they played in or were waitlisted for, newest first.
 - **Show archive button** — beside "UP BadAss roster" on the Players page, one tap switches the player database to archived players only, and **Hide archive** switches back.
 - **View logged attendance lists** — each list under **Players → Logged lists** has a **View** button that opens who played and who was waitlisted (nickname and level), so you can check the history of past game days.
 - **Set initial players on a court and let Pair fill the rest** — drop one to three players onto an empty court (or waiting court), then press **Fill the rest**: they stay on the side you put them (same team = partners, different teams = opponents) and the pairing engine fills the empty places. **Pair** now always fills the court you press it on.
@@ -53,6 +54,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Contact column removed from the player table.** The contact field is still stored and editable in the player form, and search still matches it.
 - Fixed dragging a court card onto a player's box: while dragging, only valid targets are offered, so a court no longer highlights or looks like it snaps into a box meant for players. Courts go onto courts or waiting games; players go onto player boxes and empty slots.
 - **Sign-ups rows: settings behind a gear** — each player's row stays compact, with Check in, Undo check-in, Done for the day and Remove on it. A gear icon beside them opens that player's permanent partner (saves as soon as you pick) and pairing requests (with remove) right under the row, no dialog. A small dot on the gear and tags on the row show when a partner or request is set. The Details dialog and separate Pair button are gone.
 - The Game days page no longer shows **New game day** twice when it is empty; the header button is the only one.

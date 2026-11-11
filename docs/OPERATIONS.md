@@ -137,6 +137,8 @@ The **Players** page has a **Playing recency** section. Its counters show Playin
 
 To check who was on a past game day, press **View** on any list under **Logged lists**. It shows the players who played and the waitlist, each with their nickname and current level.
 
+On the player table, the history icon in a player's row lists every logged game day and tournament they attended or were waitlisted for.
+
 How players are banded:
 
 | Band          | Meaning                                                                        |
