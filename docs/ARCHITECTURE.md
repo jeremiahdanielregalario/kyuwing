@@ -142,6 +142,10 @@ One shared queue-master identity, plus a separate developer identity.
 4. `app/app/layout.tsx` calls `getSession()` and redirects to `/login?next=/app` when absent.
 5. API routes and server actions re-check the session; the layout guard is not the only line of defense. `lib/actions/ui-config.ts` additionally requires `isAdmin()`.
 
+### Motion and feel
+
+Motion tokens live in `app/globals.css`: `--ease-fluid` for movement, `--ease-spring` for things that pop, `--ease-exit` for leaving. Shared utilities are `press` (scale-on-tap feedback, used by `buttonVariants`), `glass` (frosted bars), `skeleton` (loading shimmer) and `animate-page-in` / `animate-pop-in` / `animate-live-ring`. `Modal` is a bottom sheet under 640px (swipe the header down to close) and a centred dialog above it; it stays mounted for its exit animation. `app/app/template.tsx` eases each page in, and `loading.tsx` files show `components/ui/skeleton.tsx` placeholders. `lib/haptics.ts` gives a short vibration on supporting phones. A `prefers-reduced-motion` block turns all of it off.
+
 ### Developer UI customization
 
 `/login?mode=admin` unlocks a "Customize UI" button. Only elements tagged with a `data-trim-id` listed in `lib/ui-trim.ts` can be hidden, so critical controls are never removable. Hidden ids are stored globally in `AppSetting` under `ui.hidden.v1`; every `/app` layout injects the matching `display: none` rules, which makes the change apply to every queue master on every device. The developer can restore individual pieces or everything from the trim toolbar.

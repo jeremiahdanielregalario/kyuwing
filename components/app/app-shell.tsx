@@ -61,7 +61,7 @@ export function AppShell({
       </aside>
 
       <div className="min-w-0">
-        <header className="bg-forest-deep text-cream sticky top-0 z-30 flex h-15 items-center justify-between border-b border-black px-4 lg:hidden">
+        <header className="glass bg-forest-deep/90 text-cream sticky top-0 z-30 flex h-15 items-center justify-between border-b border-white/5 px-4 lg:hidden">
           <Logo compact tone="cream" />
           <div className="flex items-center gap-2">
             {admin && (
@@ -75,7 +75,7 @@ export function AppShell({
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="border-cream/15 bg-cream/5 text-cream/60 hover:text-lime grid h-9 w-9 place-items-center rounded-full border transition"
+                className="press border-cream/15 bg-cream/5 text-cream/60 hover:text-lime grid h-9 w-9 place-items-center rounded-full border"
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" />

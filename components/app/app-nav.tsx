@@ -54,7 +54,7 @@ export function AppNav({ currentGameDayId }: { currentGameDayId: string | null }
             key={item.href}
             href={href}
             className={cn(
-              "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all",
+              "press group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold",
               active
                 ? "bg-lime text-forest-deep shadow-[0_10px_24px_-16px_rgba(255,214,0,0.9)]"
                 : "text-cream/65 hover:bg-cream/10 hover:text-cream",
@@ -80,9 +80,20 @@ export function AppNav({ currentGameDayId }: { currentGameDayId: string | null }
 
 export function MobileNav({ currentGameDayId }: { currentGameDayId: string | null }) {
   const pathname = usePathname();
+  const activeIndex = navItems.findIndex((item) => isActive(pathname, item.href));
   return (
-    <nav className="border-line bg-paper/95 fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-      <div className="grid grid-cols-5">
+    <nav className="glass border-line/70 bg-paper/80 fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_-24px_rgb(10_10_10/0.5)] lg:hidden">
+      <div className="relative mx-auto grid max-w-xl grid-cols-5">
+        {/* One gold pill that glides to the active tab. */}
+        {activeIndex >= 0 && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-2.5 left-0 flex w-1/5 justify-center transition-transform duration-500 ease-(--ease-spring)"
+            style={{ transform: `translateX(${activeIndex * 100}%)` }}
+          >
+            <span className="bg-lime h-8 w-11 rounded-full shadow-[0_8px_18px_-10px_rgb(201_181_0/0.9)]" />
+          </span>
+        )}
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);
           const disabled = item.liveBoard && !currentGameDayId;
@@ -95,7 +106,7 @@ export function MobileNav({ currentGameDayId }: { currentGameDayId: string | nul
                 title="No active game day"
                 className="flex cursor-not-allowed flex-col items-center gap-1 py-2.5 text-[10px] font-semibold opacity-30"
               >
-                <span className="text-muted grid h-8 w-8 place-items-center rounded-full transition-colors">
+                <span className="text-muted grid h-8 w-11 place-items-center rounded-full">
                   <item.icon className="h-4.5 w-4.5" />
                 </span>
                 {item.short}
@@ -107,15 +118,16 @@ export function MobileNav({ currentGameDayId }: { currentGameDayId: string | nul
             <Link
               key={item.href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors",
-                active ? "text-ink" : "text-muted",
+                "press relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold",
+                active ? "text-ink" : "text-muted hover:text-ink",
               )}
             >
               <span
                 className={cn(
-                  "grid h-8 w-8 place-items-center rounded-full transition-colors",
-                  active ? "bg-lime text-forest-deep" : "text-muted",
+                  "grid h-8 w-11 place-items-center rounded-full transition-colors duration-300",
+                  active ? "text-forest-deep" : "text-muted",
                 )}
               >
                 <item.icon className="h-4.5 w-4.5" />
