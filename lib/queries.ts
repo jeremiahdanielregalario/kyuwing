@@ -250,6 +250,8 @@ export type AttendanceEventDto = {
   kind: "GAMEDAY" | "TOURNAMENT";
   played: number;
   waitlist: number;
+  /** Who was on the list, by nickname (no contact details). */
+  players: { nickname: string; level: string; status: "PLAYED" | "WAITLIST" }[];
 };
 
 export type AttendanceOverview = {
@@ -264,7 +266,11 @@ export type AttendanceOverview = {
 export async function getAttendanceOverview(): Promise<AttendanceOverview> {
   const events = await prisma.attendanceEvent.findMany({
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    include: { entries: { select: { playerId: true, status: true } } },
+    include: {
+      entries: {
+        select: { playerId: true, status: true, player: { select: { nickname: true, level: true } } },
+      },
+    },
   });
 
   const rowsByPlayer = new Map<string, RecencyEntry[]>();
@@ -290,6 +296,13 @@ export async function getAttendanceOverview(): Promise<AttendanceOverview> {
       kind: event.kind,
       played: event.entries.filter((entry) => entry.status === "PLAYED").length,
       waitlist: event.entries.filter((entry) => entry.status === "WAITLIST").length,
+      players: event.entries
+        .map((entry) => ({
+          nickname: entry.player.nickname,
+          level: levelLabel(entry.player.level),
+          status: entry.status,
+        }))
+        .sort((a, b) => a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" })),
     })),
     byPlayer,
   };

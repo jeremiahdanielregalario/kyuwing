@@ -135,6 +135,8 @@ The **Players** page has a **Playing recency** section. Its counters show Playin
 3. Paste the whole chat message into **Played**. Numbering, blank slots, and headers (title, date, time) are ignored, and anything under a `Waitlist:` line is counted as waitlisted. You can also paste a waitlist separately into the second box.
 4. Save. Any nickname that is not in the player database is listed in a warning; add those players, delete the list, and log it again.
 
+To check who was on a past game day, press **View** on any list under **Logged lists**. It shows the players who played and the waitlist, each with their nickname and current level.
+
 How players are banded:
 
 | Band          | Meaning                                                                        |

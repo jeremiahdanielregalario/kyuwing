@@ -6,6 +6,7 @@ import {
   Activity,
   CalendarDays,
   ClipboardPaste,
+  Eye,
   Flame,
   History,
   Snowflake,
@@ -97,6 +98,7 @@ export function RecencyPanel({
   const [open, setOpen] = React.useState(false);
   const [showAllLists, setShowAllLists] = React.useState(false);
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
+  const [viewing, setViewing] = React.useState<AttendanceEventDto | null>(null);
 
   const [date, setDate] = React.useState(today);
   const [kind, setKind] = React.useState<"GAMEDAY" | "TOURNAMENT">("GAMEDAY");
@@ -194,6 +196,14 @@ export function RecencyPanel({
                 </span>
                 <button
                   type="button"
+                  onClick={() => setViewing(event)}
+                  className="text-forest hover:bg-lime/25 inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition"
+                  aria-label="View players on this list"
+                >
+                  <Eye className="h-3.5 w-3.5" /> View
+                </button>
+                <button
+                  type="button"
                   onClick={() =>
                     setConfirmSpec({
                       title: "Remove this attendance list?",
@@ -215,7 +225,7 @@ export function RecencyPanel({
                     })
                   }
                   disabled={pending}
-                  className="text-muted hover:bg-coral-soft hover:text-coral grid h-6 w-6 place-items-center rounded-full transition"
+                  className="text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full transition"
                   aria-label="Remove attendance list"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -296,6 +306,53 @@ export function RecencyPanel({
             </Field>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={viewing !== null}
+        onClose={() => setViewing(null)}
+        title={
+          viewing
+            ? `${viewing.label ?? (viewing.kind === "TOURNAMENT" ? "Tournament" : "Game day")} · ${formatGameDate(viewing.date, { weekday: false })}`
+            : "Logged list"
+        }
+        description={viewing ? `${viewing.played} played · ${viewing.waitlist} waitlist` : undefined}
+        size="lg"
+        footer={
+          <Button variant="ghost" onClick={() => setViewing(null)}>
+            Close
+          </Button>
+        }
+      >
+        {viewing && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(["PLAYED", "WAITLIST"] as const).map((status) => {
+              const rows = viewing.players.filter((player) => player.status === status);
+              return (
+                <div key={status}>
+                  <p className="text-muted mb-1.5 text-[9px] font-bold tracking-[0.14em] uppercase">
+                    {status === "PLAYED" ? "Played" : "Waitlist"} ({rows.length})
+                  </p>
+                  {rows.length === 0 ? (
+                    <p className="text-muted text-[11px]">None.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {rows.map((player) => (
+                        <li
+                          key={player.nickname}
+                          className="border-line/70 bg-cream/40 flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-[12px]"
+                        >
+                          <span className="font-semibold">{player.nickname}</span>
+                          <span className="text-muted font-mono text-[10px]">{player.level}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
