@@ -44,6 +44,7 @@ function match(id: string, courtNumber: number, status: BoardMatch["status"], na
     round: 1,
     status,
     free: false,
+    changedAt: "2026-06-13T10:00:00.000Z",
     startedAt: null,
     endedAt: null,
     note: null,

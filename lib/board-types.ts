@@ -48,6 +48,8 @@ export type BoardMatch = {
   free: boolean;
   startedAt: string | null;
   endedAt: string | null;
+  /** Last time the game was paired, moved or edited. For an unstarted game: how long it has sat there. */
+  changedAt: string;
   note: string | null;
   team1: BoardMatchPlayer[];
   team2: BoardMatchPlayer[];

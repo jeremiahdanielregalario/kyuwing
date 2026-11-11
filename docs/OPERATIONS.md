@@ -40,6 +40,7 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 - Waiting games line up in order (**Up next**, Waiting 2, …). When a game ends, the first one moves onto that court automatically; press **Start** once the four are on court. If a court is already open, **Start** on a waiting game sends it there.
 - Queued games can be edited, removed with ✕, or dragged onto an open court.
 - Start a match only when all four are walking on court.
+- **Start reminders.** A paired game on a court shows a gold "Not started yet" note above its **Start** button until it starts. A pop-up also asks you to start it right after a game ends and the next game in line moves onto the court, and again if a paired game sits unstarted for 2 minutes. **Start** in the pop-up starts that game; **Not yet** stops the pop-up for those games on this device (reloading the board brings it back), but the note on the court stays.
 - End a match with one tap. Both teams requeue automatically and each player's game count increments.
 - If a suggested match is wrong, press **Edit** on the court card and swap players before starting.
 

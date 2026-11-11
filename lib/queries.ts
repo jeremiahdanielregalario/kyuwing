@@ -107,6 +107,7 @@ function toBoardMatch(match: MatchWithPlayers, sessionByPlayer: Map<string, stri
     free: match.free,
     startedAt: match.startedAt?.toISOString() ?? null,
     endedAt: match.endedAt?.toISOString() ?? null,
+    changedAt: match.updatedAt.toISOString(),
     note: match.note,
     team1: sorted.filter((row) => row.team === 1).map(toPlayer),
     team2: sorted.filter((row) => row.team === 2).map(toPlayer),

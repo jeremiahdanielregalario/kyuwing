@@ -105,6 +105,7 @@ import {
   reservationEnd,
   timeToMinutes,
 } from "@/lib/datetime";
+import { formatWaited, gamesToStart } from "@/lib/start-reminder";
 import { CourtLines } from "@/components/app/court-surface";
 import { Avatar } from "@/components/ui/avatar";
 import { Dot } from "@/components/ui/badge";
@@ -260,6 +261,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // pressed for this exact group; a new X player, or a refused start, brings it back.
   const [unratedDismissed, setUnratedDismissed] = React.useState<string | null>(null);
   const [unratedForced, setUnratedForced] = React.useState(false);
+  // Start reminder: games that just moved onto a court when another game ended, and games the
+  // queue master answered "Not yet" for (they don't pop up again).
+  const [promotedIds, setPromotedIds] = React.useState<string[]>([]);
+  const [startLaterIds, setStartLaterIds] = React.useState<Set<string>>(() => new Set());
   const creatingDrafts = React.useRef<Set<number>>(new Set());
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -488,6 +493,28 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     : "";
   const snoozeEndPrompt = () => setSnoozedUntil(Date.now() + 10 * 60 * 1000);
 
+  // Start reminder: a game on a court that hasn't started, either because it just moved up when
+  // another game ended, or because it was paired a while ago and left. Queue masters often pair,
+  // check the line-up, and forget to press Start.
+  const startReminder = isCompleted
+    ? []
+    : gamesToStart(suggested, { now, movedIds: promotedIds, laterIds: startLaterIds });
+  const startReminderOpen =
+    startReminder.length > 0 &&
+    !confirmSpec &&
+    !freePrompt &&
+    !editMatch &&
+    !unratedOpen &&
+    !checkOpen &&
+    !walkOpen &&
+    !addCourtOpen &&
+    !shareOpen &&
+    !renameTarget &&
+    !endPromptOpen;
+  const startReminderMoved = startReminder.some((match) => promotedIds.includes(match.id));
+  const startLater = () =>
+    setStartLaterIds((prev) => new Set([...prev, ...startReminder.map((match) => match.id)]));
+
   const sortedQueue = React.useMemo(() => {
     const statusOrder: Record<string, number> = { WAITING: 0, PLAYING: 1, EXPECTED: 2, DONE: 3 };
     return [...data.players].sort((a, b) => {
@@ -601,6 +628,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   // Ending a game offers Undo for a few seconds, in case it was ended by mistake.
   const endGame = (matchId: string) => {
+    const onCourtBefore = new Set(suggested.map((match) => match.id));
     startTransition(async () => {
       const result = await completeMatch(matchId);
       if (!result.ok) {
@@ -613,7 +641,13 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         duration: 10000,
         action: { label: "Undo", onClick: () => act(() => restoreMatch(matchId)) },
       });
-      await mutate();
+      const fresh = await mutate();
+      // A waiting game that took the freed court still has to be started: remind right away.
+      const moved = (fresh?.activeMatches ?? []).filter(
+        (match) =>
+          match.status === "SUGGESTED" && match.courtNumber !== QUEUED_COURT && !onCourtBefore.has(match.id),
+      );
+      if (moved.length > 0) setPromotedIds((prev) => [...prev, ...moved.map((match) => match.id)]);
     });
   };
 
@@ -1411,6 +1445,65 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         </div>
 
         <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
+
+        {/* Start reminder: paired games on a court that nobody has started yet. */}
+        <Modal
+          open={startReminderOpen}
+          onClose={startLater}
+          title={
+            startReminder.length === 1
+              ? `Start the game on ${courtName(slot, startReminder[0].courtNumber)}?`
+              : `${startReminder.length} games haven't started`
+          }
+          description={
+            startReminderMoved
+              ? "The next game in line moved onto the free court. Its timer and game counts only begin once you press Start."
+              : "These players were paired but the game was never started, so its timer and game counts haven't begun. Press Start once all four are on court."
+          }
+          size="sm"
+          footer={
+            <Button variant="ghost" onClick={startLater}>
+              Not yet
+            </Button>
+          }
+        >
+          <div className="space-y-2">
+            {startReminder.map((match) => {
+              const waitedMinutes = now ? Math.floor((now - Date.parse(match.changedAt)) / 60000) : 0;
+              return (
+                <div
+                  key={match.id}
+                  className="border-line bg-cream/70 flex items-center gap-3 rounded-xl border px-3.5 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-bold">
+                      {courtName(slot, match.courtNumber)}
+                      {waitedMinutes >= 1 && (
+                        <span className="text-muted font-normal">
+                          {" "}
+                          · paired {formatWaited(waitedMinutes)} ago
+                        </span>
+                      )}
+                    </p>
+                    <p className="truncate text-[12px]">
+                      {match.team1.map((player) => player.nickname).join(" & ")}
+                      <span className="text-muted"> vs </span>
+                      {match.team2.map((player) => player.nickname).join(" & ")}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => requestStart(1, (free) => startGame(match.id, free))}
+                    loading={pending}
+                  >
+                    <Play className="h-3.5 w-3.5" /> Start
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Modal>
+
         <UnratedLevelsPrompt
           open={unratedOpen}
           onClose={() => {
@@ -2131,6 +2224,7 @@ function CourtCard({
   const elapsed =
     match.startedAt && now ? Math.max(0, Math.floor((now - Date.parse(match.startedAt)) / 1000)) : 0;
   const balance = Math.abs(teamValue(match.team1) - teamValue(match.team2));
+  const unstartedMinutes = !live && now ? Math.floor((now - Date.parse(match.changedAt)) / 60000) : 0;
 
   return (
     <div
@@ -2244,6 +2338,17 @@ function CourtCard({
           <span className="text-cream/40 font-mono text-[9px]">R{match.round}</span>
         </div>
 
+        {!live && !waiting && !isCompleted && (
+          <p
+            data-trim-id="board.start-reminder"
+            className="bg-gold text-ink relative mt-2 rounded-lg px-2.5 py-1.5 text-[11px] leading-snug font-semibold"
+          >
+            Not started yet. Press Start once all four are on court
+            {unstartedMinutes >= 1 ? ` · paired ${formatWaited(unstartedMinutes)} ago` : ""}.
+            <span aria-hidden className="bg-gold absolute -bottom-1 left-8 h-2 w-2 rotate-45" />
+          </p>
+        )}
+
         <div className="mt-1.5 flex items-center gap-1.5">
           {live ? (
             <Button
@@ -2264,7 +2369,12 @@ function CourtCard({
               title={
                 canStart ? undefined : "Every court is in use — this game takes the next one that frees up"
               }
-              className={cn("h-8 flex-1", waiting && WAITING_BUTTON)}
+              className={cn(
+                "h-8 flex-1",
+                waiting
+                  ? WAITING_BUTTON
+                  : !isCompleted && "ring-gold ring-offset-forest-deep ring-2 ring-offset-2",
+              )}
             >
               <Play className="h-3.5 w-3.5" /> Start
             </Button>
