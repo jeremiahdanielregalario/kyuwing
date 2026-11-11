@@ -364,9 +364,18 @@ export function PlayerManager({
               {filtered.length} of {players.length} players · 19 levels, E- to A+
             </p>
           </div>
-          <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
-            <Users className="h-3.5 w-3.5" /> UP BadAss roster
-          </span>
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant={statusFilter === "archived" ? "primary" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "archived" ? "active" : "archived")}
+            >
+              <Archive className="h-3.5 w-3.5" /> {statusFilter === "archived" ? "Hide archive" : "Show archive"}
+            </Button>
+            <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
+              <Users className="h-3.5 w-3.5" /> UP BadAss roster
+            </span>
+          </div>
         </div>
 
         {filtered.length === 0 ? (

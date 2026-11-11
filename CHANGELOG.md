@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Show archive button** — beside "UP BadAss roster" on the Players page, one tap switches the player database to archived players only, and **Hide archive** switches back.
 - **View logged attendance lists** — each list under **Players → Logged lists** has a **View** button that opens who played and who was waitlisted (nickname and level), so you can check the history of past game days.
 - **Set initial players on a court and let Pair fill the rest** — drop one to three players onto an empty court (or waiting court), then press **Fill the rest**: they stay on the side you put them (same team = partners, different teams = opponents) and the pairing engine fills the empty places. **Pair** now always fills the court you press it on.
 - **Reorder the waiting line** — each waiting game has up/down arrows to move it earlier or later, and a waiting game can be dragged onto another to take its place. Games take free courts in the new order.
