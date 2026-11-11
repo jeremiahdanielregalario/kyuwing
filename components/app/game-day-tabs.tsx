@@ -31,8 +31,10 @@ export function GameDayTabs({
             <Link
               key={tab.href}
               href={tab.href}
+              // On phones the tab row scrolls sideways: bring the open tab into view.
+              ref={active ? scrollIntoRow : undefined}
               className={cn(
-                "relative inline-flex items-center gap-2 px-3.5 py-3 text-[12px] font-semibold transition-colors",
+                "press relative inline-flex min-h-11 items-center gap-2 px-3.5 py-3 text-[12px] font-semibold",
                 active ? "text-forest" : "text-muted hover:text-ink",
               )}
             >
@@ -43,13 +45,22 @@ export function GameDayTabs({
                   {tab.badge}
                 </span>
               )}
-              {active && <span className="bg-forest absolute inset-x-2 -bottom-px h-0.5 rounded-full" />}
+              {active && (
+                <span className="bg-forest animate-grow-x absolute inset-x-2 -bottom-px h-0.5 rounded-full" />
+              )}
             </Link>
           );
         })}
       </div>
     </div>
   );
+}
+
+function scrollIntoRow(node: HTMLAnchorElement | null) {
+  const row = node?.closest<HTMLElement>(".overflow-x-auto");
+  if (!node || !row) return;
+  const left = node.offsetLeft - (row.clientWidth - node.offsetWidth) / 2;
+  row.scrollLeft = Math.max(0, left);
 }
 
 export function PlaybookHint() {

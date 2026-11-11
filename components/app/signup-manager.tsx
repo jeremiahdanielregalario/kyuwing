@@ -48,6 +48,7 @@ import { SignupTextPanel } from "@/components/app/signup-text-panel";
 import { addPlayersFromText } from "@/lib/actions/signup-text";
 import type { SignupCheck } from "@/lib/signup-check";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 type DatabasePlayer = {
@@ -88,10 +89,12 @@ export function SignupManager({
     startTransition(async () => {
       const result = await fn();
       if (result.ok) {
+        haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
         router.refresh();
       } else {
+        haptic("warning");
         toast.error(result.error);
       }
     });
@@ -135,11 +138,13 @@ export function SignupManager({
         notes: null,
       });
       if (!created.ok) {
+        haptic("warning");
         toast.error(created.error);
         return;
       }
       const added = await addPlayerToGameDay(gameDayId, created.data!.id, true);
       if (added.ok) {
+        haptic("success");
         toast.success(`${quick.nickname} added and checked in.`);
         setQuickOpen(false);
         setQuick({ nickname: "", level: "C", category: "ACTIVE" });
@@ -153,7 +158,7 @@ export function SignupManager({
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px]">
       <div className="space-y-4">
-        <div className="border-line bg-paper flex flex-wrap items-center gap-2 rounded-2xl border p-3">
+        <div className="glass border-line bg-paper/85 sticky top-17 z-20 flex flex-wrap items-center gap-2 rounded-2xl border p-3 lg:top-2">
           <div className="flex flex-wrap gap-1">
             {(
               [
@@ -168,7 +173,7 @@ export function SignupManager({
                 type="button"
                 onClick={() => setTab(value)}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-[11px] font-semibold transition",
+                  "press rounded-full px-3 py-2 text-[11px] font-semibold",
                   tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
                 )}
               >
@@ -273,7 +278,7 @@ export function SignupManager({
               available.map((player) => (
                 <div
                   key={player.id}
-                  className="hover:bg-cream/60 flex items-center gap-2 rounded-lg px-2 py-1.5"
+                  className="hover:bg-cream/60 flex items-center gap-2 rounded-lg px-2 py-1"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-semibold">{player.nickname}</p>
@@ -291,7 +296,7 @@ export function SignupManager({
                       )
                     }
                     disabled={pending}
-                    className="bg-cream-deep text-forest hover:bg-lime grid h-7 w-7 place-items-center rounded-full transition"
+                    className="press bg-cream-deep text-forest hover:bg-lime grid h-9 w-9 place-items-center rounded-full"
                     title="Add to sign-ups"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -305,7 +310,7 @@ export function SignupManager({
                       )
                     }
                     disabled={pending}
-                    className="bg-forest text-lime hover:bg-forest-deep grid h-7 w-7 place-items-center rounded-full transition"
+                    className="press bg-forest text-lime hover:bg-forest-deep grid h-9 w-9 place-items-center rounded-full"
                     title="Add and check in"
                   >
                     <UserCheck className="h-3.5 w-3.5" />
@@ -485,7 +490,7 @@ function PlayerRow({
   const hasSettings = Boolean(player.permanentPartnerNickname) || player.requests.length > 0;
 
   return (
-    <div className="hover:bg-cream/30 px-4 py-3 transition">
+    <div className="hover:bg-cream/30 animate-pop-in px-4 py-3 transition-colors">
       <div className="flex flex-wrap items-center gap-3">
         <Avatar name={player.nickname} level={player.levelLabel} size="md" />
         <div className="min-w-0 flex-1">
@@ -551,7 +556,7 @@ function PlayerRow({
               aria-label={`Partner and pairing settings for ${player.nickname}`}
               title="Permanent partner and pairing requests"
               className={cn(
-                "relative grid h-8 w-8 place-items-center rounded-full border transition",
+                "press relative grid h-9 w-9 place-items-center rounded-full border",
                 open
                   ? "border-ink bg-ink text-cream"
                   : "border-line text-muted hover:bg-cream-deep hover:text-ink bg-white",
@@ -597,7 +602,7 @@ function PlayerRow({
             type="button"
             onClick={onRemove}
             disabled={pending}
-            className="text-muted hover:bg-coral-soft hover:text-coral grid h-8 w-8 place-items-center rounded-full transition"
+            className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full"
             aria-label={`Remove ${player.nickname}`}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -606,7 +611,7 @@ function PlayerRow({
       </div>
 
       {settable && open && (
-        <div className="border-line bg-cream/40 mt-2.5 grid gap-2 rounded-2xl border p-3 sm:ml-12 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+        <div className="border-line bg-cream/40 animate-pop-in mt-2.5 grid gap-2 rounded-2xl border p-3 sm:ml-12 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
           <label className="flex min-w-0 items-center gap-2">
             <span className="text-muted inline-flex shrink-0 items-center gap-1 text-[10px] font-bold tracking-[0.12em] uppercase">
               <Link2 className="h-3 w-3" /> Partner

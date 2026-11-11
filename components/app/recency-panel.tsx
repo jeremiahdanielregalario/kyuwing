@@ -24,6 +24,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 /** Logged lists shown before "Show all". */
@@ -126,10 +127,12 @@ export function RecencyPanel({
     startTransition(async () => {
       const result = await logAttendanceEvent({ date, kind, label, playedText, waitlistText });
       if (!result.ok) {
+        haptic("warning");
         toast.error(result.error);
         return;
       }
       const summary = result.data;
+      haptic("success");
       toast.success(result.message ?? "Attendance logged.");
       if (summary && summary.unmatched.length > 0) {
         const names = summary.unmatched;
@@ -197,7 +200,7 @@ export function RecencyPanel({
                 <button
                   type="button"
                   onClick={() => setViewing(event)}
-                  className="text-forest hover:bg-lime/25 inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold transition"
+                  className="press text-forest hover:bg-lime/25 inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold"
                   aria-label="View players on this list"
                 >
                   <Eye className="h-3.5 w-3.5" /> View
@@ -215,6 +218,7 @@ export function RecencyPanel({
                         startTransition(async () => {
                           const result = await deleteAttendanceEvent(event.id);
                           if (result.ok) {
+                            haptic("success");
                             toast.success(result.message ?? "Removed.");
                             router.refresh();
                           } else {
@@ -225,7 +229,7 @@ export function RecencyPanel({
                     })
                   }
                   disabled={pending}
-                  className="text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full transition"
+                  className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full"
                   aria-label="Remove attendance list"
                 >
                   <Trash2 className="h-3 w-3" />

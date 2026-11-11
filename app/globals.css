@@ -43,6 +43,7 @@
   --animate-page-in: page-in 0.32s var(--ease-fluid) both;
   --animate-pop-in: pop-in 0.34s var(--ease-spring) both;
   --animate-live-ring: live-ring 1.8s var(--ease-fluid) infinite;
+  --animate-grow-x: grow-x 0.36s var(--ease-fluid) both;
 }
 
 /* The press feel: interactive things sink slightly under a finger. */
@@ -285,6 +286,16 @@
   }
   to {
     opacity: 1;
+    transform: none;
+  }
+}
+
+/* An underline that draws out from its centre. */
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
     transform: none;
   }
 }

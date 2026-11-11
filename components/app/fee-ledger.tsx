@@ -23,6 +23,7 @@ import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { Stat } from "@/components/ui/stat";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -62,10 +63,12 @@ export function FeeLedger({ report }: { report: FeeReport }) {
     startTransition(async () => {
       const result = await fn();
       if (result.ok) {
+        haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
         router.refresh();
       } else {
+        haptic("warning");
         toast.error(result.error);
       }
     });
@@ -168,7 +171,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
               type="button"
               onClick={() => setFilter(value)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-[11px] font-semibold transition",
+                "press rounded-full px-3 py-2 text-[11px] font-semibold",
                 filter === value ? "bg-forest text-cream" : "text-muted hover:text-ink",
               )}
             >
@@ -232,7 +235,66 @@ export function FeeLedger({ report }: { report: FeeReport }) {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Phones: one tappable card per player; tap to record a payment. */}
+        <ul className="divide-line/60 divide-y md:hidden">
+          {rows.length === 0 ? (
+            <li className="text-muted px-4 py-12 text-center text-[12px]">No players match this view.</li>
+          ) : (
+            rows.map((row) => (
+              <li key={row.sessionPlayerId} className="animate-pop-in flex items-center gap-3 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => openPayment(row)}
+                  disabled={pending}
+                  className="press flex min-w-0 flex-1 items-center gap-3 text-left"
+                  aria-label={`Record payment for ${row.nickname}`}
+                >
+                  <LevelBadge level={row.level} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-[13px] font-semibold">{row.nickname}</span>
+                      <FeeStatus row={row} />
+                    </span>
+                    <span className="text-muted block text-[10px]">
+                      {CATEGORY_SHORT[row.category]} · {row.gamesPlayed} games
+                      {row.extras ? ` · extras ${formatPeso(row.extras)}` : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-mono text-[13px] font-bold">{formatPeso(row.total)}</span>
+                    <span
+                      className={cn(
+                        "block font-mono text-[10px]",
+                        row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
+                      )}
+                    >
+                      {row.change > 0
+                        ? `change ${formatPeso(row.change)}`
+                        : row.balance
+                          ? `owes ${formatPeso(row.balance)}`
+                          : "settled up"}
+                    </span>
+                  </span>
+                </button>
+                <label
+                  className="grid h-11 w-9 shrink-0 cursor-pointer place-items-center"
+                  title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
+                >
+                  <input
+                    type="checkbox"
+                    checked={row.settled}
+                    disabled={pending || !row.paid}
+                    onChange={(event) => act(() => setSettled(row.sessionPlayerId, event.target.checked))}
+                    aria-label={`${row.nickname} settled`}
+                    className="accent-forest h-5 w-5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                  />
+                </label>
+              </li>
+            ))
+          )}
+        </ul>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[880px] text-left text-[12px]">
             <thead>
               <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
@@ -257,80 +319,69 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => {
-                  const partial = row.amountPaid > 0 && !row.paid;
-                  return (
-                    <tr
-                      key={row.sessionPlayerId}
-                      className="border-line/50 hover:bg-cream/30 border-b transition"
-                    >
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <LevelBadge level={row.level} />
-                          <div>
-                            <p className="font-semibold">{row.nickname}</p>
-                            <p className="text-muted text-[9px]">{CATEGORY_SHORT[row.category]}</p>
-                          </div>
+                rows.map((row) => (
+                  <tr
+                    key={row.sessionPlayerId}
+                    className="border-line/50 hover:bg-cream/30 border-b transition"
+                  >
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <LevelBadge level={row.level} />
+                        <div>
+                          <p className="font-semibold">{row.nickname}</p>
+                          <p className="text-muted text-[9px]">{CATEGORY_SHORT[row.category]}</p>
                         </div>
-                      </td>
-                      <td className="px-2 py-2.5 text-center font-mono font-bold">{row.gamesPlayed}</td>
-                      <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.perGameFee)}</td>
-                      <td
-                        className="px-2 py-2.5 text-right font-mono"
-                        title={[
-                          row.gripCount ? `${row.gripCount} grip${row.gripCount === 1 ? "" : "s"}` : "",
-                          row.otherCharge ? `${row.otherNote || "Other"} ${formatPeso(row.otherCharge)}` : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      >
-                        {row.extras ? formatPeso(row.extras) : "—"}
-                      </td>
-                      <td className="px-2 py-2.5 text-right font-mono font-bold">{formatPeso(row.total)}</td>
-                      <td className="text-muted px-2 py-2.5 text-right font-mono">
-                        {formatPeso(row.amountPaid)}
-                      </td>
-                      <td className="px-2 py-2.5 text-right font-mono font-bold">
-                        {row.balance ? formatPeso(row.balance) : "—"}
-                      </td>
-                      <td
-                        className={cn(
-                          "px-2 py-2.5 text-right font-mono",
-                          row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
-                        )}
-                      >
-                        {row.change ? formatPeso(row.change) : "—"}
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        {row.paid ? (
-                          <Badge tone="green">Paid</Badge>
-                        ) : partial ? (
-                          <Badge tone="amber">Partial</Badge>
-                        ) : (
-                          <Badge tone="neutral">Due</Badge>
-                        )}
-                      </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={row.settled}
-                          disabled={pending || !row.paid}
-                          onChange={(event) =>
-                            act(() => setSettled(row.sessionPlayerId, event.target.checked))
-                          }
-                          aria-label={`${row.nickname} settled`}
-                          title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
-                          className="accent-forest h-5 w-5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
-                        />
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <Button size="sm" variant="paper" onClick={() => openPayment(row)} disabled={pending}>
-                          Record
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
+                      </div>
+                    </td>
+                    <td className="px-2 py-2.5 text-center font-mono font-bold">{row.gamesPlayed}</td>
+                    <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.perGameFee)}</td>
+                    <td
+                      className="px-2 py-2.5 text-right font-mono"
+                      title={[
+                        row.gripCount ? `${row.gripCount} grip${row.gripCount === 1 ? "" : "s"}` : "",
+                        row.otherCharge ? `${row.otherNote || "Other"} ${formatPeso(row.otherCharge)}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    >
+                      {row.extras ? formatPeso(row.extras) : "—"}
+                    </td>
+                    <td className="px-2 py-2.5 text-right font-mono font-bold">{formatPeso(row.total)}</td>
+                    <td className="text-muted px-2 py-2.5 text-right font-mono">
+                      {formatPeso(row.amountPaid)}
+                    </td>
+                    <td className="px-2 py-2.5 text-right font-mono font-bold">
+                      {row.balance ? formatPeso(row.balance) : "—"}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-2 py-2.5 text-right font-mono",
+                        row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
+                      )}
+                    >
+                      {row.change ? formatPeso(row.change) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <FeeStatus row={row} />
+                    </td>
+                    <td className="px-2 py-2.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={row.settled}
+                        disabled={pending || !row.paid}
+                        onChange={(event) => act(() => setSettled(row.sessionPlayerId, event.target.checked))}
+                        aria-label={`${row.nickname} settled`}
+                        title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
+                        className="accent-forest h-5 w-5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                      />
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <Button size="sm" variant="paper" onClick={() => openPayment(row)} disabled={pending}>
+                        Record
+                      </Button>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -479,4 +530,10 @@ export function FeeLedger({ report }: { report: FeeReport }) {
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>
   );
+}
+
+function FeeStatus({ row }: { row: FeeRow }) {
+  if (row.paid) return <Badge tone="green">Paid</Badge>;
+  if (row.amountPaid > 0) return <Badge tone="amber">Partial</Badge>;
+  return <Badge tone="neutral">Due</Badge>;
 }

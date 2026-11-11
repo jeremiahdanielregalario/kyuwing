@@ -58,8 +58,8 @@ export default async function GameDaysPage() {
             <section>
               <SectionHeading title="Live now" count={live.length} tone="live" />
               <div className="grid gap-3 lg:grid-cols-2">
-                {live.map((gameDay) => (
-                  <GameDayCard key={gameDay.id} gameDay={gameDay} />
+                {live.map((gameDay, index) => (
+                  <GameDayCard key={gameDay.id} gameDay={gameDay} index={index} />
                 ))}
               </div>
             </section>
@@ -69,8 +69,8 @@ export default async function GameDaysPage() {
             <section>
               <SectionHeading title="Drafts & upcoming" count={draft.length} />
               <div className="grid gap-3 lg:grid-cols-2">
-                {draft.map((gameDay) => (
-                  <GameDayCard key={gameDay.id} gameDay={gameDay} />
+                {draft.map((gameDay, index) => (
+                  <GameDayCard key={gameDay.id} gameDay={gameDay} index={index} />
                 ))}
               </div>
             </section>
@@ -80,8 +80,8 @@ export default async function GameDaysPage() {
             <section>
               <SectionHeading title="Completed" count={completed.length} />
               <div className="grid gap-3 lg:grid-cols-2">
-                {completed.map((gameDay) => (
-                  <GameDayCard key={gameDay.id} gameDay={gameDay} />
+                {completed.map((gameDay, index) => (
+                  <GameDayCard key={gameDay.id} gameDay={gameDay} index={index} />
                 ))}
               </div>
             </section>
@@ -109,7 +109,7 @@ function SectionHeading({ title, count, tone }: { title: string; count: number; 
         {count}
       </span>
       {tone === "live" && (
-        <span className="animate-pulse-soft ml-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="animate-live-ring ml-1 h-1.5 w-1.5 rounded-full bg-emerald-500 text-emerald-500" />
       )}
     </div>
   );
@@ -117,7 +117,7 @@ function SectionHeading({ title, count, tone }: { title: string; count: number; 
 
 type GameDayRow = Awaited<ReturnType<typeof getGameDays>>[number];
 
-function GameDayCard({ gameDay }: { gameDay: GameDayRow }) {
+function GameDayCard({ gameDay, index = 0 }: { gameDay: GameDayRow; index?: number }) {
   const date = new Date(gameDay.date);
   const day = new Intl.DateTimeFormat("en-PH", { timeZone: "UTC", day: "2-digit" }).format(date);
   const month = new Intl.DateTimeFormat("en-PH", { timeZone: "UTC", month: "short" }).format(date);
@@ -127,9 +127,11 @@ function GameDayCard({ gameDay }: { gameDay: GameDayRow }) {
   return (
     <div
       className={cn(
-        "group bg-paper hover:shadow-card relative overflow-hidden rounded-3xl border p-4 transition-all sm:p-5",
+        "group bg-paper hover:shadow-card animate-pop-in relative overflow-hidden rounded-3xl border p-4 transition-[box-shadow,translate] duration-300 hover:-translate-y-0.5 sm:p-5",
         gameDay.status === "LIVE" ? "border-forest/30" : "border-line",
       )}
+      // Cards arrive one after another rather than all at once.
+      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
       <div className="flex items-start gap-4">
         <div

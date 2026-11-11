@@ -47,6 +47,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 type PlayerRecord = {
@@ -122,10 +123,12 @@ export function PlayerManager({
     startTransition(async () => {
       const result = await fn();
       if (result.ok) {
+        haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
         router.refresh();
       } else {
+        haptic("warning");
         toast.error(result.error);
       }
     });
@@ -192,6 +195,16 @@ export function PlayerManager({
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
+  const confirmDelete = (player: PlayerRecord) =>
+    setConfirmSpec({
+      title: `Delete ${player.nickname}?`,
+      description: "Players with games on record are archived instead so fees stay correct.",
+      confirmLabel: "Delete player",
+      cancelLabel: "Keep player",
+      tone: "danger",
+      onConfirm: () => act(() => deletePlayer(player.id)),
+    });
+
   const openCreate = () => {
     setForm(EMPTY_FORM);
     setFormOpen(true);
@@ -226,10 +239,12 @@ export function PlayerManager({
     startTransition(async () => {
       const result = form.id ? await updatePlayer(form.id, payload) : await createPlayer(payload);
       if (result.ok) {
+        haptic("success");
         toast.success(result.message ?? "Saved.");
         setFormOpen(false);
         router.refresh();
       } else {
+        haptic("warning");
         toast.error(result.error);
       }
     });
@@ -397,153 +412,147 @@ export function PlayerManager({
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-[12px]">
-              <thead>
-                <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
-                  <th className="px-4 py-2.5 font-bold">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("nickname")}
-                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
-                    >
-                      Player {sortIcon("nickname")}
-                    </button>
-                  </th>
-                  <th className="px-2 py-2.5 font-bold">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("level")}
-                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
-                    >
-                      Level {sortIcon("level")}
-                    </button>
-                  </th>
-                  <th className="px-2 py-2.5 font-bold">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("category")}
-                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
-                    >
-                      Type {sortIcon("category")}
-                    </button>
-                  </th>
-                  <th className="px-2 py-2.5 font-bold">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("status")}
-                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
-                    >
-                      Status {sortIcon("status")}
-                    </button>
-                  </th>
-                  <th className="px-2 py-2.5 font-bold">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("recency")}
-                      className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
-                    >
-                      Recency {sortIcon("recency")}
-                    </button>
-                  </th>
-                  <th className="px-4 py-2.5 text-right font-bold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((player) => (
-                  <tr key={player.id} className="border-line/50 hover:bg-cream/30 border-b transition">
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={player.nickname} level={levelLabel(player.level)} />
-                        <div className="min-w-0">
-                          <p className="font-semibold">{player.nickname}</p>
-                          <p className="text-muted truncate text-[10px]">
-                            {player.fullName ?? "No full name"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-2 py-2.5">
+          <>
+            {/* Phones: one card per player instead of a sideways-scrolling table. */}
+            <ul className="divide-line/60 divide-y md:hidden">
+              {filtered.map((player) => (
+                <li key={player.id} className="animate-pop-in flex items-center gap-3 px-4 py-3">
+                  <Avatar name={player.nickname} level={levelLabel(player.level)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
                       <LevelBadge level={player.level} />
-                    </td>
-                    <td className="text-muted px-2 py-2.5 text-[11px]">{CATEGORY_SHORT[player.category]}</td>
-                    <td className="px-2 py-2.5">
-                      {player.active ? (
-                        <Badge tone="green">Active</Badge>
-                      ) : (
-                        <Badge tone="neutral">Archived</Badge>
+                      {!player.active && <Badge tone="neutral">Archived</Badge>}
+                    </div>
+                    <p className="text-muted truncate text-[10px]">
+                      {player.fullName ?? "No full name"} · {CATEGORY_SHORT[player.category]}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <RecencyBadge snapshot={recency[player.id]} />
+                      {recencyCaption(recency[player.id]) && (
+                        <span className="text-muted font-mono text-[9px]">
+                          {recencyCaption(recency[player.id])}
+                        </span>
                       )}
-                    </td>
-                    <td className="px-2 py-2.5">
-                      <div className="flex flex-col items-start gap-0.5">
-                        <RecencyBadge snapshot={recency[player.id]} />
-                        {recencyCaption(recency[player.id]) && (
-                          <span className="text-muted font-mono text-[9px]">
-                            {recencyCaption(recency[player.id])}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryFor(player)}
-                          className="text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-full transition"
-                          aria-label={`Attendance history of ${player.nickname}`}
-                          title="Games & tournaments attended"
-                        >
-                          <History className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(player)}
-                          className="text-muted hover:bg-cream-deep hover:text-ink grid h-7 w-7 place-items-center rounded-full transition"
-                          aria-label={`Edit ${player.nickname}`}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => act(() => togglePlayerActive(player.id, !player.active))}
-                          disabled={pending}
-                          className="text-muted hover:bg-cream-deep hover:text-ink grid h-7 w-7 place-items-center rounded-full transition"
-                          aria-label={
-                            player.active ? `Archive ${player.nickname}` : `Reactivate ${player.nickname}`
-                          }
-                        >
-                          {player.active ? (
-                            <Archive className="h-3.5 w-3.5" />
-                          ) : (
-                            <RotateCcw className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setConfirmSpec({
-                              title: `Delete ${player.nickname}?`,
-                              description:
-                                "Players with games on record are archived instead so fees stay correct.",
-                              confirmLabel: "Delete player",
-                              cancelLabel: "Keep player",
-                              tone: "danger",
-                              onConfirm: () => act(() => deletePlayer(player.id)),
-                            });
-                          }}
-                          disabled={pending}
-                          className="text-muted hover:bg-coral-soft hover:text-coral grid h-7 w-7 place-items-center rounded-full transition"
-                          aria-label={`Delete ${player.nickname}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    </div>
+                  </div>
+                  <PlayerActions
+                    player={player}
+                    pending={pending}
+                    compact
+                    onHistory={() => setHistoryFor(player)}
+                    onEdit={() => openEdit(player)}
+                    onToggleActive={() => act(() => togglePlayerActive(player.id, !player.active))}
+                    onDelete={() => confirmDelete(player)}
+                  />
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[760px] text-left text-[12px]">
+                <thead>
+                  <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
+                    <th className="px-4 py-2.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("nickname")}
+                        className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                      >
+                        Player {sortIcon("nickname")}
+                      </button>
+                    </th>
+                    <th className="px-2 py-2.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("level")}
+                        className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                      >
+                        Level {sortIcon("level")}
+                      </button>
+                    </th>
+                    <th className="px-2 py-2.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("category")}
+                        className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                      >
+                        Type {sortIcon("category")}
+                      </button>
+                    </th>
+                    <th className="px-2 py-2.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("status")}
+                        className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                      >
+                        Status {sortIcon("status")}
+                      </button>
+                    </th>
+                    <th className="px-2 py-2.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("recency")}
+                        className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                      >
+                        Recency {sortIcon("recency")}
+                      </button>
+                    </th>
+                    <th className="px-4 py-2.5 text-right font-bold">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((player) => (
+                    <tr key={player.id} className="border-line/50 hover:bg-cream/30 border-b transition">
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={player.nickname} level={levelLabel(player.level)} />
+                          <div className="min-w-0">
+                            <p className="font-semibold">{player.nickname}</p>
+                            <p className="text-muted truncate text-[10px]">
+                              {player.fullName ?? "No full name"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <LevelBadge level={player.level} />
+                      </td>
+                      <td className="text-muted px-2 py-2.5 text-[11px]">
+                        {CATEGORY_SHORT[player.category]}
+                      </td>
+                      <td className="px-2 py-2.5">
+                        {player.active ? (
+                          <Badge tone="green">Active</Badge>
+                        ) : (
+                          <Badge tone="neutral">Archived</Badge>
+                        )}
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <div className="flex flex-col items-start gap-0.5">
+                          <RecencyBadge snapshot={recency[player.id]} />
+                          {recencyCaption(recency[player.id]) && (
+                            <span className="text-muted font-mono text-[9px]">
+                              {recencyCaption(recency[player.id])}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <PlayerActions
+                          player={player}
+                          pending={pending}
+                          onHistory={() => setHistoryFor(player)}
+                          onEdit={() => openEdit(player)}
+                          onToggleActive={() => act(() => togglePlayerActive(player.id, !player.active))}
+                          onDelete={() => confirmDelete(player)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
@@ -745,6 +754,70 @@ export function PlayerManager({
       </Modal>
 
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
+    </div>
+  );
+}
+
+/** History, edit, archive and delete for one player. On phones the last three fold into a 2×2 grid. */
+function PlayerActions({
+  player,
+  pending,
+  compact = false,
+  onHistory,
+  onEdit,
+  onToggleActive,
+  onDelete,
+}: {
+  player: PlayerRecord;
+  pending: boolean;
+  compact?: boolean;
+  onHistory: () => void;
+  onEdit: () => void;
+  onToggleActive: () => void;
+  onDelete: () => void;
+}) {
+  const icon =
+    "press text-muted hover:bg-cream-deep hover:text-ink grid h-10 w-10 place-items-center rounded-full";
+  return (
+    <div className={cn("flex shrink-0 items-center justify-end gap-0.5", compact && "grid grid-cols-2")}>
+      <button
+        type="button"
+        onClick={onHistory}
+        className={icon}
+        aria-label={`Attendance history of ${player.nickname}`}
+        title="Games & tournaments attended"
+      >
+        <History className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onEdit}
+        className={icon}
+        aria-label={`Edit ${player.nickname}`}
+        title="Edit"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleActive}
+        disabled={pending}
+        className={icon}
+        aria-label={player.active ? `Archive ${player.nickname}` : `Reactivate ${player.nickname}`}
+        title={player.active ? "Archive" : "Reactivate"}
+      >
+        {player.active ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={pending}
+        className={cn(icon, "hover:bg-coral-soft hover:text-coral")}
+        aria-label={`Delete ${player.nickname}`}
+        title="Delete"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   );
 }
