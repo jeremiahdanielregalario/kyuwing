@@ -14,7 +14,7 @@ import { Field, Input, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { haptic } from "@/lib/haptics";
-import { cn } from "@/lib/utils";
+import { cn, pluralize } from "@/lib/utils";
 
 const PLACEHOLDER = `Level A
 Champions: Chons & Jced
@@ -140,27 +140,28 @@ export function AwardsPanel({
           {tournaments.map((tournament) => (
             <li
               key={tournament.id}
-              className="border-line/70 bg-cream/40 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-3 py-2"
+              className="border-line/70 bg-cream/40 flex items-center gap-2 rounded-xl border py-2 pr-1 pl-3"
             >
-              <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-[12px] font-semibold">
-                <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                <span className="truncate">{tournament.name}</span>
-              </span>
-              <span className="text-muted font-mono text-[10px]">
-                {formatGameDate(tournament.date, { weekday: false })} · {tournament.divisions.length} levels ·{" "}
-                {teams(tournament)} teams
-              </span>
+              <Trophy className="h-4 w-4 shrink-0 text-amber-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] leading-snug font-semibold break-words">{tournament.name}</p>
+                <p className="text-muted font-mono text-[10px] leading-snug">
+                  {formatGameDate(tournament.date, { weekday: false })} ·{" "}
+                  {pluralize(tournament.divisions.length, "level")} · {pluralize(teams(tournament), "team")}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setViewing(tournament)}
-                className="press text-forest hover:bg-lime/25 inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold"
+                className="press text-forest hover:bg-lime/25 inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full px-2.5 text-[11px] font-semibold"
+                aria-label={`View ${tournament.name} awards`}
               >
-                <Eye className="h-3.5 w-3.5" /> View
+                <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">View</span>
               </button>
               <button
                 type="button"
                 onClick={() => openForm(tournament)}
-                className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-full"
+                className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 shrink-0 place-items-center rounded-full"
                 aria-label={`Edit ${tournament.name} awards`}
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -169,7 +170,7 @@ export function AwardsPanel({
                 type="button"
                 onClick={() => remove(tournament)}
                 disabled={pending}
-                className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full"
+                className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 shrink-0 place-items-center rounded-full"
                 aria-label={`Remove ${tournament.name} awards`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
