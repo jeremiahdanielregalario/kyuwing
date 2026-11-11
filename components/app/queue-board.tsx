@@ -114,6 +114,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
+import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -269,10 +270,12 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     startTransition(async () => {
       const result = await fn();
       if (result.ok) {
+        haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
         await mutate();
       } else {
+        haptic("warning");
         toast.error(result.error);
       }
     });
@@ -314,6 +317,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     const active = event.active.data.current as DragPayload | undefined;
     const over = event.over?.data.current as DropTarget | undefined;
     if (!active || !over || isCompleted) return;
+    haptic("tap");
 
     if (active.kind === "match") {
       if (over.kind === "court" && over.courtNumber !== QUEUED_COURT) {
@@ -393,6 +397,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   };
 
   const handleDragStart = (event: DragStartEvent) => {
+    haptic("tap");
     setActiveDrag((event.active.data.current as DragPayload | undefined) ?? null);
   };
 
@@ -511,6 +516,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     startTransition(async () => {
       const result = await startMatch(matchId, { free });
       if (result.ok) {
+        haptic("success");
         toast.success(result.message ?? "Started.");
       } else if (result.code === "PLAYER_STILL_PLAYING") {
         setConfirmSpec({
@@ -579,9 +585,11 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     startTransition(async () => {
       const result = await completeMatch(matchId);
       if (!result.ok) {
+        haptic("warning");
         toast.error(result.error);
         return;
       }
+      haptic("success");
       toast.success(result.message ?? "Game ended.", {
         duration: 10000,
         action: { label: "Undo", onClick: () => act(() => restoreMatch(matchId)) },
@@ -767,7 +775,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   className={cn(
                     "h-1.5 w-1.5 rounded-full",
                     data.gameDay.status === "LIVE"
-                      ? "animate-pulse-soft bg-emerald-500"
+                      ? "animate-live-ring bg-emerald-500 text-emerald-500"
                       : "bg-current opacity-50",
                   )}
                 />
@@ -897,7 +905,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   type="button"
                   onClick={() => setSlotIndex(index)}
                   className={cn(
-                    "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                    "press rounded-full border px-3 py-1.5 text-[11px] font-semibold",
                     active
                       ? "bg-forest border-forest text-cream"
                       : "border-line bg-paper text-ink-soft hover:border-forest/40 hover:bg-cream/60",
@@ -957,7 +965,8 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
           </div>
         </Card>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Main actions stay in reach while scrolling the courts and queue. */}
+        <div className="glass border-line/60 bg-cream/80 sticky top-15 z-20 -mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-2.5 sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-8 lg:px-8">
           <Button
             onClick={() => act(() => generateMatches(data.gameDay.id, slotIndex))}
             disabled={pending || isCompleted}
@@ -992,8 +1001,8 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
           </Button>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
-          <div className="space-y-4">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_370px]">
+          <div className="@container space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <h2 className="font-display text-lg font-bold tracking-tight">Courts</h2>
@@ -1082,12 +1091,12 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   Drag a court card onto another court to swap them. Drag a player onto a slot to swap
                   players, or fill an open court with four dropped players.
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
                   {courtNumbers.map((court) => {
                     const match = data.activeMatches.find((item) => item.courtNumber === court);
                     return (
                       <CourtCard
-                        key={court}
+                        key={`${court}-${match?.id ?? "open"}`}
                         court={court}
                         name={courtName(slot, court)}
                         match={match}
@@ -1158,7 +1167,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         sit in several planned games but can&apos;t be on two playing courts at once.
                       </span>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
                       {[...queued, undefined].map((match, index) => (
                         <div key={match?.id ?? "waiting-new"} className="space-y-1.5">
                           <CourtCard
@@ -1271,7 +1280,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             )}
           </div>
 
-          <Card className="h-fit xl:sticky xl:top-6">
+          <Card className="h-fit lg:sticky lg:top-24">
             <div className="border-line/80 border-b px-4 pt-4 pb-3">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
@@ -1293,7 +1302,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     type="button"
                     onClick={() => setTab(value)}
                     className={cn(
-                      "shrink-0 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition",
+                      "press shrink-0 rounded-full px-3 py-2 text-[11px] font-semibold",
                       tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
                     )}
                   >
@@ -2090,7 +2099,7 @@ function CourtCard({
     <div
       ref={setCourtRef}
       className={cn(
-        "court-surface relative overflow-hidden rounded-2xl border transition",
+        "court-surface animate-pop-in relative overflow-hidden rounded-2xl border transition",
         waiting && "court-surface-waiting",
         live ? "border-lime/45 shadow-gold" : waiting ? "border-lime/30 border-dashed" : "border-lime/20",
         courtOver && "border-lime ring-lime/50 ring-2",
@@ -2120,7 +2129,7 @@ function CourtCard({
           <div className="flex items-center gap-1.5">
             {live && (
               <span className="border-lime/30 bg-forest-deep/60 text-lime inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold">
-                <span className="animate-pulse-soft bg-lime h-1.5 w-1.5 rounded-full" />
+                <span className="animate-live-ring bg-lime text-lime h-1.5 w-1.5 rounded-full" />
                 {formatDuration(elapsed)}
               </span>
             )}
@@ -2230,7 +2239,7 @@ function CourtCard({
               disabled={pending || isCompleted}
               aria-label="Regenerate this pairing"
               title="Different pairing"
-              className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 grid h-8 w-8 place-items-center rounded-full border transition disabled:opacity-40"
+              className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 press grid h-8 w-8 place-items-center rounded-full border disabled:opacity-40"
             >
               <Shuffle className="h-3.5 w-3.5" />
             </button>
@@ -2240,7 +2249,7 @@ function CourtCard({
             onClick={() => onEdit(match)}
             disabled={pending}
             aria-label="Edit match"
-            className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 grid h-8 w-8 place-items-center rounded-full border transition disabled:opacity-40"
+            className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 press grid h-8 w-8 place-items-center rounded-full border disabled:opacity-40"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -2430,7 +2439,7 @@ function QueueRow({
   return (
     <div
       className={cn(
-        "group hover:border-line hover:bg-cream/50 flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition",
+        "group hover:border-line hover:bg-cream/50 animate-pop-in flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition",
         player.priority && "border-lime-deep/30 bg-lime/[0.07]",
       )}
     >
@@ -2511,7 +2520,7 @@ function QueueRow({
               onClick={onPriority}
               disabled={pending}
               className={cn(
-                "text-muted hover:bg-cream-deep grid h-7 w-7 place-items-center rounded-full transition",
+                "text-muted hover:bg-cream-deep press grid h-7 w-7 place-items-center rounded-full",
                 player.priority && "text-lime-deep",
               )}
               title={player.priority ? "Clear priority" : "Mark priority"}
@@ -2523,7 +2532,7 @@ function QueueRow({
                 type="button"
                 onClick={onUndoCheckIn}
                 disabled={pending}
-                className="text-muted hover:bg-cream-deep hover:text-ink grid h-7 w-7 place-items-center rounded-full transition"
+                className="text-muted hover:bg-cream-deep hover:text-ink press grid h-7 w-7 place-items-center rounded-full"
                 title="Undo check-in (checked in by mistake)"
                 aria-label={`Undo check-in for ${player.nickname}`}
               >
@@ -2534,7 +2543,7 @@ function QueueRow({
               type="button"
               onClick={onDone}
               disabled={pending}
-              className="text-muted hover:bg-cream-deep hover:text-ink grid h-7 w-7 place-items-center rounded-full transition"
+              className="text-muted hover:bg-cream-deep hover:text-ink press grid h-7 w-7 place-items-center rounded-full"
               title="Mark done for the day"
             >
               <Check className="h-3.5 w-3.5" />
@@ -2588,8 +2597,9 @@ function RailCell({
     <div className={cn("bg-paper px-4 py-3.5", className)}>
       <p className="text-muted text-[9px] font-bold tracking-[0.16em] uppercase">{label}</p>
       <p
+        key={String(value)}
         className={cn(
-          "font-display mt-1.5 text-[1.65rem] leading-none font-bold tabular-nums",
+          "font-display animate-pop-in mt-1.5 text-[1.65rem] leading-none font-bold tabular-nums",
           railTone(warn),
         )}
       >

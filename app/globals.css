@@ -300,13 +300,14 @@
   }
 }
 
+/* A ring that ripples out from a live dot, in the dot's text colour. */
 @keyframes live-ring {
   0% {
-    box-shadow: 0 0 0 0 rgb(16 185 129 / 0.55);
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent);
   }
   70%,
   100% {
-    box-shadow: 0 0 0 7px rgb(16 185 129 / 0);
+    box-shadow: 0 0 0 7px color-mix(in srgb, currentColor 0%, transparent);
   }
 }
 
