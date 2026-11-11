@@ -71,7 +71,7 @@ export function LoginForm({
             className="pl-10"
             maxLength={40}
             autoComplete="name"
-            placeholder={isAdmin ? "Developer" : "EJ Mallilin"}
+            placeholder={isAdmin ? "Developer" : "EJ Mallillin"}
           />
         </div>
       </Field>
