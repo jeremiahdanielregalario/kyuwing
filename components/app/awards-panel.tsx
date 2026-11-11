@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, Medal, Pencil, Plus, Trash2, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { deleteTournament, saveTournamentAwards } from "@/lib/actions/awards";
-import { parseAwardsText } from "@/lib/awards";
+import { joinNames, parseAwardsText } from "@/lib/awards";
 import { formatGameDate } from "@/lib/datetime";
 import type { TournamentDto } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
@@ -24,14 +24,17 @@ Level B
 Champions: Serafin & JP
 Runner-up: Baby & JCB`;
 
+/** Pairs read "Chons & Jced"; teams keep the commas they were pasted with. */
+const toLine = (names: string[]) => (names.length <= 2 ? names.join(" & ") : names.join(", "));
+
 /** Turns saved awards back into the pasted format, so a tournament can be edited. */
 function toText(tournament: TournamentDto): string {
   return tournament.divisions
     .map((division) =>
       [
         division.name,
-        division.champion.length ? `Champions: ${division.champion.join(" & ")}` : null,
-        division.runnerUp.length ? `Runner-up: ${division.runnerUp.join(" & ")}` : null,
+        division.champion.length ? `Champions: ${toLine(division.champion)}` : null,
+        division.runnerUp.length ? `Runner-up: ${toLine(division.runnerUp)}` : null,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -122,7 +125,7 @@ export function AwardsPanel({
           <h2 className="font-display text-base font-bold">Tournament awards</h2>
           <p className="text-muted max-w-xl text-[11px]">
             Champions and runners-up of past tournaments. Players with an award get a trophy among their row
-            icons above; tap it to see their podiums and partners.
+            icons above; tap it to see their podiums and partners or teammates.
           </p>
         </div>
         <Button size="sm" onClick={() => openForm()}>
@@ -180,7 +183,7 @@ export function AwardsPanel({
         open={open}
         onClose={() => setOpen(false)}
         title={editingId ? "Edit tournament awards" : "Add tournament awards"}
-        description="Paste the results: a level line, then the champions and runner-up below it. Use official nicknames."
+        description="Paste the results: a level line, then the champions and runner-up below it. Doubles pairs or whole teams (comma-separated). Use official nicknames."
         size="lg"
         footer={
           <>
@@ -242,25 +245,31 @@ export function AwardsPanel({
                     >
                       <p className="text-[11px] font-bold">{division.name}</p>
                       {division.results.map((result) => (
-                        <p key={result.place} className="flex items-center gap-1.5 text-[11px]">
+                        <p key={result.place} className="flex items-start gap-1.5 text-[11px]">
                           {result.place === "CHAMPION" ? (
-                            <Trophy className="h-3 w-3 text-amber-600" />
+                            <Trophy className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
                           ) : (
-                            <Medal className="h-3 w-3 text-stone-500" />
+                            <Medal className="mt-0.5 h-3 w-3 shrink-0 text-stone-500" />
                           )}
-                          {result.names.map((nick, index) => (
-                            <React.Fragment key={nick}>
-                              {index > 0 && <span className="text-muted">&</span>}
-                              <span
-                                className={cn(
-                                  "font-semibold",
-                                  !known.has(nick.toLowerCase()) && "text-coral line-through",
+                          <span>
+                            {result.names.map((nick, index) => (
+                              <React.Fragment key={nick}>
+                                {index > 0 && (
+                                  <span className="text-muted">
+                                    {index === result.names.length - 1 ? " & " : ", "}
+                                  </span>
                                 )}
-                              >
-                                {nick}
-                              </span>
-                            </React.Fragment>
-                          ))}
+                                <span
+                                  className={cn(
+                                    "font-semibold",
+                                    !known.has(nick.toLowerCase()) && "text-coral line-through",
+                                  )}
+                                >
+                                  {nick}
+                                </span>
+                              </React.Fragment>
+                            ))}
+                          </span>
                         </p>
                       ))}
                     </div>
@@ -297,14 +306,14 @@ export function AwardsPanel({
                   <p className="mt-1 flex items-center gap-1.5 text-[12px]">
                     <Trophy className="h-3.5 w-3.5 text-amber-600" />
                     <span className="text-muted w-20 text-[10px] font-semibold uppercase">Champions</span>
-                    <span className="font-semibold">{division.champion.join(" & ")}</span>
+                    <span className="font-semibold">{joinNames(division.champion)}</span>
                   </p>
                 )}
                 {division.runnerUp.length > 0 && (
                   <p className="mt-0.5 flex items-center gap-1.5 text-[12px]">
                     <Medal className="h-3.5 w-3.5 text-stone-500" />
                     <span className="text-muted w-20 text-[10px] font-semibold uppercase">Runner-up</span>
-                    <span className="font-semibold">{division.runnerUp.join(" & ")}</span>
+                    <span className="font-semibold">{joinNames(division.runnerUp)}</span>
                   </p>
                 )}
               </li>

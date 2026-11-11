@@ -54,20 +54,15 @@ export async function saveTournamentAwards(input: {
   }
 
   const rows = parsed.divisions.flatMap((division, index) =>
-    division.results.map((result) => {
-      const [first, second] = result.names.map((nick) => byNick.get(nameKey(nick))!);
-      return {
-        division: division.name,
-        place: result.place,
-        player1Id: first,
-        player2Id: second ?? null,
-        position: index,
-      };
-    }),
+    division.results.map((result) => ({
+      division: division.name,
+      place: result.place,
+      position: index,
+      playerIds: result.names.map((nick) => byNick.get(nameKey(nick))!),
+    })),
   );
-  if (rows.some((row) => row.player1Id === row.player2Id)) {
-    return fail("A team lists the same player twice.");
-  }
+  const repeated = rows.find((row) => new Set(row.playerIds).size !== row.playerIds.length);
+  if (repeated) return fail(`${repeated.division}: a team lists the same player twice.`);
 
   try {
     const day = dateOnlyFromKey(date);
@@ -84,9 +79,15 @@ export async function saveTournamentAwards(input: {
         ? await tx.tournament.update({ where: { id: existing.id }, data: { name, date: day } })
         : await tx.tournament.create({ data: { name, date: day } });
       await tx.tournamentAward.deleteMany({ where: { tournamentId: saved.id } });
-      await tx.tournamentAward.createMany({
-        data: rows.map((row) => ({ ...row, tournamentId: saved.id })),
-      });
+      for (const { playerIds, ...row } of rows) {
+        await tx.tournamentAward.create({
+          data: {
+            ...row,
+            tournamentId: saved.id,
+            players: { create: playerIds.map((playerId, position) => ({ playerId, position })) },
+          },
+        });
+      }
       return saved;
     });
     revalidatePath("/app/players");

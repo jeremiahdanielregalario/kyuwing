@@ -147,8 +147,7 @@ model Player {
   pairingRequests  PairingRequest[] @relation("RequestingPlayer")
   targetedRequests PairingRequest[] @relation("TargetPlayer")
   attendance       AttendanceEntry[]
-  awardsAsPlayer1  TournamentAward[] @relation("AwardPlayer1")
-  awardsAsPlayer2  TournamentAward[] @relation("AwardPlayer2")
+  tournamentAwards TournamentAwardPlayer[]
 
   @@index([level])
   @@index([active])
@@ -200,24 +199,34 @@ model Tournament {
   @@index([date])
 }
 
-/// One podium team in one division ("Level A") of a tournament. player2 is the doubles partner.
+/// One podium team in one division ("Level A") of a tournament: a doubles pair, or a whole
+/// team in team-format tournaments like the League Cup.
 model TournamentAward {
   id           String     @id @default(cuid())
   tournamentId String
   division     String
   place        AwardPlace
-  player1Id    String
-  player2Id    String?
   /// Order the results were entered in, so divisions read top to bottom as pasted.
   position     Int        @default(0)
 
-  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  player1    Player     @relation("AwardPlayer1", fields: [player1Id], references: [id], onDelete: Cascade)
-  player2    Player?    @relation("AwardPlayer2", fields: [player2Id], references: [id], onDelete: SetNull)
+  tournament Tournament              @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  players    TournamentAwardPlayer[]
 
   @@index([tournamentId])
-  @@index([player1Id])
-  @@index([player2Id])
+}
+
+/// A player on a podium team, in the order they were listed.
+model TournamentAwardPlayer {
+  id       String @id @default(cuid())
+  awardId  String
+  playerId String
+  position Int    @default(0)
+
+  award  TournamentAward @relation(fields: [awardId], references: [id], onDelete: Cascade)
+  player Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([awardId, playerId])
+  @@index([playerId])
 }
 
 model GameDay {

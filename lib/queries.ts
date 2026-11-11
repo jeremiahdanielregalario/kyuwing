@@ -348,8 +348,10 @@ export async function getAwardsOverview(): Promise<AwardsOverview> {
       awards: {
         orderBy: [{ position: "asc" }, { place: "asc" }],
         include: {
-          player1: { select: { id: true, nickname: true } },
-          player2: { select: { id: true, nickname: true } },
+          players: {
+            orderBy: { position: "asc" },
+            select: { player: { select: { id: true, nickname: true } } },
+          },
         },
       },
     },
@@ -361,7 +363,7 @@ export async function getAwardsOverview(): Promise<AwardsOverview> {
     const date = tournament.date.toISOString();
     const divisions = new Map<string, TournamentDto["divisions"][number]>();
     for (const award of tournament.awards) {
-      const players = [award.player1, ...(award.player2 ? [award.player2] : [])];
+      const players = award.players.map((member) => member.player);
       rows.push({
         tournamentId: tournament.id,
         tournament: tournament.name,

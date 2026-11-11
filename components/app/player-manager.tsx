@@ -37,7 +37,7 @@ import { CATEGORY_SHORT } from "@/lib/fees";
 import { LEVEL_OPTIONS, levelLabel, levelValue, type LevelKey } from "@/lib/levels";
 import type { RecencySnapshot } from "@/lib/recency";
 import type { PlayerHistoryItem } from "@/lib/queries";
-import { AWARD_PLACE_LABELS, type PlayerAward } from "@/lib/awards";
+import { AWARD_PLACE_LABELS, joinNames, type PlayerAward } from "@/lib/awards";
 import { formatGameDate } from "@/lib/datetime";
 import { RecencyBadge, recencyCaption } from "@/components/app/recency-panel";
 import { Avatar } from "@/components/ui/avatar";
@@ -804,13 +804,21 @@ export function PlayerManager({
                   <p className="text-muted truncate text-[11px]">
                     {award.tournament} · {formatGameDate(award.date, { weekday: false })}
                   </p>
+                  {award.teammates.length > 1 && (
+                    <p className="mt-0.5 text-[11px]">
+                      <span className="text-muted text-[9px] font-bold tracking-wide uppercase">
+                        Team with{" "}
+                      </span>
+                      <span className="font-semibold">{joinNames(award.teammates)}</span>
+                    </p>
+                  )}
                 </div>
-                {award.partner && (
+                {award.teammates.length === 1 && (
                   <span className="text-right text-[11px]">
                     <span className="text-muted block text-[9px] font-bold tracking-wide uppercase">
                       with
                     </span>
-                    <span className="font-semibold">{award.partner}</span>
+                    <span className="font-semibold">{award.teammates[0]}</span>
                   </span>
                 )}
               </li>

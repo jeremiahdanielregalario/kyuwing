@@ -24,7 +24,13 @@ const CHAMPION =
 const RUNNER_UP =
   /^(?:runners?[\s-]*ups?|silver|finalists?|2nd(?:\s+place)?|second(?:\s+place)?)\s*[:\-–—]\s*(.+)$/i;
 
-/** "Chons & Jced", "Chons and Jced", "Chons / Jced" → ["Chons", "Jced"]. A single name is a singles podium. */
+/** Most players a podium team can list: a doubles pair, or a whole team in team-format tournaments. */
+export const MAX_TEAM_SIZE = 8;
+
+/**
+ * "Chons & Jced", "Chons and Jced", "Chons / Jced" → ["Chons", "Jced"]; "EJ, Jethro, Don, Eljo" is a
+ * team. A single name is a singles podium.
+ */
 export function splitTeam(text: string): string[] {
   return text
     .split(/\s*(?:&|\/|\+|,|\band\b)\s*/i)
@@ -73,8 +79,10 @@ export function parseAwardsText(text: string): ParsedAwards {
       errors.push(`Add a level line (like "Level A") before "${line}".`);
       continue;
     }
-    if (names.length === 0 || names.length > 2) {
-      errors.push(`${current.name}: "${hit[1]}" should be one or two nicknames, like "Chons & Jced".`);
+    if (names.length === 0 || names.length > MAX_TEAM_SIZE) {
+      errors.push(
+        `${current.name}: "${hit[1]}" should be 1 to ${MAX_TEAM_SIZE} nicknames, like "Chons & Jced" or "EJ, Jethro, Don, Eljo".`,
+      );
       continue;
     }
     if (current.results.some((result) => result.place === place)) {
@@ -105,14 +113,15 @@ export type AwardRow = {
   players: { id: string; nickname: string }[];
 };
 
-/** One award as one player sees it: where, what, and who they partnered. */
+/** One award as one player sees it: where, what, and who they played with. */
 export type PlayerAward = {
   tournamentId: string;
   tournament: string;
   date: string;
   division: string;
   place: AwardPlace;
-  partner: string | null;
+  /** Their doubles partner, or every teammate in a team-format tournament, in listed order. */
+  teammates: string[];
 };
 
 /** Every player's awards, newest tournament first, champions before runners-up. */
@@ -127,16 +136,21 @@ export function awardsByPlayer(rows: AwardRow[]): Record<string, PlayerAward[]> 
   const out: Record<string, PlayerAward[]> = {};
   for (const row of sorted) {
     for (const player of row.players) {
-      const partner = row.players.find((other) => other.id !== player.id);
       (out[player.id] ??= []).push({
         tournamentId: row.tournamentId,
         tournament: row.tournament,
         date: row.date,
         division: row.division,
         place: row.place,
-        partner: partner?.nickname ?? null,
+        teammates: row.players.filter((other) => other.id !== player.id).map((other) => other.nickname),
       });
     }
   }
   return out;
+}
+
+/** "PJ", "PJ & Ben", "EJ, Jethro, Don & Eljo". */
+export function joinNames(names: string[]): string {
+  if (names.length <= 2) return names.join(" & ");
+  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
 }

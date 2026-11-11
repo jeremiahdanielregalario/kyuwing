@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { awardsByPlayer, parseAwardsText, splitTeam, type AwardRow } from "./awards";
+import { awardsByPlayer, joinNames, parseAwardsText, splitTeam, type AwardRow } from "./awards";
 
 const HIGH_TIDE = `High Tide 2026
 
@@ -44,6 +44,18 @@ describe("parseAwardsText", () => {
     ]);
   });
 
+  it("reads team-format podiums", () => {
+    const parsed = parseAwardsText(
+      "League Cup 2026\n\nLevel D\nChampion: Cali, Ian LA, Sam, Natz\nRunners-up: Miggy, Raven, Leido, Eldon",
+    );
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.title).toBe("League Cup 2026");
+    expect(parsed.divisions[0].results).toEqual([
+      { place: "CHAMPION", names: ["Cali", "Ian LA", "Sam", "Natz"] },
+      { place: "RUNNER_UP", names: ["Miggy", "Raven", "Leido", "Eldon"] },
+    ]);
+  });
+
   it("allows a singles podium", () => {
     expect(parseAwardsText("Men's singles\nChampion: Chons").divisions[0].results).toEqual([
       { place: "CHAMPION", names: ["Chons"] },
@@ -52,7 +64,7 @@ describe("parseAwardsText", () => {
 
   it("flags results with no level above them, too many names, and duplicates", () => {
     expect(parseAwardsText("Champions: A & B").errors[0]).toMatch(/level line/);
-    expect(parseAwardsText("Level A\nChampions: A & B & C").errors[0]).toMatch(/one or two/);
+    expect(parseAwardsText("Level A\nChampions: A, B, C, D, E, F, G, H, I").errors[0]).toMatch(/1 to 8/);
     expect(parseAwardsText("Level A\nChampions: A & B\nChampions: C & D").errors[0]).toMatch(/two champion/);
   });
 
@@ -62,6 +74,12 @@ describe("parseAwardsText", () => {
 });
 
 describe("splitTeam", () => {
+  it("splits a comma-separated team", () => {
+    expect(splitTeam("EJ, Jethro, Don, Eljo")).toEqual(["EJ", "Jethro", "Don", "Eljo"]);
+    expect(joinNames(["EJ", "Jethro", "Don", "Eljo"])).toBe("EJ, Jethro, Don & Eljo");
+    expect(joinNames(["PJ", "Ben"])).toBe("PJ & Ben");
+  });
+
   it("splits on common separators", () => {
     expect(splitTeam("Wade & Natz")).toEqual(["Wade", "Natz"]);
     expect(splitTeam("Wade and Natz")).toEqual(["Wade", "Natz"]);
@@ -97,9 +115,24 @@ describe("awardsByPlayer", () => {
   it("gives each player the award with their partner's nickname", () => {
     const byPlayer = awardsByPlayer(rows);
     expect(byPlayer.ben).toEqual([
-      expect.objectContaining({ tournament: "High Tide 2026", place: "RUNNER_UP", partner: "PJ" }),
+      expect.objectContaining({ tournament: "High Tide 2026", place: "RUNNER_UP", teammates: ["PJ"] }),
     ]);
     expect(byPlayer.pj.map((award) => award.tournament)).toEqual(["High Tide 2026", "Older Cup"]);
-    expect(byPlayer.pj[1].partner).toBeNull();
+    expect(byPlayer.pj[1].teammates).toEqual([]);
+  });
+
+  it("lists every teammate of a team podium, in order", () => {
+    const team = awardsByPlayer([
+      {
+        tournamentId: "t2",
+        tournament: "League Cup 2026",
+        date: "2026-06-13",
+        division: "Level E",
+        place: "CHAMPION",
+        position: 4,
+        players: ["Harry", "Quiel", "Kei", "Ky"].map((nickname) => ({ id: nickname, nickname })),
+      },
+    ]);
+    expect(team.Kei[0].teammates).toEqual(["Harry", "Quiel", "Ky"]);
   });
 });

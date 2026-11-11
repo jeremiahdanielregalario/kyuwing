@@ -154,6 +154,29 @@ How players are banded:
 
 The score (0–100) sorts the **Recency** column. Each list counts less as it ages (half weight after 60 days, none after a year), and a waitlist place counts 40% of a game, because joining the waitlist still shows the player wants to play.
 
+## Tournament awards
+
+Players with a tournament podium get a trophy (gold for a title, a medal for runner-up only) as the first icon on their row in the player database. Tapping it lists each podium with the level, tournament, date, and their doubles partner or, for team-format tournaments, their teammates.
+
+To add a tournament, go to **Players → Tournament awards → Add awards** and paste the results:
+
+```
+League Cup 2026
+
+Level AB
+Champions: EJ, Jethro, Don, Eljo
+Runners-up: Bens, Jacob, Kyle, Edge
+
+Level B
+Champions: Serafin & JP
+Runner-up: Baby & JCB
+```
+
+- A line that is not a result starts a new level. The first line becomes the tournament name if the name box is left blank.
+- Separate a doubles pair with `&` and a team with commas (up to 8 players).
+- Every name must be an official nickname. Unknown names show struck through in the preview and the save is refused; add the player first.
+- To fix a tournament, press the pencil and re-paste. Saving replaces its awards.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | What to do |
