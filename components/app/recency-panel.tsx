@@ -89,11 +89,14 @@ export function RecencyPanel({
   snapshots,
   playerCount,
   today,
+  readOnly = false,
 }: {
   events: AttendanceEventDto[];
   snapshots: Record<string, RecencySnapshot>;
   playerCount: number;
   today: string;
+  /** The public roster: lists can be viewed, not logged, edited or removed. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -171,13 +174,16 @@ export function RecencyPanel({
         <div>
           <h2 className="font-display text-base font-bold">Playing recency</h2>
           <p className="text-muted max-w-xl text-[11px]">
-            Scored from the game-day and tournament lists you log below. Recent games count most, waitlisting
-            counts less than playing, and a list fades over time — so people who stopped showing up sink.
+            {readOnly
+              ? "Scored from the club's logged game-day and tournament lists. Recent games count most, waitlisting counts less than playing, and a list fades over time."
+              : "Scored from the game-day and tournament lists you log below. Recent games count most, waitlisting counts less than playing, and a list fades over time — so people who stopped showing up sink."}
           </p>
         </div>
-        <Button size="sm" onClick={() => openDialog()}>
-          <ClipboardPaste className="h-3.5 w-3.5" /> Log attendance
-        </Button>
+        {!readOnly && (
+          <Button size="sm" onClick={() => openDialog()}>
+            <ClipboardPaste className="h-3.5 w-3.5" /> Log attendance
+          </Button>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -193,7 +199,9 @@ export function RecencyPanel({
         </div>
         {events.length === 0 ? (
           <p className="text-muted mt-2 text-[11px]">
-            No attendance logged yet. Paste your latest game-day or tournament list to start scoring.
+            {readOnly
+              ? "No attendance logged yet."
+              : "No attendance logged yet. Paste your latest game-day or tournament list to start scoring."}
           </p>
         ) : (
           <ul className="mt-2 space-y-1.5">
@@ -224,44 +232,48 @@ export function RecencyPanel({
                 >
                   <Eye className="h-3.5 w-3.5" /> View
                 </button>
-                <button
-                  type="button"
-                  onClick={() => openDialog(event)}
-                  className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-full"
-                  aria-label="Edit attendance list"
-                  title="Edit"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setConfirmSpec({
-                      title: "Remove this attendance list?",
-                      description: "Recency scores will be recalculated without it.",
-                      confirmLabel: "Remove list",
-                      cancelLabel: "Keep it",
-                      tone: "danger",
-                      onConfirm: () => {
-                        startTransition(async () => {
-                          const result = await deleteAttendanceEvent(event.id);
-                          if (result.ok) {
-                            haptic("success");
-                            toast.success(result.message ?? "Removed.");
-                            router.refresh();
-                          } else {
-                            toast.error(result.error);
-                          }
-                        });
-                      },
-                    })
-                  }
-                  disabled={pending}
-                  className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full"
-                  aria-label="Remove attendance list"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                {!readOnly && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => openDialog(event)}
+                      className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 place-items-center rounded-full"
+                      aria-label="Edit attendance list"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setConfirmSpec({
+                          title: "Remove this attendance list?",
+                          description: "Recency scores will be recalculated without it.",
+                          confirmLabel: "Remove list",
+                          cancelLabel: "Keep it",
+                          tone: "danger",
+                          onConfirm: () => {
+                            startTransition(async () => {
+                              const result = await deleteAttendanceEvent(event.id);
+                              if (result.ok) {
+                                haptic("success");
+                                toast.success(result.message ?? "Removed.");
+                                router.refresh();
+                              } else {
+                                toast.error(result.error);
+                              }
+                            });
+                          },
+                        })
+                      }
+                      disabled={pending}
+                      className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full"
+                      aria-label="Remove attendance list"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>
@@ -357,9 +369,11 @@ export function RecencyPanel({
         size="lg"
         footer={
           <>
-            <Button variant="ghost" onClick={() => viewing && openDialog(viewing)}>
-              <Pencil className="h-4 w-4" /> Edit
-            </Button>
+            {!readOnly && (
+              <Button variant="ghost" onClick={() => viewing && openDialog(viewing)}>
+                <Pencil className="h-4 w-4" /> Edit
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setViewing(null)}>
               Close
             </Button>

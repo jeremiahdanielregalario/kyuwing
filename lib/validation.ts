@@ -63,6 +63,18 @@ export const courtSlotSchema = z.object({
   courtLabels: z.array(z.string().trim().max(24)).max(20).optional(),
 });
 
+/** The courts confirmed when a game day starts (see `lib/court-setup.ts`). */
+export const courtSetupSchema = z
+  .array(
+    z.object({
+      id: z.string().min(1).max(60),
+      courts: z.coerce.number().int().min(1).max(20),
+      names: z.string().max(400),
+    }),
+  )
+  .min(1)
+  .max(8);
+
 export const gameDayCreateSchema = z.object({
   name: z.string().trim().max(80).optional(),
   venueId: z.string().min(1),

@@ -84,6 +84,7 @@ import {
   moveMatchToCourt,
   requeuePlayer,
   setGameDayStatus,
+  startGameDay,
   startAllSuggested,
   startMatch,
   swapMatchPlayers,
@@ -122,6 +123,7 @@ import { haptic } from "@/lib/haptics";
 import type { ActionFailureCode } from "@/lib/action-result";
 import { UnratedLevelsPrompt } from "@/components/app/unrated-levels-prompt";
 import { ShareLiveDialog, useLiveLinkShared } from "@/components/app/share-live-dialog";
+import { StartGameDayDialog } from "@/components/app/start-game-day-dialog";
 import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string; code?: ActionFailureCode };
@@ -334,6 +336,8 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [checkQuery, setCheckQuery] = React.useState("");
   const [walkOpen, setWalkOpen] = React.useState(false);
   const [addCourtOpen, setAddCourtOpen] = React.useState(false);
+  /** "Check the courts" pop-up shown when a draft game day is started. */
+  const [startCourtsOpen, setStartCourtsOpen] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
   const router = useRouter();
   // Reservation-end prompt: snoozing hides it until the given time on this device.
@@ -691,6 +695,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     !checkOpen &&
     !walkOpen &&
     !addCourtOpen &&
+    !startCourtsOpen &&
     !renameTarget &&
     !endPromptOpen;
   const startReminderOpen =
@@ -704,6 +709,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     !walkOpen &&
     !addCourtOpen &&
     !shareOpen &&
+    !startCourtsOpen &&
     !renameTarget &&
     !endPromptOpen;
   const startReminderMoved = startReminder.some((match) => promotedIds.includes(match.id));
@@ -1155,7 +1161,11 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               <Button
                 size="sm"
                 variant="accent"
-                onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
+                onClick={() =>
+                  plan.length
+                    ? setStartCourtsOpen(true)
+                    : act(() => setGameDayStatus(data.gameDay.id, "LIVE"))
+                }
                 loading={pending}
               >
                 <Play className="h-3.5 w-3.5" /> Start game day
@@ -2066,6 +2076,21 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               added to anyone&apos;s fees.
             </p>
           </Modal>
+
+          {startCourtsOpen && (
+            <StartGameDayDialog
+              plan={plan}
+              venue={data.gameDay.venue.shortName || data.gameDay.venue.name}
+              pending={pending}
+              onClose={() => setStartCourtsOpen(false)}
+              onStart={(setup) =>
+                act(
+                  () => startGameDay(data.gameDay.id, setup),
+                  () => setStartCourtsOpen(false),
+                )
+              }
+            />
+          )}
 
           {/* Share live view: opened from the header, or on its own as a reminder once the day is live */}
           <ShareLiveDialog

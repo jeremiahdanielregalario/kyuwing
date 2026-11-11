@@ -16,7 +16,9 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteGameDay, setGameDayStatus, updateGameDay } from "@/lib/actions/gamedays";
+import { deleteGameDay, setGameDayStatus, startGameDay, updateGameDay } from "@/lib/actions/gamedays";
+import { applyCourtSetup } from "@/lib/court-setup";
+import { StartGameDayDialog } from "@/components/app/start-game-day-dialog";
 import type { BoardGameDay } from "@/lib/board-types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -65,6 +67,7 @@ export function GameDaySettings({
     return fitPlan(gameDay.courtPlan, fixed.start, fixed.end);
   });
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [startOpen, setStartOpen] = React.useState(false);
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [confirmText, setConfirmText] = React.useState("");
 
@@ -144,7 +147,11 @@ export function GameDaySettings({
               <Button
                 size="sm"
                 variant="accent"
-                onClick={() => act(() => setGameDayStatus(gameDay.id, "LIVE"))}
+                onClick={() =>
+                  gameDay.status === "DRAFT" && gameDay.courtPlan.length
+                    ? setStartOpen(true)
+                    : act(() => setGameDayStatus(gameDay.id, "LIVE"))
+                }
                 loading={pending}
               >
                 <Play className="h-3.5 w-3.5" />{" "}
@@ -414,6 +421,28 @@ export function GameDaySettings({
           </p>
         </div>
       </Modal>
+
+      {startOpen && (
+        <StartGameDayDialog
+          plan={gameDay.courtPlan}
+          venue={gameDay.venue.shortName || gameDay.venue.name}
+          pending={pending}
+          onClose={() => setStartOpen(false)}
+          onStart={(setup) =>
+            act(
+              () => startGameDay(gameDay.id, setup),
+              () => {
+                setStartOpen(false);
+                // Keep the plan editor in step, so saving settings later keeps the confirmed courts.
+                setSlots((current) => {
+                  const result = applyCourtSetup(current, setup);
+                  return "plan" in result ? result.plan : current;
+                });
+              },
+            )
+          }
+        />
+      )}
 
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
     </div>

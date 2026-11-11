@@ -102,11 +102,14 @@ export function PlayerManager({
   recency,
   history,
   awards,
+  readOnly = false,
 }: {
   players: PlayerRecord[];
   recency: Record<string, RecencySnapshot>;
   history: Record<string, PlayerHistoryItem[]>;
   awards: Record<string, PlayerAward[]>;
+  /** The public roster: browse, filter and open history or awards; no editing, import or export. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -285,7 +288,7 @@ export function PlayerManager({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search nickname, name, contact…"
+            placeholder={readOnly ? "Search nickname or name…" : "Search nickname, name, contact…"}
             className="h-9 pl-8 text-[12px]"
           />
         </div>
@@ -313,15 +316,17 @@ export function PlayerManager({
           <option value="APPLICANT">Applicant</option>
           <option value="NON_AFFILIATE">Non-affiliate</option>
         </Select>
-        <Select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-          className="h-9 w-auto min-w-[7rem] text-[12px]"
-        >
-          <option value="active">Active only</option>
-          <option value="archived">Archived</option>
-          <option value="all">Everyone</option>
-        </Select>
+        {!readOnly && (
+          <Select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="h-9 w-auto min-w-[7rem] text-[12px]"
+          >
+            <option value="active">Active only</option>
+            <option value="archived">Archived</option>
+            <option value="all">Everyone</option>
+          </Select>
+        )}
         <div className="flex items-center gap-1">
           <Select
             value={sortKey}
@@ -336,7 +341,7 @@ export function PlayerManager({
             <option value="nickname">Sort: Name</option>
             <option value="level">Sort: Level</option>
             <option value="category">Sort: Type</option>
-            <option value="status">Sort: Status</option>
+            {!readOnly && <option value="status">Sort: Status</option>}
             <option value="recency">Sort: Recency</option>
           </Select>
           <button
@@ -356,51 +361,55 @@ export function PlayerManager({
             <X className="h-3.5 w-3.5" /> Clear
           </Button>
         )}
-        <div className="ml-auto flex flex-wrap gap-2">
-          <a href="/api/players/export?template=1" className="inline-flex">
-            <Button size="sm" variant="ghost">
-              <Download className="h-3.5 w-3.5" /> Template
+        {!readOnly && (
+          <div className="ml-auto flex flex-wrap gap-2">
+            <a href="/api/players/export?template=1" className="inline-flex">
+              <Button size="sm" variant="ghost">
+                <Download className="h-3.5 w-3.5" /> Template
+              </Button>
+            </a>
+            <a href="/api/players/export" className="inline-flex">
+              <Button size="sm" variant="paper">
+                <FileSpreadsheet className="h-3.5 w-3.5" /> Export CSV
+              </Button>
+            </a>
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => {
+                setImportOpen(true);
+                setImportResult(null);
+              }}
+            >
+              <Upload className="h-3.5 w-3.5" /> Import
             </Button>
-          </a>
-          <a href="/api/players/export" className="inline-flex">
-            <Button size="sm" variant="paper">
-              <FileSpreadsheet className="h-3.5 w-3.5" /> Export CSV
+            <Button size="sm" onClick={openCreate}>
+              <UserRoundPlus className="h-3.5 w-3.5" /> Add player
             </Button>
-          </a>
-          <Button
-            size="sm"
-            variant="paper"
-            onClick={() => {
-              setImportOpen(true);
-              setImportResult(null);
-            }}
-          >
-            <Upload className="h-3.5 w-3.5" /> Import
-          </Button>
-          <Button size="sm" onClick={openCreate}>
-            <UserRoundPlus className="h-3.5 w-3.5" /> Add player
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
 
       <Card className="overflow-hidden">
         <div className="border-line/80 flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="min-w-0">
-            <h2 className="font-display text-base font-bold">Player database</h2>
+            <h2 className="font-display text-base font-bold">{readOnly ? "Roster" : "Player database"}</h2>
             <p className="text-muted text-[11px]">
               {filtered.length} of {players.length} players · 19 levels, E- to A+
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              className="whitespace-nowrap"
-              variant={statusFilter === "archived" ? "primary" : "outline"}
-              onClick={() => setStatusFilter(statusFilter === "archived" ? "active" : "archived")}
-            >
-              <Archive className="h-3.5 w-3.5" />{" "}
-              {statusFilter === "archived" ? "Hide archive" : "Show archive"}
-            </Button>
+            {!readOnly && (
+              <Button
+                size="sm"
+                className="whitespace-nowrap"
+                variant={statusFilter === "archived" ? "primary" : "outline"}
+                onClick={() => setStatusFilter(statusFilter === "archived" ? "active" : "archived")}
+              >
+                <Archive className="h-3.5 w-3.5" />{" "}
+                {statusFilter === "archived" ? "Hide archive" : "Show archive"}
+              </Button>
+            )}
             <span className="text-muted hidden items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase sm:inline-flex">
               <Users className="h-3.5 w-3.5" /> UP BadAss roster
             </span>
@@ -412,11 +421,17 @@ export function PlayerManager({
             <EmptyState
               icon={<Users className="h-5 w-5" />}
               title="No players match this view"
-              description="Adjust the filters, or add a new player to the database."
+              description={
+                readOnly
+                  ? "Adjust the search or filters."
+                  : "Adjust the filters, or add a new player to the database."
+              }
               action={
-                <Button size="sm" onClick={openCreate}>
-                  <Plus className="h-3.5 w-3.5" /> Add player
-                </Button>
+                readOnly ? undefined : (
+                  <Button size="sm" onClick={openCreate}>
+                    <Plus className="h-3.5 w-3.5" /> Add player
+                  </Button>
+                )
               }
             />
           </div>
@@ -434,7 +449,9 @@ export function PlayerManager({
                       {!player.active && <Badge tone="neutral">Archived</Badge>}
                     </div>
                     <p className="text-muted truncate text-[10px]">
-                      {player.fullName ?? "No full name"} · {CATEGORY_SHORT[player.category]}
+                      {player.fullName ?? (readOnly ? null : "No full name")}
+                      {player.fullName || !readOnly ? " · " : null}
+                      {CATEGORY_SHORT[player.category]}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <RecencyBadge snapshot={recency[player.id]} />
@@ -452,14 +469,25 @@ export function PlayerManager({
                       onOpen={() => setAwardsFor(player)}
                       placeholder={false}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setActionsFor(player)}
-                      className="press text-muted hover:bg-cream-deep hover:text-ink grid h-10 w-10 place-items-center rounded-full"
-                      aria-label={`Actions for ${player.nickname}`}
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
+                    {readOnly ? (
+                      <button
+                        type="button"
+                        onClick={() => setHistoryFor(player)}
+                        className="press text-muted hover:bg-cream-deep hover:text-ink grid h-10 w-10 place-items-center rounded-full"
+                        aria-label={`Attendance history of ${player.nickname}`}
+                      >
+                        <History className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActionsFor(player)}
+                        className="press text-muted hover:bg-cream-deep hover:text-ink grid h-10 w-10 place-items-center rounded-full"
+                        aria-label={`Actions for ${player.nickname}`}
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -495,15 +523,17 @@ export function PlayerManager({
                         Type {sortIcon("category")}
                       </button>
                     </th>
-                    <th className="px-2 py-2.5 font-bold">
-                      <button
-                        type="button"
-                        onClick={() => toggleSort("status")}
-                        className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
-                      >
-                        Status {sortIcon("status")}
-                      </button>
-                    </th>
+                    {!readOnly && (
+                      <th className="px-2 py-2.5 font-bold">
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("status")}
+                          className="hover:text-ink inline-flex items-center gap-1 font-bold uppercase transition"
+                        >
+                          Status {sortIcon("status")}
+                        </button>
+                      </th>
+                    )}
                     <th className="px-2 py-2.5 font-bold">
                       <button
                         type="button"
@@ -513,7 +543,9 @@ export function PlayerManager({
                         Recency {sortIcon("recency")}
                       </button>
                     </th>
-                    <th className="px-4 py-2.5 text-right font-bold">Actions</th>
+                    <th className="px-4 py-2.5 text-right font-bold">
+                      {readOnly ? "Awards · history" : "Actions"}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -525,7 +557,7 @@ export function PlayerManager({
                           <div className="min-w-0">
                             <p className="font-semibold">{player.nickname}</p>
                             <p className="text-muted truncate text-[10px]">
-                              {player.fullName ?? "No full name"}
+                              {player.fullName ?? (readOnly ? "" : "No full name")}
                             </p>
                           </div>
                         </div>
@@ -536,13 +568,15 @@ export function PlayerManager({
                       <td className="text-muted px-2 py-2.5 text-[11px]">
                         {CATEGORY_SHORT[player.category]}
                       </td>
-                      <td className="px-2 py-2.5">
-                        {player.active ? (
-                          <Badge tone="green">Active</Badge>
-                        ) : (
-                          <Badge tone="neutral">Archived</Badge>
-                        )}
-                      </td>
+                      {!readOnly && (
+                        <td className="px-2 py-2.5">
+                          {player.active ? (
+                            <Badge tone="green">Active</Badge>
+                          ) : (
+                            <Badge tone="neutral">Archived</Badge>
+                          )}
+                        </td>
+                      )}
                       <td className="px-2 py-2.5">
                         <div className="flex flex-col items-start gap-0.5">
                           <RecencyBadge snapshot={recency[player.id]} />
@@ -556,6 +590,7 @@ export function PlayerManager({
                       <td className="px-4 py-2.5">
                         <PlayerActions
                           player={player}
+                          readOnly={readOnly}
                           pending={pending}
                           awards={awards[player.id]}
                           onAwards={() => setAwardsFor(player)}
@@ -949,6 +984,7 @@ function AwardsButton({
 /** Awards, history, edit, archive and delete for one player (tablet and desktop; phones use a sheet). */
 function PlayerActions({
   player,
+  readOnly,
   pending,
   awards,
   onAwards,
@@ -958,6 +994,7 @@ function PlayerActions({
   onDelete,
 }: {
   player: PlayerRecord;
+  readOnly: boolean;
   pending: boolean;
   awards: PlayerAward[] | undefined;
   onAwards: () => void;
@@ -980,35 +1017,39 @@ function PlayerActions({
       >
         <History className="h-4 w-4" />
       </button>
-      <button
-        type="button"
-        onClick={onEdit}
-        className={icon}
-        aria-label={`Edit ${player.nickname}`}
-        title="Edit"
-      >
-        <Pencil className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={onToggleActive}
-        disabled={pending}
-        className={icon}
-        aria-label={player.active ? `Archive ${player.nickname}` : `Reactivate ${player.nickname}`}
-        title={player.active ? "Archive" : "Reactivate"}
-      >
-        {player.active ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        disabled={pending}
-        className={cn(icon, "hover:bg-coral-soft hover:text-coral")}
-        aria-label={`Delete ${player.nickname}`}
-        title="Delete"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      {!readOnly && (
+        <>
+          <button
+            type="button"
+            onClick={onEdit}
+            className={icon}
+            aria-label={`Edit ${player.nickname}`}
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleActive}
+            disabled={pending}
+            className={icon}
+            aria-label={player.active ? `Archive ${player.nickname}` : `Reactivate ${player.nickname}`}
+            title={player.active ? "Archive" : "Reactivate"}
+          >
+            {player.active ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={pending}
+            className={cn(icon, "hover:bg-coral-soft hover:text-coral")}
+            aria-label={`Delete ${player.nickname}`}
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </>
+      )}
     </div>
   );
 }

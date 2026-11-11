@@ -46,10 +46,13 @@ export function AwardsPanel({
   tournaments,
   nicknames,
   today,
+  readOnly = false,
 }: {
   tournaments: TournamentDto[];
   nicknames: string[];
   today: string;
+  /** The public roster: podiums can be viewed, not added, edited or removed. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -128,9 +131,11 @@ export function AwardsPanel({
             icons above; tap it to see their podiums and partners or teammates.
           </p>
         </div>
-        <Button size="sm" onClick={() => openForm()}>
-          <Plus className="h-3.5 w-3.5" /> Add awards
-        </Button>
+        {!readOnly && (
+          <Button size="sm" onClick={() => openForm()}>
+            <Plus className="h-3.5 w-3.5" /> Add awards
+          </Button>
+        )}
       </div>
 
       {tournaments.length === 0 ? (
@@ -158,23 +163,27 @@ export function AwardsPanel({
               >
                 <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">View</span>
               </button>
-              <button
-                type="button"
-                onClick={() => openForm(tournament)}
-                className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 shrink-0 place-items-center rounded-full"
-                aria-label={`Edit ${tournament.name} awards`}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => remove(tournament)}
-                disabled={pending}
-                className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 shrink-0 place-items-center rounded-full"
-                aria-label={`Remove ${tournament.name} awards`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {!readOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openForm(tournament)}
+                    className="press text-muted hover:bg-cream-deep hover:text-ink grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                    aria-label={`Edit ${tournament.name} awards`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(tournament)}
+                    disabled={pending}
+                    className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 shrink-0 place-items-center rounded-full"
+                    aria-label={`Remove ${tournament.name} awards`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -289,9 +298,11 @@ export function AwardsPanel({
         description={viewing ? formatGameDate(viewing.date, { weekday: false }) : undefined}
         footer={
           <>
-            <Button variant="ghost" onClick={() => viewing && openForm(viewing)}>
-              <Pencil className="h-4 w-4" /> Edit
-            </Button>
+            {!readOnly && (
+              <Button variant="ghost" onClick={() => viewing && openForm(viewing)}>
+                <Pencil className="h-4 w-4" /> Edit
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setViewing(null)}>
               Close
             </Button>

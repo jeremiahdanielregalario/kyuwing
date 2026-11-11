@@ -163,6 +163,10 @@ export default function HomePage() {
             </a>
           </nav>
           <div className="flex items-center gap-2">
+            <Link href="/roster" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              <Users className="h-3.5 w-3.5" />
+              Roster
+            </Link>
             <Link
               href="/login"
               className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden sm:inline-flex")}
@@ -228,18 +232,31 @@ export default function HomePage() {
                 >
                   Meet UP BadAss
                 </a>
+                <Link
+                  href="/roster"
+                  className={cn(
+                    buttonVariants({ variant: "ghost", size: "lg" }),
+                    "text-cream/80 hover:bg-cream/10 hover:text-cream",
+                  )}
+                >
+                  <Users className="h-4 w-4" />
+                  Player roster
+                </Link>
               </div>
               <ul className="text-cream/60 mt-8 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-medium">
-                {["No player accounts", "Works on any phone", "Drag-and-drop courts", "Excel + PDF reports"].map(
-                  (item) => (
-                    <li key={item} className="inline-flex items-center gap-1.5">
-                      <span className="bg-lime text-forest-deep grid h-4 w-4 place-items-center rounded-full">
-                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                      </span>
-                      {item}
-                    </li>
-                  ),
-                )}
+                {[
+                  "No player accounts",
+                  "Works on any phone",
+                  "Drag-and-drop courts",
+                  "Excel + PDF reports",
+                ].map((item) => (
+                  <li key={item} className="inline-flex items-center gap-1.5">
+                    <span className="bg-lime text-forest-deep grid h-4 w-4 place-items-center rounded-full">
+                      <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                    </span>
+                    {item}
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -470,8 +487,8 @@ export default function HomePage() {
                 not by favor.
               </h2>
               <p className="text-cream/70 mt-5 max-w-md text-[14px] leading-relaxed">
-                Kyuwing weighs every possible foursome and split of teams, then picks the fairest available match.
-                The result is a fair game, not a random shuffle.
+                Kyuwing weighs every possible foursome and split of teams, then picks the fairest available
+                match. The result is a fair game, not a random shuffle.
               </p>
               <div className="mt-8 flex flex-wrap gap-2">
                 {[
@@ -698,8 +715,8 @@ export default function HomePage() {
                 Walk out with the books closed.
               </h2>
               <p className="text-muted mt-5 max-w-md text-[14px] leading-relaxed">
-                Every game is logged with its court, round, and players. The fee page recalculates as
-                the day goes, so the final tally is already waiting when the last shuttle drops.
+                Every game is logged with its court, round, and players. The fee page recalculates as the day
+                goes, so the final tally is already waiting when the last shuttle drops.
               </p>
               <ul className="mt-7 space-y-3">
                 {[
@@ -794,8 +811,8 @@ export default function HomePage() {
           <div>
             <Logo tone="cream" />
             <p className="text-cream/55 mt-4 max-w-xs text-[13px] leading-relaxed">
-              Fair, fast game-day queueing for the UP Badminton Association in Diliman. Competency. Commitment.
-              Camaraderie.
+              Fair, fast game-day queueing for the UP Badminton Association in Diliman. Competency.
+              Commitment. Camaraderie.
             </p>
             <div className="text-cream/45 mt-5 flex flex-wrap gap-2 text-[10px] tracking-[0.14em] uppercase">
               <span className="border-cream/10 rounded-full border px-2.5 py-1">KBC · Mondays</span>
@@ -815,7 +832,7 @@ export default function HomePage() {
             title="Open the app"
             links={[
               ["Queue board", "/app"],
-              ["Players", "/app/players"],
+              ["Player roster", "/roster"],
               ["Venues & fees", "/app/venues"],
               ["Queue master", "/login"],
             ]}

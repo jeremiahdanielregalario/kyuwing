@@ -24,5 +24,11 @@ export default async function LiveViewPage({ params }: Params) {
   const board = await getPublicBoard(id);
   if (!board) notFound();
 
-  return <LiveView initialData={board} endpoint={`/api/live/${id}/${key}`} />;
+  return (
+    <LiveView
+      initialData={board}
+      endpoint={`/api/live/${id}/${key}`}
+      rosterHref={`/roster?back=${encodeURIComponent(`/live/${id}/${key}`)}`}
+    />
+  );
 }

@@ -15,6 +15,7 @@ import { currentSlotIndex, elapsedMinutes, parseCourtPlan, QUEUED_COURT, type Co
 import { buildFeeSchedule, changeDue, extrasTotal } from "./fees";
 import { awardsByPlayer, type AwardRow, type PlayerAward } from "./awards";
 import { levelLabel } from "./levels";
+import { toPublicRoster, type PublicRoster } from "./public-roster";
 import { recencySummary, toRecencySnapshot, type RecencyEntry, type RecencySnapshot } from "./recency";
 
 const gameDayInclude = {
@@ -243,6 +244,19 @@ export async function getPlayers() {
   return prisma.player.findMany({
     orderBy: [{ active: "desc" }, { nickname: "asc" }],
   });
+}
+
+/** The public roster page: active players, recency and awards with private fields stripped. */
+export async function getPublicRoster(): Promise<PublicRoster> {
+  const [players, attendance, awards] = await Promise.all([
+    prisma.player.findMany({
+      where: { active: true },
+      select: { id: true, nickname: true, fullName: true, level: true, category: true, active: true },
+    }),
+    getAttendanceOverview(),
+    getAwardsOverview(),
+  ]);
+  return toPublicRoster(players, attendance, awards);
 }
 
 export type AttendanceEventDto = {

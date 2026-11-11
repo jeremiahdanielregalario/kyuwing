@@ -1,8 +1,21 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import useSWR from "swr";
-import { Clock3, Gift, ListOrdered, LogOut, MapPin, Search, Users, Wallet, X } from "lucide-react";
+import {
+  ChevronRight,
+  Clock3,
+  Gift,
+  ListOrdered,
+  LogOut,
+  MapPin,
+  Search,
+  Trophy,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
 import { CourtLines } from "@/components/app/court-surface";
 import { Logo } from "@/components/logo";
 import { PaymentCard } from "@/components/payment-card";
@@ -42,7 +55,16 @@ function saveNickname(value: string) {
   window.dispatchEvent(new Event(NAME_EVENT));
 }
 
-export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; endpoint: string }) {
+export function LiveView({
+  initialData,
+  endpoint,
+  rosterHref,
+}: {
+  initialData: PublicBoard;
+  endpoint: string;
+  /** The public roster, with a link back to this live view. */
+  rosterHref: string;
+}) {
   const { data = initialData, error } = useSWR<PublicBoard>(endpoint, fetcher, {
     fallbackData: initialData,
     refreshInterval: 5000,
@@ -295,6 +317,22 @@ export function LiveView({ initialData, endpoint }: { initialData: PublicBoard; 
         {!completed && payment}
 
         {data.gameDay.status === "LIVE" && <LeaveForm endpoint={endpoint} defaultName={saved} />}
+
+        <Link
+          href={rosterHref}
+          className="press border-line bg-paper hover:border-forest/40 flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 shadow-sm"
+        >
+          <span className="bg-forest text-lime grid h-10 w-10 shrink-0 place-items-center rounded-full">
+            <Trophy className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="font-display block text-[14px] font-bold">See the player roster</span>
+            <span className="text-muted block text-[12px]">
+              Levels, who&apos;s been playing, and tournament awards
+            </span>
+          </span>
+          <ChevronRight className="text-muted h-5 w-5 shrink-0" />
+        </Link>
 
         <p className="text-muted pt-2 text-center text-[11px]">
           View only · updates every few seconds · App by Danyel Regalario

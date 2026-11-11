@@ -28,6 +28,7 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 | Pairing       | Multi-court auto-pair, single-court suggestions, drag-and-drop edits, requests                                  |
 | Requests      | Partner-with, play-against, and permanent partners per game day                                                 |
 | Players       | 19-level ladder (`E-` … `A+`), nickname + full name, category, active flag                                      |
+| Public roster | View-only `/roster` for players: levels, type, recency, attendance and awards; no contacts, edits or exports    |
 | Recency       | Log and edit game-day and tournament chat lists; each player is scored and banded by how recently they play     |
 | Awards        | Paste tournament results; podium players get a trophy showing each title and their doubles partner or teammates |
 | Fees          | Venue/type/category fee rules, per-player ledger, cash/GCash/bank/other                                         |

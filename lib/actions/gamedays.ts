@@ -23,6 +23,7 @@ import {
 } from "@/lib/datetime";
 import { canUndoCheckIn } from "@/lib/check-in";
 import { planProblem } from "@/lib/court-plan";
+import { applyCourtSetup, type CourtSetup } from "@/lib/court-setup";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { isUnrated, levelLabel, parseLevel } from "@/lib/levels";
 import {
@@ -37,6 +38,7 @@ import { checkSignup, notReadyReason } from "@/lib/signup-check";
 import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import {
   chargesSchema,
+  courtSetupSchema,
   gameDayCreateSchema,
   gameDayUpdateSchema,
   parseCategory,
@@ -255,6 +257,46 @@ export async function setGameDayStatus(
   });
   refreshGameDay(id);
   return ok(status === "LIVE" ? "Game day is live." : "Game day reopened as a draft.");
+}
+
+/**
+ * Start a draft game day after the queue master confirmed the courts: how many were reserved
+ * in each block and what the venue calls them. Suggested games on courts that no longer exist
+ * go to the Next up line.
+ */
+export async function startGameDay(id: string, setup: CourtSetup[]): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+
+  const parsed = courtSetupSchema.safeParse(setup);
+  if (!parsed.success) return fail("Check the courts: each block needs a court count and names.");
+
+  const gameDay = await prisma.gameDay.findUnique({
+    where: { id },
+    select: { status: true, courtPlan: true },
+  });
+  if (!gameDay) return fail("Game day not found.");
+  if (gameDay.status !== "DRAFT") return fail("This game day has already started.");
+
+  const result = applyCourtSetup(parseCourtPlan(gameDay.courtPlan), parsed.data);
+  if ("error" in result) return fail(result.error);
+  const slotIndex = result.plan.length ? currentSlotIndex(result.plan) : undefined;
+  const courtsNow = slotIndex === undefined ? 0 : result.plan[slotIndex].courts;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.gameDay.update({
+      where: { id },
+      data: { courtPlan: result.plan, status: "LIVE", startedAt: new Date(), completedAt: null },
+    });
+    await tx.match.updateMany({
+      where: { gameDayId: id, status: "SUGGESTED", courtNumber: { gt: courtsNow } },
+      data: { courtNumber: QUEUED_COURT },
+    });
+    await promoteQueuedGames(tx, id, undefined, slotIndex);
+  });
+
+  refreshGameDay(id);
+  return ok("Game day is live.");
 }
 
 /**
