@@ -57,13 +57,18 @@ Stats at the top show total players, waiting, playing, games completed, busy/ope
 
 ### Moving things by hand
 
-The court cards accept drag and drop:
+Everything below works two ways: **tap to move** (easiest on a phone) or drag and drop.
+
+- **Tap to move.** Tap a player (their outlined name box in the queue, or their box on a court) or a court's grip handle (⠿ in the header). A black bar at the bottom says what you're moving, and every place it can go lights up. Tap one of them to put it there. Tap the same thing again, press **Cancel**, or press Esc to put it back down. On a court, a lit-up player box means "put them here instead"; an empty slot says **Tap to put here**; a whole court shows **Move to**, **Swap with** or **Take this place in line**.
+- **Drag and drop.** Grab the same things and drop them on a target. On a tablet, press and hold for a moment before dragging, so a quick swipe still scrolls.
+
+What each move does:
 
 - **Move a match** — grab the grip handle in a court header and drop the card on another court. If that court already has a match, the two swap. Drag a waiting court's game onto a free court to send it there.
 - **Swap players** — drag a player from the queue (grab the outlined name box; on a tablet, press and hold it for a moment) or from another court onto a slot. Dropping a waiting player onto an occupied slot replaces that player; the replaced player stays checked in and waiting.
 - **Build a court by hand** — drop four waiting players onto the empty slots of an open court. The first two become Team A, the last two Team B, and the match appears as a suggestion for you to start.
 
-Every drop is saved immediately and every other device sees it on the next poll.
+Every move is saved immediately and every other device sees it on the next poll.
 
 ### Common situations
 

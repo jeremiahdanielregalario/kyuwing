@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { toast } from "sonner";
 import {
@@ -92,7 +93,7 @@ import {
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { LEVEL_OPTIONS, isUnrated, levelLabel, levelValue } from "@/lib/levels";
-import { canDropOn } from "@/lib/drag-targets";
+import { canDropOn, canTapOn, samePick } from "@/lib/drag-targets";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
@@ -189,6 +190,25 @@ type DropTarget =
   | { kind: "slot"; matchId: string; team: number; slot: number; playerId: string }
   | { kind: "draft-slot"; courtNumber: number; index: number };
 
+/**
+ * Tap-to-move, the phone-friendly way to do what dragging does: tap a player or a court's grip
+ * to pick it up, then tap a highlighted place to put it down. Drag and tap share `applyMove`.
+ */
+type TapMove = {
+  picked: DragPayload | null;
+  /** Picks the item up, or puts it back down when it is already picked. */
+  pick: (item: DragPayload) => void;
+  canTap: (target: DropTarget) => boolean;
+  drop: (target: DropTarget) => void;
+};
+
+const TapMoveContext = React.createContext<TapMove>({
+  picked: null,
+  pick: () => {},
+  canTap: () => false,
+  drop: () => {},
+});
+
 /** Only offer a drag the targets it can land on (see `canDropOn`). */
 const collisionFor: CollisionDetection = (args) =>
   closestCenter({
@@ -257,6 +277,15 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [editTeam2, setEditTeam2] = React.useState<string[]>([]);
   const [drafts, setDrafts] = React.useState<Record<number, Array<string | null>>>({});
   const [activeDrag, setActiveDrag] = React.useState<DragPayload | null>(null);
+  const [picked, setPicked] = React.useState<DragPayload | null>(null);
+  React.useEffect(() => {
+    if (!picked) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPicked(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [picked]);
   // Players still at level X (not rated yet). The prompt opens by itself until "Later" is
   // pressed for this exact group; a new X player, or a refused start, brings it back.
   const [unratedDismissed, setUnratedDismissed] = React.useState<string | null>(null);
@@ -327,8 +356,14 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDrag(null);
-    const active = event.active.data.current as DragPayload | undefined;
-    const over = event.over?.data.current as DropTarget | undefined;
+    applyMove(
+      event.active.data.current as DragPayload | undefined,
+      event.over?.data.current as DropTarget | undefined,
+    );
+  };
+
+  /** Puts a dragged or tapped item down on a target. */
+  const applyMove = (active: DragPayload | undefined, over: DropTarget | undefined) => {
     if (!active || !over || isCompleted) return;
     haptic("tap");
 
@@ -411,6 +446,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   const handleDragStart = (event: DragStartEvent) => {
     haptic("tap");
+    setPicked(null);
     setActiveDrag((event.active.data.current as DragPayload | undefined) ?? null);
   };
 
@@ -422,6 +458,28 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // Next up line: paired games waiting for a court, oldest first (the board query orders by creation).
   const queued = data.activeMatches.filter((match) => match.courtNumber === QUEUED_COURT);
   const courtsFull = data.stats.courtsTotal > 0 && data.stats.courtsOpen === 0;
+
+  const courtOfMatch = (matchId: string) =>
+    data.activeMatches.find((match) => match.id === matchId)?.courtNumber;
+  const tapMove: TapMove = {
+    picked,
+    pick: (item) => {
+      if (isCompleted) return;
+      haptic("tap");
+      setPicked((current) => (samePick(current, item) ? null : item));
+    },
+    canTap: (target) => !isCompleted && !pending && canTapOn(picked, target, courtOfMatch),
+    drop: (target) => {
+      const item = picked;
+      setPicked(null);
+      applyMove(item ?? undefined, target);
+    },
+  };
+  const pickedLabel = !picked
+    ? ""
+    : picked.kind === "match"
+      ? courtName(slot, picked.courtNumber)
+      : picked.nickname;
 
   // Planned games can include players still on court. Say who each one is waiting on, and when.
   const planNotes = (() => {
@@ -752,1274 +810,1299 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   }, [data.activeMatches, data.players, editMatch]);
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={collisionFor}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveDrag(null)}
-    >
-      <div className="space-y-5">
-        {data.leaveRequests.length > 0 && (
-          <section aria-live="assertive" className="border-gold/60 bg-gold/15 rounded-2xl border-2 p-4">
-            <h2 className="font-display inline-flex items-center gap-2 text-base font-bold">
-              <LogOut className="h-4 w-4" /> Leaving the game day · {data.leaveRequests.length}
-            </h2>
-            <p className="text-muted text-[12px]">
-              Players asked from the live link to be taken out. Confirm to mark them done.
-            </p>
-            <ul className="mt-3 space-y-2">
-              {data.leaveRequests.map((request) => (
-                <li
-                  key={request.id}
-                  className="border-line flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5"
-                >
-                  <div>
-                    <p className="text-[15px] font-bold">{request.nickname}</p>
-                    <p className="text-muted text-[11px]">
-                      {request.playerStatus === "PLAYING"
-                        ? "In a live game. Confirm after it finishes."
-                        : request.playerStatus === "WAITING"
-                          ? "Waiting in the queue"
-                          : request.playerStatus}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      disabled={pending}
-                      onClick={() => act(() => confirmLeaveRequest(request.id))}
-                    >
-                      <Check className="h-3.5 w-3.5" /> Confirm
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="paper"
-                      disabled={pending}
-                      onClick={() => act(() => declineLeaveRequest(request.id))}
-                    >
-                      Keep in queue
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+    <TapMoveContext value={tapMove}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionFor}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDrag(null)}
+      >
+        <div className="space-y-5">
+          {data.leaveRequests.length > 0 && (
+            <section aria-live="assertive" className="border-gold/60 bg-gold/15 rounded-2xl border-2 p-4">
+              <h2 className="font-display inline-flex items-center gap-2 text-base font-bold">
+                <LogOut className="h-4 w-4" /> Leaving the game day · {data.leaveRequests.length}
+              </h2>
+              <p className="text-muted text-[12px]">
+                Players asked from the live link to be taken out. Confirm to mark them done.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {data.leaveRequests.map((request) => (
+                  <li
+                    key={request.id}
+                    className="border-line flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5"
+                  >
+                    <div>
+                      <p className="text-[15px] font-bold">{request.nickname}</p>
+                      <p className="text-muted text-[11px]">
+                        {request.playerStatus === "PLAYING"
+                          ? "In a live game. Confirm after it finishes."
+                          : request.playerStatus === "WAITING"
+                            ? "Waiting in the queue"
+                            : request.playerStatus}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={pending}
+                        onClick={() => act(() => confirmLeaveRequest(request.id))}
+                      >
+                        <Check className="h-3.5 w-3.5" /> Confirm
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="paper"
+                        disabled={pending}
+                        onClick={() => act(() => declineLeaveRequest(request.id))}
+                      >
+                        Keep in queue
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-muted flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.14em] uppercase">
-              <span>{data.gameDay.venue.shortName}</span>
-              <span className="bg-muted/40 h-1 w-1 rounded-full" />
-              <span>{formatGameDate(data.gameDay.date, { weekday: true })}</span>
-              <span className="bg-muted/40 h-1 w-1 rounded-full" />
-              <span>{GAMEDAY_TYPE_LABELS[data.gameDay.type]}</span>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] tracking-[0.12em]",
-                  data.gameDay.status === "LIVE" && "bg-emerald-100 text-emerald-800",
-                  data.gameDay.status === "DRAFT" && "bg-amber-100 text-amber-900",
-                  data.gameDay.status === "COMPLETED" && "bg-cream-deep text-muted",
-                )}
-              >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="text-muted flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.14em] uppercase">
+                <span>{data.gameDay.venue.shortName}</span>
+                <span className="bg-muted/40 h-1 w-1 rounded-full" />
+                <span>{formatGameDate(data.gameDay.date, { weekday: true })}</span>
+                <span className="bg-muted/40 h-1 w-1 rounded-full" />
+                <span>{GAMEDAY_TYPE_LABELS[data.gameDay.type]}</span>
                 <span
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    data.gameDay.status === "LIVE"
-                      ? "animate-live-ring bg-emerald-500 text-emerald-500"
-                      : "bg-current opacity-50",
+                    "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] tracking-[0.12em]",
+                    data.gameDay.status === "LIVE" && "bg-emerald-100 text-emerald-800",
+                    data.gameDay.status === "DRAFT" && "bg-amber-100 text-amber-900",
+                    data.gameDay.status === "COMPLETED" && "bg-cream-deep text-muted",
                   )}
-                />
-                {data.gameDay.status}
-              </span>
-            </div>
-            <h1 className="font-display mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              {data.gameDay.name}
-            </h1>
-            <p
-              data-trim-id="board.subtitle"
-              className="text-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <Clock3 className="h-3.5 w-3.5" />
-                {slot ? `${slot.start}–${slot.end} · ${slot.courts} courts` : "No court block set"}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5" />
-                {isValidating ? "Syncing board…" : "Live on all devices"}
-              </span>
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => {
-                setShareUrl(`${window.location.origin}${livePath}`);
-                setShareOpen(true);
-              }}
-            >
-              <Share2 className="h-3.5 w-3.5" /> Share live view
-            </Button>
-            <Link href={`/app/gamedays/${data.gameDay.id}/reports`} className="hidden sm:inline-flex">
-              <Button variant="paper" size="sm">
-                <Download className="h-3.5 w-3.5" /> Reports
-              </Button>
-            </Link>
-            <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
-              <Button variant="paper" size="sm">
-                <Settings2 className="h-3.5 w-3.5" /> Settings
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {isDraft && (
-          <div
-            data-trim-id="board.draft-banner"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3"
-          >
-            <div className="flex items-start gap-2.5">
-              <AlertCircle className="mt-0.5 h-4 w-4 text-amber-700" />
-              <div>
-                <p className="text-[13px] font-semibold text-amber-900">This game day is still a draft.</p>
-                <p className="text-[11px] text-amber-800/70">
-                  Start it when the first players arrive. You can still edit settings before or during play.
-                </p>
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      data.gameDay.status === "LIVE"
+                        ? "animate-live-ring bg-emerald-500 text-emerald-500"
+                        : "bg-current opacity-50",
+                    )}
+                  />
+                  {data.gameDay.status}
+                </span>
               </div>
+              <h1 className="font-display mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+                {data.gameDay.name}
+              </h1>
+              <p
+                data-trim-id="board.subtitle"
+                className="text-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {slot ? `${slot.start}–${slot.end} · ${slot.courts} courts` : "No court block set"}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5" />
+                  {isValidating ? "Syncing board…" : "Live on all devices"}
+                </span>
+              </p>
             </div>
-            <Button
-              size="sm"
-              variant="accent"
-              onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
-              loading={pending}
-            >
-              <Play className="h-3.5 w-3.5" /> Start game day
-            </Button>
-          </div>
-        )}
-
-        {isCompleted && (
-          <div
-            data-trim-id="board.completed-banner"
-            className="border-line bg-cream-deep/70 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
-          >
-            <div className="flex items-start gap-2.5">
-              <CircleCheck className="text-forest mt-0.5 h-4 w-4" />
-              <div>
-                <p className="text-[13px] font-semibold">Game day closed.</p>
-                <p className="text-muted text-[11px]">
-                  The final ledger and match history are ready to export.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Link href={`/app/gamedays/${data.gameDay.id}/reports`}>
-                <Button size="sm" variant="primary">
-                  Open reports
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => {
+                  setShareUrl(`${window.location.origin}${livePath}`);
+                  setShareOpen(true);
+                }}
+              >
+                <Share2 className="h-3.5 w-3.5" /> Share live view
+              </Button>
+              <Link href={`/app/gamedays/${data.gameDay.id}/reports`} className="hidden sm:inline-flex">
+                <Button variant="paper" size="sm">
+                  <Download className="h-3.5 w-3.5" /> Reports
                 </Button>
               </Link>
+              <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
+                <Button variant="paper" size="sm">
+                  <Settings2 className="h-3.5 w-3.5" /> Settings
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {isDraft && (
+            <div
+              data-trim-id="board.draft-banner"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3"
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="mt-0.5 h-4 w-4 text-amber-700" />
+                <div>
+                  <p className="text-[13px] font-semibold text-amber-900">This game day is still a draft.</p>
+                  <p className="text-[11px] text-amber-800/70">
+                    Start it when the first players arrive. You can still edit settings before or during play.
+                  </p>
+                </div>
+              </div>
               <Button
                 size="sm"
-                variant="paper"
+                variant="accent"
                 onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
+                loading={pending}
               >
-                Reopen
+                <Play className="h-3.5 w-3.5" /> Start game day
               </Button>
             </div>
-          </div>
-        )}
-
-        {/* Status rail: block switcher on top, live numbers below */}
-        <Card className="overflow-hidden">
-          <div className="border-line/70 flex flex-wrap items-center gap-2 border-b px-3 py-2.5">
-            <span
-              data-trim-id="board.plan-label"
-              className="text-muted ml-1 text-[10px] font-bold tracking-[0.16em] uppercase"
-            >
-              Court plan
-            </span>
-            {plan.length === 0 && (
-              <Link
-                href={`/app/gamedays/${data.gameDay.id}/settings`}
-                className="text-coral text-[12px] font-semibold underline"
-              >
-                Add a court block
-              </Link>
-            )}
-            {plan.map((row, index) => {
-              const active = data.activeSlotIndex === index;
-              const current = plan[data.activeSlotIndex] === row && active;
-              return (
-                <button
-                  key={row.id}
-                  type="button"
-                  onClick={() => setSlotIndex(index)}
-                  className={cn(
-                    "press rounded-full border px-3 py-1.5 text-[11px] font-semibold",
-                    active
-                      ? "bg-forest border-forest text-cream"
-                      : "border-line bg-paper text-ink-soft hover:border-forest/40 hover:bg-cream/60",
-                  )}
-                >
-                  <span className="font-mono">
-                    {row.start}–{row.end}
-                  </span>
-                  <span className="ml-1.5 opacity-60">· {row.courts}c</span>
-                  {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
-                  {isValidating && current && (
-                    <span className="bg-lime ml-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full" />
-                  )}
-                </button>
-              );
-            })}
-            <span
-              data-trim-id="board.plan-clock"
-              className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]"
-            >
-              <Dot tone="lime" /> {now ? formatClock(new Date(now)) : "--:--"} Manila
-            </span>
-          </div>
-          <div className="bg-line grid grid-cols-2 gap-px sm:grid-cols-5">
-            <RailCell
-              label="Waiting"
-              value={data.stats.waiting}
-              sub={`${data.stats.expected} still expected`}
-              subTrimId="board.rail.waiting-sub"
-            />
-            <RailCell
-              label="On court"
-              value={data.stats.playing}
-              sub={`${data.stats.courtsBusy}/${data.stats.courtsTotal} courts busy`}
-              subTrimId="board.rail.playing-sub"
-            />
-            <RailCell
-              label="Open courts"
-              value={`${data.stats.courtsOpen}/${data.stats.courtsTotal}`}
-              sub="in the selected block"
-              subTrimId="board.rail.open-sub"
-            />
-            <RailCell
-              label="Games today"
-              value={data.stats.gamesCompleted}
-              sub={`${data.stats.totalGamesPlayed} player-games`}
-              subTrimId="board.rail.games-sub"
-            />
-            <RailCell
-              label="Longest wait"
-              value={`${data.stats.longestWaitMinutes}m`}
-              sub={`avg ${data.stats.averageWaitMinutes}m`}
-              subTrimId="board.rail.wait-sub"
-              warn={now > 0 && data.stats.longestWaitMinutes >= 20}
-              className="col-span-2 sm:col-span-1"
-            />
-          </div>
-        </Card>
-
-        {/* Main actions stay in reach while scrolling the courts and queue. */}
-        <div className="glass border-line/60 bg-cream/80 sticky top-15 z-20 -mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-2.5 sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-8 lg:px-8">
-          <Button
-            onClick={() => act(() => generateMatches(data.gameDay.id, slotIndex))}
-            disabled={pending || isCompleted}
-            className="flex-1 sm:flex-none"
-          >
-            {courtsFull ? (
-              <>
-                <ListOrdered className="h-4 w-4" /> Queue next game
-              </>
-            ) : (
-              <>
-                <Wand2 className="h-4 w-4" /> Auto-pair
-                {slot ? ` (${Math.min(data.stats.waiting, slot.courts * 4)} max)` : ""}
-              </>
-            )}
-          </Button>
-          <Button
-            variant="accent"
-            onClick={() => setCheckOpen(true)}
-            disabled={isCompleted}
-            className="flex-1 sm:flex-none"
-          >
-            <UserCheck className="h-4 w-4" /> Check in
-          </Button>
-          <Button
-            variant="paper"
-            onClick={() => setWalkOpen(true)}
-            disabled={isCompleted}
-            className="flex-1 sm:flex-none"
-          >
-            <UserRoundPlus className="h-4 w-4" /> Walk-in
-          </Button>
-          {!isCompleted && unrated.length > 0 && (
-            <Button variant="paper" onClick={() => setUnratedForced(true)} className="flex-1 sm:flex-none">
-              <BadgeHelp className="h-4 w-4" /> Set levels ({unrated.length})
-            </Button>
           )}
-        </div>
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_370px]">
-          <div className="@container space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-baseline gap-2">
-                <h2 className="font-display text-lg font-bold tracking-tight">Courts</h2>
-                <span data-trim-id="board.courts-block" className="text-muted text-[11px]">
-                  {slot ? `Block ${slot.start}–${slot.end}` : ""}
-                </span>
+          {isCompleted && (
+            <div
+              data-trim-id="board.completed-banner"
+              className="border-line bg-cream-deep/70 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+            >
+              <div className="flex items-start gap-2.5">
+                <CircleCheck className="text-forest mt-0.5 h-4 w-4" />
+                <div>
+                  <p className="text-[13px] font-semibold">Game day closed.</p>
+                  <p className="text-muted text-[11px]">
+                    The final ledger and match history are ready to export.
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {suggested.length > 0 && (
-                  <>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() =>
-                        requestStart(suggested.length, (free) =>
-                          act(() => startAllSuggested(data.gameDay.id, { free })),
-                        )
-                      }
-                      loading={pending}
-                    >
-                      <Play className="h-3.5 w-3.5" /> Start all ({suggested.length})
-                    </Button>
-                    <Button
-                      variant="paper"
-                      size="sm"
-                      onClick={() => act(() => regenerateMatches(data.gameDay.id, slotIndex))}
-                      disabled={pending}
-                      title="Don't like these pairings? Get different ones. Press again for more."
-                    >
-                      <Shuffle className="h-3.5 w-3.5" /> Regenerate
-                    </Button>
-                    <button
-                      type="button"
-                      className="text-muted hover:text-ink text-[11px] font-semibold transition"
-                      onClick={() =>
-                        setConfirmSpec({
-                          title: "Clear all suggested matches?",
-                          description: `${suggested.length} suggested game${
-                            suggested.length === 1 ? "" : "s"
-                          } discarded. Players stay in the queue.`,
-                          confirmLabel: "Clear suggestions",
-                          cancelLabel: "Keep suggestions",
-                          tone: "danger",
-                          onConfirm: () => act(() => clearSuggestedMatches(data.gameDay.id)),
-                        })
-                      }
-                    >
-                      Clear
-                    </button>
-                  </>
-                )}
-                {slot && !isCompleted && (
-                  <Button variant="paper" size="sm" onClick={openAddCourt} disabled={pending}>
-                    <Plus className="h-3.5 w-3.5" /> Add court
+              <div className="flex gap-2">
+                <Link href={`/app/gamedays/${data.gameDay.id}/reports`}>
+                  <Button size="sm" variant="primary">
+                    Open reports
                   </Button>
-                )}
-                <span
-                  data-trim-id="board.live-count"
-                  className="text-muted inline-flex items-center gap-1.5 text-[11px]"
+                </Link>
+                <Button
+                  size="sm"
+                  variant="paper"
+                  onClick={() => act(() => setGameDayStatus(data.gameDay.id, "LIVE"))}
                 >
-                  <Dot tone={live.length ? "green" : "muted"} /> {live.length} live
-                </span>
+                  Reopen
+                </Button>
               </div>
             </div>
+          )}
 
-            {data.stats.courtsTotal === 0 ? (
-              <EmptyState
-                icon={<LayoutGrid className="h-5 w-5" />}
-                title="No courts in this block"
-                description="Add a time block and court count in Settings so the engine knows where games can go."
-                action={
-                  <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
-                    <Button size="sm" variant="primary">
-                      Open settings
-                    </Button>
-                  </Link>
-                }
-              />
-            ) : (
-              <>
-                <p
-                  data-trim-id="board.drag-hint"
-                  className="border-line bg-paper/70 text-muted flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]"
+          {/* Status rail: block switcher on top, live numbers below */}
+          <Card className="overflow-hidden">
+            <div className="border-line/70 flex flex-wrap items-center gap-2 border-b px-3 py-2.5">
+              <span
+                data-trim-id="board.plan-label"
+                className="text-muted ml-1 text-[10px] font-bold tracking-[0.16em] uppercase"
+              >
+                Court plan
+              </span>
+              {plan.length === 0 && (
+                <Link
+                  href={`/app/gamedays/${data.gameDay.id}/settings`}
+                  className="text-coral text-[12px] font-semibold underline"
                 >
-                  <GripVertical className="text-forest h-3.5 w-3.5" />
-                  Drag a court card onto another court to swap them. Drag a player onto a slot to swap
-                  players, or fill an open court with four dropped players.
-                </p>
-                <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
-                  {courtNumbers.map((court) => {
-                    const match = data.activeMatches.find((item) => item.courtNumber === court);
-                    return (
-                      <CourtCard
-                        key={`${court}-${match?.id ?? "open"}`}
-                        court={court}
-                        name={courtName(slot, court)}
-                        match={match}
-                        draft={drafts[court] ?? EMPTY_DRAFT}
-                        playerById={playerById}
-                        now={now}
-                        pending={pending}
-                        isCompleted={isCompleted}
-                        onPair={() => pairCourt(court)}
-                        onStart={(id) => requestStart(1, (free) => startGame(id, free))}
-                        onRegenerate={(id) => act(() => regenerateMatches(data.gameDay.id, slotIndex, id))}
-                        onFinish={finishMatch}
-                        onEdit={openEdit}
-                        onCancel={(id) =>
-                          setConfirmSpec({
-                            title: "Cancel this match?",
-                            description: "Players will stay in the queue.",
-                            confirmLabel: "Cancel match",
-                            cancelLabel: "Keep match",
-                            tone: "danger",
-                            onConfirm: () => act(() => cancelMatch(id)),
-                          })
-                        }
-                        onRename={() => {
-                          const current = slot?.courtLabels?.[court - 1]?.trim();
-                          setRenameLabel(current || String(court));
-                          setRenameEveryBlock(true);
-                          setRenameTarget({ court, name: courtName(slot, court) });
-                        }}
-                        onRemove={() =>
-                          setConfirmSpec({
-                            title: `Remove ${courtName(slot, court)}?`,
-                            description: match
-                              ? `It leaves ${slot?.label ?? "this block"}. The suggested game on it moves to the waiting courts, and the other courts keep their names.`
-                              : `It leaves ${slot?.label ?? "this block"}. The other courts keep their names. Add it back with Add court.`,
-                            confirmLabel: "Remove court",
-                            cancelLabel: "Keep court",
-                            tone: "danger",
-                            onConfirm: () => act(() => removeCourt(data.gameDay.id, slotIndex, court)),
-                          })
-                        }
-                        onClearDraft={(index) =>
-                          setDrafts((prev) => ({
-                            ...prev,
-                            [court]: (prev[court] ?? EMPTY_DRAFT).map((id, position) =>
-                              position === index ? null : id,
-                            ),
-                          }))
-                        }
-                      />
-                    );
-                  })}
-                </div>
-                {!isCompleted && (
-                  <div className="space-y-2 pt-1">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h3 className="font-display inline-flex items-center gap-1.5 text-base font-bold">
-                        <ListOrdered className="h-4 w-4" /> Waiting courts
-                        {queued.length > 0 && (
-                          <span className="text-muted font-mono text-[11px] font-bold">
-                            · {queued.length} in line
-                          </span>
-                        )}
-                      </h3>
-                      <span data-trim-id="board.waiting-hint" className="text-muted text-[11px]">
-                        Plan ahead, even with players still on court. Each game takes the next court that
-                        frees up, in order. Add as many as you like, beyond the reserved courts. A player can
-                        sit in several planned games but can&apos;t be on two playing courts at once.
-                      </span>
-                    </div>
-                    <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
-                      {[...queued, undefined].map((match, index) => (
-                        <div key={match?.id ?? "waiting-new"} className="space-y-1.5">
-                          <CourtCard
-                            court={QUEUED_COURT}
-                            name={match ? `Waiting ${index + 1}` : "Waiting court"}
-                            match={match}
-                            queuePosition={match ? index + 1 : undefined}
-                            canStart={!courtsFull}
-                            draft={drafts[QUEUED_COURT] ?? EMPTY_DRAFT}
-                            playerById={playerById}
-                            now={now}
-                            pending={pending}
-                            isCompleted={isCompleted}
-                            onPair={() => pairCourt(QUEUED_COURT)}
-                            onStart={(id) => requestStart(1, (free) => startGame(id, free))}
-                            onRegenerate={(id) =>
-                              act(() => regenerateMatches(data.gameDay.id, slotIndex, id))
-                            }
-                            onMoveUp={
-                              match && index > 0
-                                ? () => act(() => reorderQueuedGame(data.gameDay.id, match.id, index - 1))
-                                : undefined
-                            }
-                            onMoveDown={
-                              match && index < queued.length - 1
-                                ? () => act(() => reorderQueuedGame(data.gameDay.id, match.id, index + 1))
-                                : undefined
-                            }
-                            onFinish={finishMatch}
-                            onEdit={openEdit}
-                            onCancel={(id) =>
-                              setConfirmSpec({
-                                title: "Remove this waiting game?",
-                                description: "The four players stay in the queue.",
-                                confirmLabel: "Remove game",
-                                cancelLabel: "Keep it",
-                                tone: "danger",
-                                onConfirm: () => act(() => cancelMatch(id)),
-                              })
-                            }
-                            onClearDraft={(slotPosition) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [QUEUED_COURT]: (prev[QUEUED_COURT] ?? EMPTY_DRAFT).map((id, position) =>
-                                  position === slotPosition ? null : id,
-                                ),
-                              }))
-                            }
-                          />
-                          {match && planNotes.get(match.id) && (
-                            <p className="border-gold/60 bg-gold/15 text-ink rounded-xl border px-3 py-2 text-[11px] leading-snug">
-                              {planNotes.get(match.id)}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {data.recentMatches.length > 0 && (
-              <div data-trim-id="board.recent" className="border-line bg-paper/70 rounded-2xl border p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-muted text-[11px] font-bold tracking-[0.16em] uppercase">
-                    Recently finished
-                  </h3>
-                  <Link
-                    href={`/app/gamedays/${data.gameDay.id}/reports`}
-                    className="text-forest text-[11px] font-semibold hover:underline"
-                  >
-                    All matches
-                  </Link>
-                </div>
-                <div className="space-y-2">
-                  {data.recentMatches.slice(0, 4).map((match) => (
-                    <div
-                      key={match.id}
-                      className="border-line/60 bg-cream/30 flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-[11px]"
-                    >
-                      <span className="text-muted max-w-[8rem] truncate font-mono font-bold">
-                        {courtName(slot, match.courtNumber)}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-semibold">
-                        {match.team1.map((player) => player.nickname).join(" & ")}
-                        <span className="text-muted mx-1.5">vs</span>
-                        {match.team2.map((player) => player.nickname).join(" & ")}
-                      </span>
-                      {match.free && <FreeTag />}
-                      <span className="text-muted font-mono text-[10px] font-bold">
-                        <CircleCheck className="text-forest inline h-3 w-3 align-[-2px]" />{" "}
-                        {match.endedAt ? formatClock(match.endedAt) : "Done"}
-                      </span>
-                      {!isCompleted && (
-                        <button
-                          type="button"
-                          onClick={() => confirmRestore(match)}
-                          disabled={pending}
-                          title="Ended by mistake? Put this game back on court"
-                          className="border-line text-ink-soft hover:border-forest hover:bg-lime/20 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition disabled:opacity-40"
-                        >
-                          <Undo2 className="h-3 w-3" /> Restore
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <Card className="h-fit lg:sticky lg:top-24">
-            <div className="border-line/80 border-b px-4 pt-4 pb-3">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
-                <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
-                  <Users className="h-3 w-3" /> {data.players.length}
-                </span>
-              </div>
-              <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">
-                {(
-                  [
-                    ["waiting", "Waiting"],
-                    ["playing", "On court"],
-                    ["expected", "Expected"],
-                    ["done", "Done"],
-                  ] as Array<[QueueTab, string]>
-                ).map(([value, label]) => (
+                  Add a court block
+                </Link>
+              )}
+              {plan.map((row, index) => {
+                const active = data.activeSlotIndex === index;
+                const current = plan[data.activeSlotIndex] === row && active;
+                return (
                   <button
-                    key={value}
+                    key={row.id}
                     type="button"
-                    onClick={() => setTab(value)}
+                    onClick={() => setSlotIndex(index)}
                     className={cn(
-                      "press shrink-0 rounded-full px-3 py-2 text-[11px] font-semibold",
-                      tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
+                      "press rounded-full border px-3 py-1.5 text-[11px] font-semibold",
+                      active
+                        ? "bg-forest border-forest text-cream"
+                        : "border-line bg-paper text-ink-soft hover:border-forest/40 hover:bg-cream/60",
                     )}
                   >
-                    {label}
-                    <span
-                      className={cn(
-                        "ml-1 font-mono text-[9px]",
-                        tab === value ? "text-lime/80" : "text-muted/70",
-                      )}
-                    >
-                      {tabCounts[value]}
+                    <span className="font-mono">
+                      {row.start}–{row.end}
                     </span>
+                    <span className="ml-1.5 opacity-60">· {row.courts}c</span>
+                    {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
+                    {isValidating && current && (
+                      <span className="bg-lime ml-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full" />
+                    )}
                   </button>
-                ))}
-              </div>
-              <div className="relative mt-3">
-                <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Find a player…"
-                  className="h-9 pl-8 text-[12px]"
-                />
-              </div>
+                );
+              })}
+              <span
+                data-trim-id="board.plan-clock"
+                className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]"
+              >
+                <Dot tone="lime" /> {now ? formatClock(new Date(now)) : "--:--"} Manila
+              </span>
             </div>
+            <div className="bg-line grid grid-cols-2 gap-px sm:grid-cols-5">
+              <RailCell
+                label="Waiting"
+                value={data.stats.waiting}
+                sub={`${data.stats.expected} still expected`}
+                subTrimId="board.rail.waiting-sub"
+              />
+              <RailCell
+                label="On court"
+                value={data.stats.playing}
+                sub={`${data.stats.courtsBusy}/${data.stats.courtsTotal} courts busy`}
+                subTrimId="board.rail.playing-sub"
+              />
+              <RailCell
+                label="Open courts"
+                value={`${data.stats.courtsOpen}/${data.stats.courtsTotal}`}
+                sub="in the selected block"
+                subTrimId="board.rail.open-sub"
+              />
+              <RailCell
+                label="Games today"
+                value={data.stats.gamesCompleted}
+                sub={`${data.stats.totalGamesPlayed} player-games`}
+                subTrimId="board.rail.games-sub"
+              />
+              <RailCell
+                label="Longest wait"
+                value={`${data.stats.longestWaitMinutes}m`}
+                sub={`avg ${data.stats.averageWaitMinutes}m`}
+                subTrimId="board.rail.wait-sub"
+                warn={now > 0 && data.stats.longestWaitMinutes >= 20}
+                className="col-span-2 sm:col-span-1"
+              />
+            </div>
+          </Card>
 
-            <div className="max-h-[min(62vh,640px)] overflow-y-auto px-2 py-2">
-              {visible.length === 0 ? (
-                <div className="text-muted px-3 py-10 text-center text-[12px]">
-                  {query
-                    ? "No player matches that search."
-                    : `No players ${tab === "waiting" ? "waiting" : tab}.`}
-                </div>
+          {/* Main actions stay in reach while scrolling the courts and queue. */}
+          <div className="glass border-line/60 bg-cream/80 sticky top-15 z-20 -mx-4 flex flex-wrap items-center gap-2 border-b px-4 py-2.5 sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-8 lg:px-8">
+            <Button
+              onClick={() => act(() => generateMatches(data.gameDay.id, slotIndex))}
+              disabled={pending || isCompleted}
+              className="flex-1 sm:flex-none"
+            >
+              {courtsFull ? (
+                <>
+                  <ListOrdered className="h-4 w-4" /> Queue next game
+                </>
               ) : (
-                <div className="space-y-1">
-                  {visible.map((player) => (
-                    <QueueRow
-                      key={player.sessionPlayerId}
-                      draggable={
-                        (player.status === "WAITING" || player.status === "PLAYING") &&
-                        !pending &&
-                        !isCompleted
-                      }
-                      player={player}
-                      now={now}
-                      pending={pending}
-                      onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                      onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
-                      onDone={() =>
-                        setConfirmSpec({
-                          title: `Mark ${player.nickname} done for the day?`,
-                          description: "They leave the board and stop receiving games.",
-                          confirmLabel: "Mark done",
-                          cancelLabel: "Not yet",
-                          onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
-                        })
-                      }
-                      onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
-                      onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
-                    />
-                  ))}
+                <>
+                  <Wand2 className="h-4 w-4" /> Auto-pair
+                  {slot ? ` (${Math.min(data.stats.waiting, slot.courts * 4)} max)` : ""}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="accent"
+              onClick={() => setCheckOpen(true)}
+              disabled={isCompleted}
+              className="flex-1 sm:flex-none"
+            >
+              <UserCheck className="h-4 w-4" /> Check in
+            </Button>
+            <Button
+              variant="paper"
+              onClick={() => setWalkOpen(true)}
+              disabled={isCompleted}
+              className="flex-1 sm:flex-none"
+            >
+              <UserRoundPlus className="h-4 w-4" /> Walk-in
+            </Button>
+            {!isCompleted && unrated.length > 0 && (
+              <Button variant="paper" onClick={() => setUnratedForced(true)} className="flex-1 sm:flex-none">
+                <BadgeHelp className="h-4 w-4" /> Set levels ({unrated.length})
+              </Button>
+            )}
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_370px]">
+            <div className="@container space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-baseline gap-2">
+                  <h2 className="font-display text-lg font-bold tracking-tight">Courts</h2>
+                  <span data-trim-id="board.courts-block" className="text-muted text-[11px]">
+                    {slot ? `Block ${slot.start}–${slot.end}` : ""}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {suggested.length > 0 && (
+                    <>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() =>
+                          requestStart(suggested.length, (free) =>
+                            act(() => startAllSuggested(data.gameDay.id, { free })),
+                          )
+                        }
+                        loading={pending}
+                      >
+                        <Play className="h-3.5 w-3.5" /> Start all ({suggested.length})
+                      </Button>
+                      <Button
+                        variant="paper"
+                        size="sm"
+                        onClick={() => act(() => regenerateMatches(data.gameDay.id, slotIndex))}
+                        disabled={pending}
+                        title="Don't like these pairings? Get different ones. Press again for more."
+                      >
+                        <Shuffle className="h-3.5 w-3.5" /> Regenerate
+                      </Button>
+                      <button
+                        type="button"
+                        className="text-muted hover:text-ink text-[11px] font-semibold transition"
+                        onClick={() =>
+                          setConfirmSpec({
+                            title: "Clear all suggested matches?",
+                            description: `${suggested.length} suggested game${
+                              suggested.length === 1 ? "" : "s"
+                            } discarded. Players stay in the queue.`,
+                            confirmLabel: "Clear suggestions",
+                            cancelLabel: "Keep suggestions",
+                            tone: "danger",
+                            onConfirm: () => act(() => clearSuggestedMatches(data.gameDay.id)),
+                          })
+                        }
+                      >
+                        Clear
+                      </button>
+                    </>
+                  )}
+                  {slot && !isCompleted && (
+                    <Button variant="paper" size="sm" onClick={openAddCourt} disabled={pending}>
+                      <Plus className="h-3.5 w-3.5" /> Add court
+                    </Button>
+                  )}
+                  <span
+                    data-trim-id="board.live-count"
+                    className="text-muted inline-flex items-center gap-1.5 text-[11px]"
+                  >
+                    <Dot tone={live.length ? "green" : "muted"} /> {live.length} live
+                  </span>
+                </div>
+              </div>
+
+              {data.stats.courtsTotal === 0 ? (
+                <EmptyState
+                  icon={<LayoutGrid className="h-5 w-5" />}
+                  title="No courts in this block"
+                  description="Add a time block and court count in Settings so the engine knows where games can go."
+                  action={
+                    <Link href={`/app/gamedays/${data.gameDay.id}/settings`}>
+                      <Button size="sm" variant="primary">
+                        Open settings
+                      </Button>
+                    </Link>
+                  }
+                />
+              ) : (
+                <>
+                  <p
+                    data-trim-id="board.drag-hint"
+                    className="border-line bg-paper/70 text-muted flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]"
+                  >
+                    <GripVertical className="text-forest h-3.5 w-3.5" />
+                    Drag a court card onto another court to swap them. Drag a player onto a slot to swap
+                    players, or fill an open court with four dropped players.
+                  </p>
+                  <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
+                    {courtNumbers.map((court) => {
+                      const match = data.activeMatches.find((item) => item.courtNumber === court);
+                      return (
+                        <CourtCard
+                          key={`${court}-${match?.id ?? "open"}`}
+                          court={court}
+                          name={courtName(slot, court)}
+                          match={match}
+                          draft={drafts[court] ?? EMPTY_DRAFT}
+                          playerById={playerById}
+                          now={now}
+                          pending={pending}
+                          isCompleted={isCompleted}
+                          onPair={() => pairCourt(court)}
+                          onStart={(id) => requestStart(1, (free) => startGame(id, free))}
+                          onRegenerate={(id) => act(() => regenerateMatches(data.gameDay.id, slotIndex, id))}
+                          onFinish={finishMatch}
+                          onEdit={openEdit}
+                          onCancel={(id) =>
+                            setConfirmSpec({
+                              title: "Cancel this match?",
+                              description: "Players will stay in the queue.",
+                              confirmLabel: "Cancel match",
+                              cancelLabel: "Keep match",
+                              tone: "danger",
+                              onConfirm: () => act(() => cancelMatch(id)),
+                            })
+                          }
+                          onRename={() => {
+                            const current = slot?.courtLabels?.[court - 1]?.trim();
+                            setRenameLabel(current || String(court));
+                            setRenameEveryBlock(true);
+                            setRenameTarget({ court, name: courtName(slot, court) });
+                          }}
+                          onRemove={() =>
+                            setConfirmSpec({
+                              title: `Remove ${courtName(slot, court)}?`,
+                              description: match
+                                ? `It leaves ${slot?.label ?? "this block"}. The suggested game on it moves to the waiting courts, and the other courts keep their names.`
+                                : `It leaves ${slot?.label ?? "this block"}. The other courts keep their names. Add it back with Add court.`,
+                              confirmLabel: "Remove court",
+                              cancelLabel: "Keep court",
+                              tone: "danger",
+                              onConfirm: () => act(() => removeCourt(data.gameDay.id, slotIndex, court)),
+                            })
+                          }
+                          onClearDraft={(index) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [court]: (prev[court] ?? EMPTY_DRAFT).map((id, position) =>
+                                position === index ? null : id,
+                              ),
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                  {!isCompleted && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="font-display inline-flex items-center gap-1.5 text-base font-bold">
+                          <ListOrdered className="h-4 w-4" /> Waiting courts
+                          {queued.length > 0 && (
+                            <span className="text-muted font-mono text-[11px] font-bold">
+                              · {queued.length} in line
+                            </span>
+                          )}
+                        </h3>
+                        <span data-trim-id="board.waiting-hint" className="text-muted text-[11px]">
+                          Plan ahead, even with players still on court. Each game takes the next court that
+                          frees up, in order. Add as many as you like, beyond the reserved courts. A player
+                          can sit in several planned games but can&apos;t be on two playing courts at once.
+                        </span>
+                      </div>
+                      <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
+                        {[...queued, undefined].map((match, index) => (
+                          <div key={match?.id ?? "waiting-new"} className="space-y-1.5">
+                            <CourtCard
+                              court={QUEUED_COURT}
+                              name={match ? `Waiting ${index + 1}` : "Waiting court"}
+                              match={match}
+                              queuePosition={match ? index + 1 : undefined}
+                              canStart={!courtsFull}
+                              draft={drafts[QUEUED_COURT] ?? EMPTY_DRAFT}
+                              playerById={playerById}
+                              now={now}
+                              pending={pending}
+                              isCompleted={isCompleted}
+                              onPair={() => pairCourt(QUEUED_COURT)}
+                              onStart={(id) => requestStart(1, (free) => startGame(id, free))}
+                              onRegenerate={(id) =>
+                                act(() => regenerateMatches(data.gameDay.id, slotIndex, id))
+                              }
+                              onMoveUp={
+                                match && index > 0
+                                  ? () => act(() => reorderQueuedGame(data.gameDay.id, match.id, index - 1))
+                                  : undefined
+                              }
+                              onMoveDown={
+                                match && index < queued.length - 1
+                                  ? () => act(() => reorderQueuedGame(data.gameDay.id, match.id, index + 1))
+                                  : undefined
+                              }
+                              onFinish={finishMatch}
+                              onEdit={openEdit}
+                              onCancel={(id) =>
+                                setConfirmSpec({
+                                  title: "Remove this waiting game?",
+                                  description: "The four players stay in the queue.",
+                                  confirmLabel: "Remove game",
+                                  cancelLabel: "Keep it",
+                                  tone: "danger",
+                                  onConfirm: () => act(() => cancelMatch(id)),
+                                })
+                              }
+                              onClearDraft={(slotPosition) =>
+                                setDrafts((prev) => ({
+                                  ...prev,
+                                  [QUEUED_COURT]: (prev[QUEUED_COURT] ?? EMPTY_DRAFT).map((id, position) =>
+                                    position === slotPosition ? null : id,
+                                  ),
+                                }))
+                              }
+                            />
+                            {match && planNotes.get(match.id) && (
+                              <p className="border-gold/60 bg-gold/15 text-ink rounded-xl border px-3 py-2 text-[11px] leading-snug">
+                                {planNotes.get(match.id)}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {data.recentMatches.length > 0 && (
+                <div data-trim-id="board.recent" className="border-line bg-paper/70 rounded-2xl border p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-muted text-[11px] font-bold tracking-[0.16em] uppercase">
+                      Recently finished
+                    </h3>
+                    <Link
+                      href={`/app/gamedays/${data.gameDay.id}/reports`}
+                      className="text-forest text-[11px] font-semibold hover:underline"
+                    >
+                      All matches
+                    </Link>
+                  </div>
+                  <div className="space-y-2">
+                    {data.recentMatches.slice(0, 4).map((match) => (
+                      <div
+                        key={match.id}
+                        className="border-line/60 bg-cream/30 flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 text-[11px]"
+                      >
+                        <span className="text-muted max-w-[8rem] truncate font-mono font-bold">
+                          {courtName(slot, match.courtNumber)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-semibold">
+                          {match.team1.map((player) => player.nickname).join(" & ")}
+                          <span className="text-muted mx-1.5">vs</span>
+                          {match.team2.map((player) => player.nickname).join(" & ")}
+                        </span>
+                        {match.free && <FreeTag />}
+                        <span className="text-muted font-mono text-[10px] font-bold">
+                          <CircleCheck className="text-forest inline h-3 w-3 align-[-2px]" />{" "}
+                          {match.endedAt ? formatClock(match.endedAt) : "Done"}
+                        </span>
+                        {!isCompleted && (
+                          <button
+                            type="button"
+                            onClick={() => confirmRestore(match)}
+                            disabled={pending}
+                            title="Ended by mistake? Put this game back on court"
+                            className="border-line text-ink-soft hover:border-forest hover:bg-lime/20 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition disabled:opacity-40"
+                          >
+                            <Undo2 className="h-3 w-3" /> Restore
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            <div
-              data-trim-id="board.queue-footer"
-              className="border-line/80 flex items-center justify-between border-t px-4 py-3"
-            >
-              <span className="text-muted text-[11px]">
-                Longest wait{" "}
-                <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
-              </span>
-              <Link
-                href={`/app/gamedays/${data.gameDay.id}/signups`}
-                className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
-              >
-                Manage sign-ups <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
-          </Card>
-        </div>
-
-        <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
-
-        {/* Start reminder: paired games on a court that nobody has started yet. */}
-        <Modal
-          open={startReminderOpen}
-          onClose={startLater}
-          title={
-            startReminder.length === 1
-              ? `Start the game on ${courtName(slot, startReminder[0].courtNumber)}?`
-              : `${startReminder.length} games haven't started`
-          }
-          description={
-            startReminderMoved
-              ? "The next game in line moved onto the free court. Its timer and game counts only begin once you press Start."
-              : "These players were paired but the game was never started, so its timer and game counts haven't begun. Press Start once all four are on court."
-          }
-          size="sm"
-          footer={
-            <Button variant="ghost" onClick={startLater}>
-              Not yet
-            </Button>
-          }
-        >
-          <div className="space-y-2">
-            {startReminder.map((match) => {
-              const waitedMinutes = now ? Math.floor((now - Date.parse(match.changedAt)) / 60000) : 0;
-              return (
-                <div
-                  key={match.id}
-                  className="border-line bg-cream/70 flex items-center gap-3 rounded-xl border px-3.5 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-bold">
-                      {courtName(slot, match.courtNumber)}
-                      {waitedMinutes >= 1 && (
-                        <span className="text-muted font-normal">
-                          {" "}
-                          · paired {formatWaited(waitedMinutes)} ago
-                        </span>
+            <Card className="h-fit lg:sticky lg:top-24">
+              <div className="border-line/80 border-b px-4 pt-4 pb-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
+                  <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
+                    <Users className="h-3 w-3" /> {data.players.length}
+                  </span>
+                </div>
+                <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">
+                  {(
+                    [
+                      ["waiting", "Waiting"],
+                      ["playing", "On court"],
+                      ["expected", "Expected"],
+                      ["done", "Done"],
+                    ] as Array<[QueueTab, string]>
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setTab(value)}
+                      className={cn(
+                        "press shrink-0 rounded-full px-3 py-2 text-[11px] font-semibold",
+                        tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
                       )}
-                    </p>
-                    <p className="truncate text-[12px]">
-                      {match.team1.map((player) => player.nickname).join(" & ")}
-                      <span className="text-muted"> vs </span>
-                      {match.team2.map((player) => player.nickname).join(" & ")}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => requestStart(1, (free) => startGame(match.id, free))}
-                    loading={pending}
-                  >
-                    <Play className="h-3.5 w-3.5" /> Start
-                  </Button>
+                    >
+                      {label}
+                      <span
+                        className={cn(
+                          "ml-1 font-mono text-[9px]",
+                          tab === value ? "text-lime/80" : "text-muted/70",
+                        )}
+                      >
+                        {tabCounts[value]}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        </Modal>
+                <div className="relative mt-3">
+                  <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Find a player…"
+                    className="h-9 pl-8 text-[12px]"
+                  />
+                </div>
+              </div>
 
-        <UnratedLevelsPrompt
-          open={unratedOpen}
-          onClose={() => {
-            setUnratedForced(false);
-            setUnratedDismissed(unratedKey);
-          }}
-          gameDayId={data.gameDay.id}
-          players={unrated}
-          onSaved={() => {
-            setUnratedForced(false);
-            void mutate();
-          }}
-        />
+              <div className="max-h-[min(62vh,640px)] overflow-y-auto px-2 py-2">
+                {visible.length === 0 ? (
+                  <div className="text-muted px-3 py-10 text-center text-[12px]">
+                    {query
+                      ? "No player matches that search."
+                      : `No players ${tab === "waiting" ? "waiting" : tab}.`}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {visible.map((player) => (
+                      <QueueRow
+                        key={player.sessionPlayerId}
+                        draggable={
+                          (player.status === "WAITING" || player.status === "PLAYING") &&
+                          !pending &&
+                          !isCompleted
+                        }
+                        player={player}
+                        now={now}
+                        pending={pending}
+                        onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
+                        onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
+                        onDone={() =>
+                          setConfirmSpec({
+                            title: `Mark ${player.nickname} done for the day?`,
+                            description: "They leave the board and stop receiving games.",
+                            confirmLabel: "Mark done",
+                            cancelLabel: "Not yet",
+                            onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
+                          })
+                        }
+                        onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
+                        onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
 
-        {/* Check-in modal */}
-        <Modal
-          open={checkOpen}
-          onClose={() => setCheckOpen(false)}
-          title="Check in arrivals"
-          description="Only checked-in players enter the pairing queue."
-          size="md"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setCheckOpen(false)}>
-                Done
-              </Button>
-              <Button
-                variant="accent"
-                onClick={() => {
-                  setCheckOpen(false);
-                  setWalkOpen(true);
-                }}
+              <div
+                data-trim-id="board.queue-footer"
+                className="border-line/80 flex items-center justify-between border-t px-4 py-3"
               >
-                <Plus className="h-4 w-4" /> Walk-in
-              </Button>
-            </>
-          }
-        >
-          <div className="relative mb-3">
-            <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
-            <Input
-              value={checkQuery}
-              onChange={(event) => setCheckQuery(event.target.value)}
-              placeholder="Search the sign-up list…"
-              className="pl-8"
-              autoFocus
-            />
-          </div>
-          {expected.length === 0 ? (
-            <EmptyState
-              icon={<Users className="h-5 w-5" />}
-              title="Everyone is checked in"
-              description="No expected players left. Add a walk-in if someone new arrives."
-            />
-          ) : (
-            <div className="space-y-1">
-              {expected.map((player) => (
-                <div
-                  key={player.sessionPlayerId}
-                  className="border-line/70 flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                <span className="text-muted text-[11px]">
+                  Longest wait{" "}
+                  <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
+                </span>
+                <Link
+                  href={`/app/gamedays/${data.gameDay.id}/signups`}
+                  className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
                 >
-                  <Avatar name={player.nickname} level={player.levelLabel} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
-                    <p className="text-muted text-[10px]">
-                      {CATEGORY_SHORT[player.category]} · {player.gamesPlayed} games
-                    </p>
-                  </div>
-                  <LevelBadge level={player.level} />
-                  <Button
-                    size="sm"
-                    variant="accent"
-                    onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
-                    loading={pending}
-                  >
-                    Check in
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Modal>
+                  Manage sign-ups <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </Card>
+          </div>
 
-        {/* Walk-in modal */}
-        <Modal
-          open={walkOpen}
-          onClose={() => setWalkOpen(false)}
-          title="Add a walk-in"
-          description="Adds them to the player database if they are new, then puts them straight in the queue."
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setWalkOpen(false)}>
-                Cancel
+          <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
+
+          {/* Start reminder: paired games on a court that nobody has started yet. */}
+          <Modal
+            open={startReminderOpen}
+            onClose={startLater}
+            title={
+              startReminder.length === 1
+                ? `Start the game on ${courtName(slot, startReminder[0].courtNumber)}?`
+                : `${startReminder.length} games haven't started`
+            }
+            description={
+              startReminderMoved
+                ? "The next game in line moved onto the free court. Its timer and game counts only begin once you press Start."
+                : "These players were paired but the game was never started, so its timer and game counts haven't begun. Press Start once all four are on court."
+            }
+            size="sm"
+            footer={
+              <Button variant="ghost" onClick={startLater}>
+                Not yet
               </Button>
-              <Button onClick={submitWalkIn} loading={pending} disabled={!walk.nickname.trim()}>
-                <UserRoundPlus className="h-4 w-4" /> Add to queue
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <Field label="Nickname">
+            }
+          >
+            <div className="space-y-2">
+              {startReminder.map((match) => {
+                const waitedMinutes = now ? Math.floor((now - Date.parse(match.changedAt)) / 60000) : 0;
+                return (
+                  <div
+                    key={match.id}
+                    className="border-line bg-cream/70 flex items-center gap-3 rounded-xl border px-3.5 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-bold">
+                        {courtName(slot, match.courtNumber)}
+                        {waitedMinutes >= 1 && (
+                          <span className="text-muted font-normal">
+                            {" "}
+                            · paired {formatWaited(waitedMinutes)} ago
+                          </span>
+                        )}
+                      </p>
+                      <p className="truncate text-[12px]">
+                        {match.team1.map((player) => player.nickname).join(" & ")}
+                        <span className="text-muted"> vs </span>
+                        {match.team2.map((player) => player.nickname).join(" & ")}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => requestStart(1, (free) => startGame(match.id, free))}
+                      loading={pending}
+                    >
+                      <Play className="h-3.5 w-3.5" /> Start
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </Modal>
+
+          <UnratedLevelsPrompt
+            open={unratedOpen}
+            onClose={() => {
+              setUnratedForced(false);
+              setUnratedDismissed(unratedKey);
+            }}
+            gameDayId={data.gameDay.id}
+            players={unrated}
+            onSaved={() => {
+              setUnratedForced(false);
+              void mutate();
+            }}
+          />
+
+          {/* Check-in modal */}
+          <Modal
+            open={checkOpen}
+            onClose={() => setCheckOpen(false)}
+            title="Check in arrivals"
+            description="Only checked-in players enter the pairing queue."
+            size="md"
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setCheckOpen(false)}>
+                  Done
+                </Button>
+                <Button
+                  variant="accent"
+                  onClick={() => {
+                    setCheckOpen(false);
+                    setWalkOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" /> Walk-in
+                </Button>
+              </>
+            }
+          >
+            <div className="relative mb-3">
+              <Search className="text-muted pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
               <Input
-                value={walk.nickname}
-                onChange={(event) => setWalk({ ...walk, nickname: event.target.value })}
-                placeholder="e.g. Jose"
+                value={checkQuery}
+                onChange={(event) => setCheckQuery(event.target.value)}
+                placeholder="Search the sign-up list…"
+                className="pl-8"
                 autoFocus
               />
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Level">
-                <Select
-                  value={walk.level}
-                  onChange={(event) => setWalk({ ...walk, level: event.target.value })}
-                >
-                  {LEVEL_OPTIONS.map((level) => (
-                    <option key={level.key} value={level.key}>
-                      {level.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Player type">
-                <Select
-                  value={walk.category}
-                  onChange={(event) => setWalk({ ...walk, category: event.target.value })}
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                  <option value="ALUMNI">Alumni</option>
-                  <option value="APPLICANT">Applicant</option>
-                  <option value="NON_AFFILIATE">Non-affiliate</option>
-                </Select>
-              </Field>
             </div>
-            <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
-              If the nickname already exists, their saved level and player type will be used.
-            </p>
-          </div>
-        </Modal>
+            {expected.length === 0 ? (
+              <EmptyState
+                icon={<Users className="h-5 w-5" />}
+                title="Everyone is checked in"
+                description="No expected players left. Add a walk-in if someone new arrives."
+              />
+            ) : (
+              <div className="space-y-1">
+                {expected.map((player) => (
+                  <div
+                    key={player.sessionPlayerId}
+                    className="border-line/70 flex items-center gap-3 rounded-xl border px-3 py-2.5"
+                  >
+                    <Avatar name={player.nickname} level={player.levelLabel} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
+                      <p className="text-muted text-[10px]">
+                        {CATEGORY_SHORT[player.category]} · {player.gamesPlayed} games
+                      </p>
+                    </div>
+                    <LevelBadge level={player.level} />
+                    <Button
+                      size="sm"
+                      variant="accent"
+                      onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
+                      loading={pending}
+                    >
+                      Check in
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Modal>
 
-        {/* Reservation is over: extend or end the game day */}
-        <Modal
-          open={endPromptOpen}
-          onClose={snoozeEndPrompt}
-          title="Reservation time is up"
-          description={`The courts were booked until ${bookedUntil ?? "now"}. Extend the game day, or end it and collect fees.`}
-          size="md"
-          footer={
-            <Button variant="ghost" onClick={snoozeEndPrompt}>
-              <AlarmClock className="h-4 w-4" /> Remind me in 10 min
-            </Button>
-          }
-        >
-          <div className="space-y-4">
-            <div className="border-line rounded-2xl border p-4">
-              <p className="font-display text-[15px] font-bold">Extend the game day</p>
-              <p className="text-muted mb-3 text-[12px]">
-                Adds a block from {bookedUntil} with the courts you still have.
+          {/* Walk-in modal */}
+          <Modal
+            open={walkOpen}
+            onClose={() => setWalkOpen(false)}
+            title="Add a walk-in"
+            description="Adds them to the player database if they are new, then puts them straight in the queue."
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setWalkOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={submitWalkIn} loading={pending} disabled={!walk.nickname.trim()}>
+                  <UserRoundPlus className="h-4 w-4" /> Add to queue
+                </Button>
+              </>
+            }
+          >
+            <div className="space-y-4">
+              <Field label="Nickname">
+                <Input
+                  value={walk.nickname}
+                  onChange={(event) => setWalk({ ...walk, nickname: event.target.value })}
+                  placeholder="e.g. Jose"
+                  autoFocus
+                />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Level">
+                  <Select
+                    value={walk.level}
+                    onChange={(event) => setWalk({ ...walk, level: event.target.value })}
+                  >
+                    {LEVEL_OPTIONS.map((level) => (
+                      <option key={level.key} value={level.key}>
+                        {level.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Player type">
+                  <Select
+                    value={walk.category}
+                    onChange={(event) => setWalk({ ...walk, category: event.target.value })}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="INACTIVE">Inactive</option>
+                    <option value="ALUMNI">Alumni</option>
+                    <option value="APPLICANT">Applicant</option>
+                    <option value="NON_AFFILIATE">Non-affiliate</option>
+                  </Select>
+                </Field>
+              </div>
+              <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
+                If the nickname already exists, their saved level and player type will be used.
               </p>
-              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                <Field label="Until">
-                  <Input
-                    type="time"
-                    value={extendUntil || suggestedUntil}
-                    onChange={(event) => setExtendUntil(event.target.value)}
-                  />
-                </Field>
-                <Field label="Courts">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={extendCourts || lastBlock?.courts || 1}
-                    onChange={(event) => setExtendCourts(Number(event.target.value))}
-                  />
-                </Field>
+            </div>
+          </Modal>
+
+          {/* Reservation is over: extend or end the game day */}
+          <Modal
+            open={endPromptOpen}
+            onClose={snoozeEndPrompt}
+            title="Reservation time is up"
+            description={`The courts were booked until ${bookedUntil ?? "now"}. Extend the game day, or end it and collect fees.`}
+            size="md"
+            footer={
+              <Button variant="ghost" onClick={snoozeEndPrompt}>
+                <AlarmClock className="h-4 w-4" /> Remind me in 10 min
+              </Button>
+            }
+          >
+            <div className="space-y-4">
+              <div className="border-line rounded-2xl border p-4">
+                <p className="font-display text-[15px] font-bold">Extend the game day</p>
+                <p className="text-muted mb-3 text-[12px]">
+                  Adds a block from {bookedUntil} with the courts you still have.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                  <Field label="Until">
+                    <Input
+                      type="time"
+                      value={extendUntil || suggestedUntil}
+                      onChange={(event) => setExtendUntil(event.target.value)}
+                    />
+                  </Field>
+                  <Field label="Courts">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={extendCourts || lastBlock?.courts || 1}
+                      onChange={(event) => setExtendCourts(Number(event.target.value))}
+                    />
+                  </Field>
+                  <Button
+                    onClick={() =>
+                      act(
+                        () =>
+                          extendGameDay(
+                            data.gameDay.id,
+                            extendUntil || suggestedUntil,
+                            extendCourts || lastBlock?.courts || 1,
+                          ),
+                        () => {
+                          setExtendUntil("");
+                          setExtendCourts(0);
+                        },
+                      )
+                    }
+                    loading={pending}
+                  >
+                    <Plus className="h-4 w-4" /> Extend
+                  </Button>
+                </div>
+              </div>
+
+              <div className="border-line rounded-2xl border p-4">
+                <p className="font-display text-[15px] font-bold">End the game day</p>
+                <p className="text-muted mb-3 text-[12px]">
+                  Closes the board and takes you to Fees to collect payments. Reports are ready after.
+                </p>
+                {live.length > 0 && (
+                  <label className="text-ink-soft mb-3 flex items-start gap-2 text-[13px]">
+                    <input
+                      type="checkbox"
+                      checked={countLiveGames}
+                      onChange={(event) => setCountLiveGames(event.target.checked)}
+                      className="accent-forest mt-0.5 h-4 w-4"
+                    />
+                    <span>
+                      Count the {live.length} game{live.length === 1 ? "" : "s"} still on court as played (
+                      {live.map((match) => courtName(slot, match.courtNumber)).join(", ")})
+                    </span>
+                  </label>
+                )}
+                <Button
+                  variant="danger"
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await endGameDay(data.gameDay.id, live.length > 0 && countLiveGames);
+                      if (!result.ok) {
+                        toast.error(result.error);
+                        return;
+                      }
+                      toast.success(result.message ?? "Game day ended.");
+                      router.push(`/app/gamedays/${data.gameDay.id}/fees`);
+                    })
+                  }
+                  loading={pending}
+                >
+                  <Flag className="h-4 w-4" /> End game day &amp; go to fees
+                </Button>
+              </div>
+            </div>
+          </Modal>
+
+          {/* Free game prompt near closing time */}
+          <Modal
+            open={Boolean(freePrompt)}
+            onClose={() => setFreePrompt(null)}
+            title={
+              freePrompt && freePrompt.count > 1
+                ? `Start ${freePrompt.count} games as free games?`
+                : "Is this a free game?"
+            }
+            description={
+              freePrompt
+                ? freePrompt.minutesLeft > 0
+                  ? `Only ${freePrompt.minutesLeft} min left before the reservation ends. A game takes about 15 minutes.`
+                  : "The reservation time is up."
+                : undefined
+            }
+            size="sm"
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setFreePrompt(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="paper"
+                  onClick={() => {
+                    freePrompt?.run(false);
+                    setFreePrompt(null);
+                  }}
+                >
+                  Regular game
+                </Button>
+                <Button
+                  onClick={() => {
+                    freePrompt?.run(true);
+                    setFreePrompt(null);
+                  }}
+                >
+                  <Gift className="h-4 w-4" /> Free game
+                </Button>
+              </>
+            }
+          >
+            <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[12px]">
+              A free game is played with a used shuttle. It does not count as a game played, so it is not
+              added to anyone&apos;s fees.
+            </p>
+          </Modal>
+
+          {/* Share live view modal */}
+          <Modal
+            open={shareOpen}
+            onClose={() => setShareOpen(false)}
+            title="Share the live queue"
+            description="Anyone with this link can watch the courts, the Next up line, and the waiting order. They can't change anything."
+            size="sm"
+            footer={
+              <>
+                <a href={shareUrl} target="_blank" rel="noreferrer">
+                  <Button variant="ghost">
+                    <ExternalLink className="h-4 w-4" /> Open
+                  </Button>
+                </a>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(shareUrl);
+                      toast.success("Link copied. Paste it in the group chat.");
+                    } catch {
+                      toast.error("Copy failed. Select the link and copy it.");
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" /> Copy link
+                </Button>
+              </>
+            }
+          >
+            <Input
+              value={shareUrl}
+              readOnly
+              onFocus={(event) => event.currentTarget.select()}
+              className="font-mono text-[12px]"
+            />
+            <p className="text-muted mt-3 text-[11px]">
+              Players see nicknames and levels only, never full names, contacts, or fees. They can type their
+              nickname to see if they are next.
+            </p>
+          </Modal>
+
+          {/* Rename court modal */}
+          <Modal
+            open={Boolean(renameTarget)}
+            onClose={() => setRenameTarget(null)}
+            title={`Rename ${renameTarget?.name ?? "court"}`}
+            description="Use the number the venue assigned. Type 5 to show “Court 5”, or any name like “Main court”."
+            size="sm"
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setRenameTarget(null)}>
+                  Cancel
+                </Button>
                 <Button
                   onClick={() =>
+                    renameTarget &&
                     act(
                       () =>
-                        extendGameDay(
+                        renameCourt(
                           data.gameDay.id,
-                          extendUntil || suggestedUntil,
-                          extendCourts || lastBlock?.courts || 1,
+                          slotIndex,
+                          renameTarget.court,
+                          renameLabel,
+                          plan.length > 1 && renameEveryBlock,
                         ),
-                      () => {
-                        setExtendUntil("");
-                        setExtendCourts(0);
-                      },
+                      () => setRenameTarget(null),
                     )
                   }
                   loading={pending}
                 >
-                  <Plus className="h-4 w-4" /> Extend
+                  <Check className="h-4 w-4" /> Save name
                 </Button>
-              </div>
-            </div>
-
-            <div className="border-line rounded-2xl border p-4">
-              <p className="font-display text-[15px] font-bold">End the game day</p>
-              <p className="text-muted mb-3 text-[12px]">
-                Closes the board and takes you to Fees to collect payments. Reports are ready after.
-              </p>
-              {live.length > 0 && (
-                <label className="text-ink-soft mb-3 flex items-start gap-2 text-[13px]">
-                  <input
-                    type="checkbox"
-                    checked={countLiveGames}
-                    onChange={(event) => setCountLiveGames(event.target.checked)}
-                    className="accent-forest mt-0.5 h-4 w-4"
-                  />
-                  <span>
-                    Count the {live.length} game{live.length === 1 ? "" : "s"} still on court as played (
-                    {live.map((match) => courtName(slot, match.courtNumber)).join(", ")})
-                  </span>
-                </label>
-              )}
-              <Button
-                variant="danger"
-                onClick={() =>
-                  startTransition(async () => {
-                    const result = await endGameDay(data.gameDay.id, live.length > 0 && countLiveGames);
-                    if (!result.ok) {
-                      toast.error(result.error);
-                      return;
-                    }
-                    toast.success(result.message ?? "Game day ended.");
-                    router.push(`/app/gamedays/${data.gameDay.id}/fees`);
-                  })
-                }
-                loading={pending}
-              >
-                <Flag className="h-4 w-4" /> End game day &amp; go to fees
-              </Button>
-            </div>
-          </div>
-        </Modal>
-
-        {/* Free game prompt near closing time */}
-        <Modal
-          open={Boolean(freePrompt)}
-          onClose={() => setFreePrompt(null)}
-          title={
-            freePrompt && freePrompt.count > 1
-              ? `Start ${freePrompt.count} games as free games?`
-              : "Is this a free game?"
-          }
-          description={
-            freePrompt
-              ? freePrompt.minutesLeft > 0
-                ? `Only ${freePrompt.minutesLeft} min left before the reservation ends. A game takes about 15 minutes.`
-                : "The reservation time is up."
-              : undefined
-          }
-          size="sm"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setFreePrompt(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="paper"
-                onClick={() => {
-                  freePrompt?.run(false);
-                  setFreePrompt(null);
-                }}
-              >
-                Regular game
-              </Button>
-              <Button
-                onClick={() => {
-                  freePrompt?.run(true);
-                  setFreePrompt(null);
-                }}
-              >
-                <Gift className="h-4 w-4" /> Free game
-              </Button>
-            </>
-          }
-        >
-          <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[12px]">
-            A free game is played with a used shuttle. It does not count as a game played, so it is not added
-            to anyone&apos;s fees.
-          </p>
-        </Modal>
-
-        {/* Share live view modal */}
-        <Modal
-          open={shareOpen}
-          onClose={() => setShareOpen(false)}
-          title="Share the live queue"
-          description="Anyone with this link can watch the courts, the Next up line, and the waiting order. They can't change anything."
-          size="sm"
-          footer={
-            <>
-              <a href={shareUrl} target="_blank" rel="noreferrer">
-                <Button variant="ghost">
-                  <ExternalLink className="h-4 w-4" /> Open
-                </Button>
-              </a>
-              <Button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(shareUrl);
-                    toast.success("Link copied. Paste it in the group chat.");
-                  } catch {
-                    toast.error("Copy failed. Select the link and copy it.");
-                  }
-                }}
-              >
-                <Copy className="h-4 w-4" /> Copy link
-              </Button>
-            </>
-          }
-        >
-          <Input
-            value={shareUrl}
-            readOnly
-            onFocus={(event) => event.currentTarget.select()}
-            className="font-mono text-[12px]"
-          />
-          <p className="text-muted mt-3 text-[11px]">
-            Players see nicknames and levels only, never full names, contacts, or fees. They can type their
-            nickname to see if they are next.
-          </p>
-        </Modal>
-
-        {/* Rename court modal */}
-        <Modal
-          open={Boolean(renameTarget)}
-          onClose={() => setRenameTarget(null)}
-          title={`Rename ${renameTarget?.name ?? "court"}`}
-          description="Use the number the venue assigned. Type 5 to show “Court 5”, or any name like “Main court”."
-          size="sm"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setRenameTarget(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() =>
-                  renameTarget &&
-                  act(
-                    () =>
-                      renameCourt(
-                        data.gameDay.id,
-                        slotIndex,
-                        renameTarget.court,
-                        renameLabel,
-                        plan.length > 1 && renameEveryBlock,
-                      ),
-                    () => setRenameTarget(null),
-                  )
-                }
-                loading={pending}
-              >
-                <Check className="h-4 w-4" /> Save name
-              </Button>
-            </>
-          }
-        >
-          <Field label="Court number or name" hint="Leave blank to show its position number.">
-            <Input
-              value={renameLabel}
-              onChange={(event) => setRenameLabel(event.target.value)}
-              maxLength={24}
-              autoFocus
-              onFocus={(event) => event.currentTarget.select()}
-            />
-          </Field>
-          {plan.length > 1 && (
-            <label className="text-ink-soft mt-3 flex items-center gap-2 text-[13px]">
-              <input
-                type="checkbox"
-                checked={renameEveryBlock}
-                onChange={(event) => setRenameEveryBlock(event.target.checked)}
-                className="accent-forest h-4 w-4"
+              </>
+            }
+          >
+            <Field label="Court number or name" hint="Leave blank to show its position number.">
+              <Input
+                value={renameLabel}
+                onChange={(event) => setRenameLabel(event.target.value)}
+                maxLength={24}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
               />
-              Use this name in every block
-            </label>
-          )}
-        </Modal>
+            </Field>
+            {plan.length > 1 && (
+              <label className="text-ink-soft mt-3 flex items-center gap-2 text-[13px]">
+                <input
+                  type="checkbox"
+                  checked={renameEveryBlock}
+                  onChange={(event) => setRenameEveryBlock(event.target.checked)}
+                  className="accent-forest h-4 w-4"
+                />
+                Use this name in every block
+              </label>
+            )}
+          </Modal>
 
-        {/* Add court modal */}
-        <Modal
-          open={addCourtOpen}
-          onClose={() => setAddCourtOpen(false)}
-          title="Add a court"
-          description={slot ? `Adds one court to ${slot.label} (${slot.start}–${slot.end}).` : undefined}
-          size="sm"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setAddCourtOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() =>
-                  act(
-                    () => addCourt(data.gameDay.id, slotIndex, newCourtLabel),
-                    () => setAddCourtOpen(false),
-                  )
-                }
-                loading={pending}
-              >
-                <Plus className="h-4 w-4" /> Add court
-              </Button>
-            </>
-          }
-        >
-          <Field label="Court name" hint="Optional. Leave blank to number it after the others.">
-            <Input
-              value={newCourtLabel}
-              onChange={(event) => setNewCourtLabel(event.target.value)}
-              placeholder={slot ? `Court ${slot.courts + 1}` : "Court"}
-              maxLength={24}
-            />
-          </Field>
-          <p className="text-muted mt-3 text-[11px]">
-            The first game in Next up moves onto the new court. Remove courts in Settings.
-          </p>
-        </Modal>
+          {/* Add court modal */}
+          <Modal
+            open={addCourtOpen}
+            onClose={() => setAddCourtOpen(false)}
+            title="Add a court"
+            description={slot ? `Adds one court to ${slot.label} (${slot.start}–${slot.end}).` : undefined}
+            size="sm"
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setAddCourtOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() =>
+                    act(
+                      () => addCourt(data.gameDay.id, slotIndex, newCourtLabel),
+                      () => setAddCourtOpen(false),
+                    )
+                  }
+                  loading={pending}
+                >
+                  <Plus className="h-4 w-4" /> Add court
+                </Button>
+              </>
+            }
+          >
+            <Field label="Court name" hint="Optional. Leave blank to number it after the others.">
+              <Input
+                value={newCourtLabel}
+                onChange={(event) => setNewCourtLabel(event.target.value)}
+                placeholder={slot ? `Court ${slot.courts + 1}` : "Court"}
+                maxLength={24}
+              />
+            </Field>
+            <p className="text-muted mt-3 text-[11px]">
+              The first game in Next up moves onto the new court. Remove courts in Settings.
+            </p>
+          </Modal>
 
-        {/* Edit match modal */}
-        <Modal
-          open={Boolean(editMatch)}
-          onClose={() => setEditMatch(null)}
-          title={`Edit ${editMatch ? courtName(slot, editMatch.courtNumber) : ""}`}
-          description="Swap players or move the match. Keep the pairing fair."
-          size="lg"
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => setEditMatch(null)}>
-                Cancel
-              </Button>
-              <Button onClick={submitEdit} loading={pending}>
-                <Check className="h-4 w-4" /> Save line-up
-              </Button>
-            </>
-          }
-        >
-          {editMatch && (
-            <div className="space-y-5">
-              <Field label="Court">
-                <Select value={editCourt} onChange={(event) => setEditCourt(Number(event.target.value))}>
-                  {editMatch.courtNumber === QUEUED_COURT && (
-                    <option value={QUEUED_COURT}>Next up (no court yet)</option>
-                  )}
-                  {Array.from(
-                    { length: Math.max(1, data.stats.courtsTotal || 1) },
-                    (_, index) => index + 1,
-                  ).map((court) => (
-                    <option key={court} value={court}>
-                      {courtName(slot, court)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {[
-                  { label: "Team A", value: editTeam1, set: setEditTeam1, tone: "forest" as const },
-                  { label: "Team B", value: editTeam2, set: setEditTeam2, tone: "paper" as const },
-                ].map((team) => (
-                  <div
-                    key={team.label}
-                    className={cn(
-                      "rounded-2xl border p-3",
-                      team.tone === "forest"
-                        ? "border-forest/20 bg-forest/[0.03]"
-                        : "border-line bg-cream/30",
+          {/* Edit match modal */}
+          <Modal
+            open={Boolean(editMatch)}
+            onClose={() => setEditMatch(null)}
+            title={`Edit ${editMatch ? courtName(slot, editMatch.courtNumber) : ""}`}
+            description="Swap players or move the match. Keep the pairing fair."
+            size="lg"
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setEditMatch(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={submitEdit} loading={pending}>
+                  <Check className="h-4 w-4" /> Save line-up
+                </Button>
+              </>
+            }
+          >
+            {editMatch && (
+              <div className="space-y-5">
+                <Field label="Court">
+                  <Select value={editCourt} onChange={(event) => setEditCourt(Number(event.target.value))}>
+                    {editMatch.courtNumber === QUEUED_COURT && (
+                      <option value={QUEUED_COURT}>Next up (no court yet)</option>
                     )}
-                  >
-                    <p className="text-muted mb-2 text-[10px] font-bold tracking-[0.14em] uppercase">
-                      {team.label}
-                    </p>
-                    <div className="space-y-2">
-                      {[0, 1].map((slotIndexInTeam) => (
-                        <Select
-                          key={slotIndexInTeam}
-                          value={team.value[slotIndexInTeam] ?? ""}
-                          onChange={(event) => {
-                            const next = [...team.value];
-                            next[slotIndexInTeam] = event.target.value;
-                            team.set(next);
-                          }}
-                        >
-                          <option value="">Pick a player…</option>
-                          {editOptions.map((player) => (
-                            <option key={player.playerId} value={player.playerId}>
-                              {player.nickname} · {player.levelLabel}{" "}
-                              {player.status === "PLAYING" ? "(on court)" : ""}
-                            </option>
-                          ))}
-                        </Select>
-                      ))}
+                    {Array.from(
+                      { length: Math.max(1, data.stats.courtsTotal || 1) },
+                      (_, index) => index + 1,
+                    ).map((court) => (
+                      <option key={court} value={court}>
+                        {courtName(slot, court)}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {[
+                    { label: "Team A", value: editTeam1, set: setEditTeam1, tone: "forest" as const },
+                    { label: "Team B", value: editTeam2, set: setEditTeam2, tone: "paper" as const },
+                  ].map((team) => (
+                    <div
+                      key={team.label}
+                      className={cn(
+                        "rounded-2xl border p-3",
+                        team.tone === "forest"
+                          ? "border-forest/20 bg-forest/[0.03]"
+                          : "border-line bg-cream/30",
+                      )}
+                    >
+                      <p className="text-muted mb-2 text-[10px] font-bold tracking-[0.14em] uppercase">
+                        {team.label}
+                      </p>
+                      <div className="space-y-2">
+                        {[0, 1].map((slotIndexInTeam) => (
+                          <Select
+                            key={slotIndexInTeam}
+                            value={team.value[slotIndexInTeam] ?? ""}
+                            onChange={(event) => {
+                              const next = [...team.value];
+                              next[slotIndexInTeam] = event.target.value;
+                              team.set(next);
+                            }}
+                          >
+                            <option value="">Pick a player…</option>
+                            {editOptions.map((player) => (
+                              <option key={player.playerId} value={player.playerId}>
+                                {player.nickname} · {player.levelLabel}{" "}
+                                {player.status === "PLAYING" ? "(on court)" : ""}
+                              </option>
+                            ))}
+                          </Select>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
+                  Only waiting players and the current four are listed. Players already on another court are
+                  hidden to avoid double-booking.
+                </p>
               </div>
-              <p className="bg-cream-deep/60 text-muted rounded-xl px-3 py-2 text-[11px]">
-                Only waiting players and the current four are listed. Players already on another court are
-                hidden to avoid double-booking.
+            )}
+          </Modal>
+        </div>
+        <DragOverlay dropAnimation={null}>
+          {activeDrag ? (
+            <DragChip
+              drag={activeDrag}
+              courtLabel={activeDrag.kind === "match" ? courtName(slot, activeDrag.courtNumber) : undefined}
+            />
+          ) : null}
+        </DragOverlay>
+
+        {picked &&
+          !isCompleted &&
+          createPortal(
+            <div
+              role="status"
+              data-trim-id="board.tap-move"
+              className="bg-ink text-paper shadow-float fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl px-4 py-3 lg:bottom-6"
+            >
+              <span className="bg-gold animate-pulse-soft h-2.5 w-2.5 shrink-0 rounded-full" />
+              <p className="min-w-0 flex-1 text-[13px] leading-snug">
+                Moving <span className="font-bold">{pickedLabel}</span>
+                <span className="text-paper/70">
+                  {" "}
+                  · tap a highlighted {picked.kind === "match" ? "court" : "place"}
+                </span>
               </p>
-            </div>
+              <Button size="sm" variant="paper" onClick={() => setPicked(null)} className="h-9 shrink-0">
+                Cancel
+              </Button>
+            </div>,
+            document.body,
           )}
-        </Modal>
-      </div>
-      <DragOverlay dropAnimation={null}>
-        {activeDrag ? (
-          <DragChip
-            drag={activeDrag}
-            courtLabel={activeDrag.kind === "match" ? courtName(slot, activeDrag.courtNumber) : undefined}
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+      </DndContext>
+    </TapMoveContext>
   );
 }
 
@@ -2141,6 +2224,7 @@ function CourtCard({
     disabled: isCompleted,
   });
   const mounted = useMounted();
+  const payload: DragPayload = { kind: "match", matchId: match?.id ?? "", courtNumber: court };
   const {
     setNodeRef: setHandleRef,
     listeners,
@@ -2148,9 +2232,25 @@ function CourtCard({
     isDragging,
   } = useDraggable({
     id: `match-${match?.id ?? `open-${court}`}`,
-    data: { kind: "match", matchId: match?.id ?? "", courtNumber: court } satisfies DragPayload,
+    data: payload,
     disabled: !match || isCompleted,
   });
+  const tap = React.useContext(TapMoveContext);
+  const courtTarget: DropTarget = { kind: "court", courtNumber: court, matchId: match?.id };
+  // Only a picked game lands on the whole card; a picked player goes into a slot instead.
+  const tapOverlay =
+    tap.picked?.kind === "match" && match?.status !== "LIVE" && tap.canTap(courtTarget) ? (
+      <button
+        type="button"
+        onClick={() => tap.drop(courtTarget)}
+        className="bg-lime/20 absolute inset-0 z-10 grid place-items-center rounded-2xl backdrop-blur-[1px]"
+      >
+        <span className="bg-lime text-forest-deep shadow-float rounded-full px-4 py-2 text-[12px] font-bold">
+          {waiting ? "Take this place in line" : match ? `Swap with ${name}` : `Move to ${name}`}
+        </span>
+      </button>
+    ) : null;
+  const isPicked = !!match && samePick(tap.picked, payload);
 
   if (!match) {
     return (
@@ -2160,9 +2260,10 @@ function CourtCard({
           "court-surface relative overflow-hidden rounded-2xl border-2 border-dashed transition",
           waiting && "court-surface-waiting",
           isCompleted ? "opacity-60" : waiting ? "border-cream/30" : "border-cream/20",
-          courtOver && "border-lime ring-lime/40 ring-2",
+          (courtOver || tapOverlay) && "border-lime ring-lime/40 ring-2",
         )}
       >
+        {tapOverlay}
         <CourtLines tone={waiting ? "waiting" : "open"} />
         <div className="relative p-3">
           <div className="flex items-center justify-between">
@@ -2202,8 +2303,8 @@ function CourtCard({
               {draft.some(Boolean)
                 ? `Pair fills the other ${draft.filter((id) => !id).length}`
                 : waiting
-                  ? "Drop players, or Pair for all four"
-                  : "Drop waiting players, or Pair for all four"}
+                  ? "Tap or drag players in, or Pair for all four"
+                  : "Tap or drag waiting players in, or Pair for all four"}
             </span>
             <Button
               variant="accent"
@@ -2233,10 +2334,12 @@ function CourtCard({
         "court-surface animate-pop-in relative overflow-hidden rounded-2xl border transition",
         waiting && "court-surface-waiting",
         live ? "border-lime/45 shadow-gold" : waiting ? "border-lime/30 border-dashed" : "border-lime/20",
-        courtOver && "border-lime ring-lime/50 ring-2",
+        (courtOver || tapOverlay) && "border-lime ring-lime/50 ring-2",
+        isPicked && "ring-gold ring-4",
         isDragging && "opacity-60",
       )}
     >
+      {tapOverlay}
       <CourtLines tone={live ? "live" : waiting ? "waiting" : "suggested"} />
       <div className="relative p-3">
         <div className="flex items-center justify-between gap-2">
@@ -2245,10 +2348,13 @@ function CourtCard({
               ref={setHandleRef}
               {...listeners}
               {...(mounted ? attributes : {})}
-              aria-label={waiting ? `Drag ${name} onto a free court` : `Move the ${name} match`}
+              onClick={() => !isCompleted && tap.pick(payload)}
+              aria-pressed={mounted ? isPicked : undefined}
+              aria-label={waiting ? `Move ${name} onto a free court` : `Move the ${name} match`}
+              title="Tap, then tap another court (or drag)"
               className={cn(
-                "text-cream/45 hover:text-cream grid h-6 w-5 cursor-grab touch-none place-items-center rounded",
-                isDragging && "text-lime",
+                "text-cream/45 hover:text-cream -my-1.5 -ml-1.5 grid h-9 w-9 cursor-grab touch-manipulation place-items-center rounded-lg",
+                (isDragging || isPicked) && "text-lime bg-lime/15",
               )}
             >
               <GripVertical className="h-3.5 w-3.5" />
@@ -2426,15 +2532,19 @@ function PlayerChip({
   player: BoardMatch["team1"][number];
   disabled: boolean;
 }) {
+  const target: DropTarget = { kind: "slot", matchId, team, slot: player.slot, playerId: player.playerId };
+  const payload: DragPayload = {
+    kind: "match-player",
+    matchId,
+    playerId: player.playerId,
+    team,
+    slot: player.slot,
+    nickname: player.nickname,
+    level: player.level,
+  };
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `slot-${matchId}-${team}-${player.slot}`,
-    data: {
-      kind: "slot",
-      matchId,
-      team,
-      slot: player.slot,
-      playerId: player.playerId,
-    } satisfies DropTarget,
+    data: target,
     disabled,
   });
   const mounted = useMounted();
@@ -2445,24 +2555,23 @@ function PlayerChip({
     isDragging,
   } = useDraggable({
     id: `mp-${matchId}-${player.playerId}`,
-    data: {
-      kind: "match-player",
-      matchId,
-      playerId: player.playerId,
-      team,
-      slot: player.slot,
-      nickname: player.nickname,
-      level: player.level,
-    } satisfies DragPayload,
+    data: payload,
     disabled,
   });
+  const tap = React.useContext(TapMoveContext);
+  const tappable = tap.canTap(target);
+  const isPicked = samePick(tap.picked, payload);
 
   return (
     <div
       ref={setDropRef}
       className={cn(
         "rounded-lg border transition",
-        isOver ? "border-lime bg-lime/15 ring-lime/50 ring-2" : "border-cream/30 bg-forest-deep/35",
+        isOver || tappable
+          ? "border-lime bg-lime/15 ring-lime/50 ring-2"
+          : isPicked
+            ? "border-gold bg-gold/30 ring-gold ring-2"
+            : "border-cream/30 bg-forest-deep/35",
         isDragging && "opacity-40",
       )}
     >
@@ -2470,7 +2579,14 @@ function PlayerChip({
         ref={setDragRef}
         {...listeners}
         {...(mounted ? attributes : {})}
-        className="flex cursor-grab touch-none items-center gap-1.5 px-1.5 py-1"
+        onClick={() => (tappable ? tap.drop(target) : !disabled && tap.pick(payload))}
+        aria-pressed={mounted ? isPicked : undefined}
+        aria-label={
+          tappable
+            ? `Put ${tap.picked && "nickname" in tap.picked ? tap.picked.nickname : "player"} here, in place of ${player.nickname}`
+            : `Move ${player.nickname}`
+        }
+        className="flex min-h-9 cursor-grab touch-manipulation items-center gap-1.5 px-1.5 py-1 select-none"
       >
         <Avatar name={player.nickname} size="sm" className="h-6 w-6 text-[9px]" />
         <div className="min-w-0 flex-1">
@@ -2496,20 +2612,26 @@ function DraftSlot({
   player?: BoardPlayer;
   onClear: (index: number) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `draft-${court}-${index}`,
-    data: { kind: "draft-slot", courtNumber: court, index } satisfies DropTarget,
-  });
+  const target: DropTarget = { kind: "draft-slot", courtNumber: court, index };
+  const { setNodeRef, isOver } = useDroppable({ id: `draft-${court}-${index}`, data: target });
+  const tap = React.useContext(TapMoveContext);
+  const tappable = tap.canTap(target);
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
         "flex h-[40px] items-center justify-center rounded-lg border border-dashed text-[10px] transition",
-        isOver ? "border-lime bg-lime/15 text-lime" : "border-cream/25 bg-forest-deep/20 text-cream/40",
+        isOver || tappable
+          ? "border-lime bg-lime/15 text-lime ring-lime/50 ring-2"
+          : "border-cream/25 bg-forest-deep/20 text-cream/40",
       )}
     >
-      {player ? (
+      {tappable ? (
+        <button type="button" onClick={() => tap.drop(target)} className="h-full w-full font-semibold">
+          {player ? `Put here instead of ${player.nickname}` : "Tap to put here"}
+        </button>
+      ) : player ? (
         <button
           type="button"
           onClick={() => onClear(index)}
@@ -2571,17 +2693,20 @@ function QueueRow({
   const pairRequest = player.requests.find((request) => request.type === "PAIR_WITH");
   const againstRequest = player.requests.find((request) => request.type === "PLAY_AGAINST");
   const mounted = useMounted();
+  const payload: DragPayload = {
+    kind: "queue-player",
+    playerId: player.playerId,
+    nickname: player.nickname,
+    level: player.level,
+    status: player.status,
+  };
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `queue-${player.sessionPlayerId}`,
-    data: {
-      kind: "queue-player",
-      playerId: player.playerId,
-      nickname: player.nickname,
-      level: player.level,
-      status: player.status,
-    } satisfies DragPayload,
+    data: payload,
     disabled: !draggable,
   });
+  const tap = React.useContext(TapMoveContext);
+  const isPicked = draggable && samePick(tap.picked, payload);
 
   return (
     <div
@@ -2594,12 +2719,14 @@ function QueueRow({
         ref={setNodeRef}
         {...(draggable ? listeners : {})}
         {...(draggable && mounted ? attributes : {})}
-        aria-label={draggable ? `Drag ${player.nickname} to a court` : undefined}
+        onClick={draggable ? () => tap.pick(payload) : undefined}
+        aria-pressed={draggable && mounted ? isPicked : undefined}
+        aria-label={draggable ? `Move ${player.nickname} to a court` : undefined}
         title={
           draggable
             ? player.status === "PLAYING"
-              ? "Still playing: drag into a waiting game to plan ahead"
-              : "Drag onto a court or the waiting court"
+              ? "Still playing: tap or drag into a waiting game to plan ahead"
+              : "Tap, then tap a court slot (or drag)"
             : undefined
         }
         className={cn(
@@ -2607,6 +2734,7 @@ function QueueRow({
           draggable &&
             "border-forest/35 bg-paper hover:border-forest hover:bg-lime/15 cursor-grab touch-manipulation border-2 border-dashed py-1 pr-2 pl-1 shadow-sm transition select-none active:cursor-grabbing",
           isDragging && "border-lime bg-lime/20 opacity-50",
+          isPicked && "border-gold bg-gold/30 ring-gold border-solid ring-2",
         )}
       >
         {draggable && <GripVertical className="text-forest/60 h-4 w-4 shrink-0" aria-hidden="true" />}
