@@ -2,7 +2,7 @@ import { LogOut } from "lucide-react";
 import { AppNav, FooterLinks, MobileNav } from "@/components/app/app-nav";
 import { Logo, OrgBadge } from "@/components/logo";
 import { logoutAction } from "@/lib/actions/auth";
-import { InstallAppButton } from "@/components/install-app";
+import { InstallAppButton, InstallReminder } from "@/components/install-app";
 
 export function AppShell({
   name,
@@ -93,6 +93,7 @@ export function AppShell({
       </div>
 
       <MobileNav currentGameDayId={currentGameDayId} />
+      <InstallReminder />
     </div>
   );
 }

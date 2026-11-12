@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { loginAction, type LoginMode } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
+import { queueInstallReminder } from "@/components/install-app";
 
 export function LoginForm({
   next,
@@ -35,6 +36,7 @@ export function LoginForm({
       const result = await loginAction(name, pin, mode);
       if (result.ok) {
         toast.success(result.message ?? "Welcome to the board.");
+        queueInstallReminder();
         router.replace(next || "/app");
         router.refresh();
       } else {

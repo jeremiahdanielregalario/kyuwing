@@ -211,6 +211,7 @@ If something looks broken:
 - **Install Kyuwing as an app** for a full-screen board with its own icon:
   - **Android (Chrome, Samsung Internet), or Chrome / Edge on a computer:** tap **Install app** (the download icon in the phone header, the button in the sidebar, or on the sign-in page) and confirm. The browser's own menu (**Install app** / **Add to Home screen**) works too.
   - **iPhone / iPad:** open Kyuwing in Safari, tap **Share**, then **Add to Home Screen**. The Install app button shows these steps.
+  - Right after you sign in in the browser, a **Get the Kyuwing app** pop-up offers the same install. **Not now** hides it until your next sign-in; it doesn't show once the app is installed.
   - The installed app opens straight to the board and updates itself whenever a new version is deployed. It still needs the internet; without it you get a "You're offline" page with **Try again**.
 - Keep the device plugged in or on a power bank.
 - Use one device as the source of truth. Multiple queue masters is fine for viewing, but avoid two people pressing pair at the same time.
