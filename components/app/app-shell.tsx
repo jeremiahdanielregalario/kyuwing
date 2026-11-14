@@ -4,6 +4,7 @@ import { AppNav, FooterLinks, MobileNav } from "@/components/app/app-nav";
 import { Logo, OrgBadge } from "@/components/logo";
 import { logoutAction } from "@/lib/actions/auth";
 import { InstallAppButton, InstallReminder } from "@/components/install-app";
+import { SoundToggle } from "@/components/app/sound-toggle";
 
 export function AppShell({
   name,
@@ -52,6 +53,7 @@ export function AppShell({
                 {admin ? "Developer session" : "Queue master session"}
               </p>
               <InstallAppButton variant="sidebar" className="mt-3" />
+              <SoundToggle variant="sidebar" className="mt-2" />
               <form action={logoutAction} className="mt-2">
                 <button
                   type="submit"
@@ -85,6 +87,7 @@ export function AppShell({
               </Link>
             )}
             <InstallAppButton variant="icon" />
+            <SoundToggle variant="icon" />
             <span className="border-cream/15 bg-cream/5 text-cream/70 max-w-[11rem] truncate rounded-full border px-3 py-1.5 text-[11px] font-semibold">
               {name}
             </span>

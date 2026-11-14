@@ -21,6 +21,7 @@ import { Logo } from "@/components/logo";
 import { PaymentCard } from "@/components/payment-card";
 import { formatDuration, formatGameDate } from "@/lib/datetime";
 import { formatPeso } from "@/lib/fees";
+import { sameBoard } from "@/lib/board-compare";
 import { locatePlayer, type PlayerLocation, type PublicBoard, type PublicMatch } from "@/lib/public-board";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,7 @@ export function LiveView({
     refreshInterval: 5000,
     revalidateOnFocus: true,
     keepPreviousData: true,
+    compare: sameBoard,
   });
 
   // Ticks every second after hydration; 0 on the server so times render as placeholders.

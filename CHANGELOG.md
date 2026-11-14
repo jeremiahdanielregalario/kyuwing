@@ -6,6 +6,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Sound cues** — short sounds for a saved change, an error, a game starting, a game ending, a player placed on a court, and things that need attention (a player asking to leave, the "start this game" pop-up). **Sounds on / off** in the sidebar (speaker button in the top bar on phones and tablets) mutes them on that device. The clips are CC0 from Kenney's Interface Sounds, about 36 KB in total.
+- **Queue blocks glide** — when the queue order changes (someone is paired, returns, is searched for), the player blocks slide to their new places instead of jumping.
 - **Maya and GoTyme payments** — the payment dialog on the Fees tab now offers Maya and GoTyme besides Cash, GCash, Bank transfer and Other, and the Finance Tracker export totals them on their own lines.
 - **Edit total court-hours** — on the Fees tab, **Edit court-hours** on the Split court cost card lets the queue master type the total court-hours (e.g. what the venue actually billed). It supersedes the hours worked out from the court plan for the base price, the reports and the payment list, and **Use the plan's …** switches back.
 - **Type the right nickname on a flagged list line** — when the suggestions on a Messenger list line don't include the right player ("AJ Laxamana" is really Jax), press **Type nickname…** or **Someone else…**, type or pick the official nickname (the list shows each player's full name too), and press **Use**. The line is fixed and the written name is remembered for that player, like the other Use buttons. A nickname nobody has is refused with a message.
@@ -75,6 +77,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Faster board** — the board used to redraw completely every second for its timers, and again on every 5-second check with the server even when nothing changed. Now only the timers themselves tick, and a check that brings nothing new redraws nothing, so dragging and pressing stay smooth on older tablets. The public live view also skips the no-change redraws.
+- **Faster player search** — typing in the Players search box no longer waits for the whole list to redraw on each key.
 - **"Start game" tag no longer covers warnings** — the tag on an unstarted game moved from floating above **Start** into the court's status line, next to the round number, so it no longer hides a "Wide level spread" or other level warning.
 - **Empty courts match paired ones** — an open court or waiting court is now the same size as one with a game: it has the same status line and button row, with **Pair** where **Start** would be and Re-pair, edit and cancel shown greyed out (they work once there is a game).
 - **Transfer to Court floats** — on a waiting game, the "Court X is empty" note and the **Transfer to Court** button now float over the players, slightly see-through, instead of taking up a row of the card.

@@ -133,7 +133,6 @@ import {
   manilaTime,
   formatClock,
   formatTimeRange,
-  formatDuration,
   formatGameDate,
   minutesLeftInReservation,
   startTimeReached,
@@ -155,6 +154,10 @@ import { Modal } from "@/components/ui/modal";
 import { SavingPill } from "@/components/ui/saving-pill";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { haptic } from "@/lib/haptics";
+import { playSound } from "@/lib/sounds";
+import { sameBoard } from "@/lib/board-compare";
+import { FlipList } from "@/components/ui/flip-list";
+import { ElapsedTimer, ManilaClock, useClock, WaitTimer } from "@/components/app/live-clock";
 import type { ActionFailureCode } from "@/lib/action-result";
 import { UnratedLevelsPrompt } from "@/components/app/unrated-levels-prompt";
 import { ShareLiveDialog, useLiveLinkShared } from "@/components/app/share-live-dialog";
@@ -170,11 +173,6 @@ const fetcher = async (url: string) => {
   return response.json() as Promise<BoardData>;
 };
 
-/**
- * Ticking clock for wait timers. It deliberately starts at 0 so the server and
- * the first client render agree (Date.now() during render is a hydration
- * mismatch); the effect fills in the real time immediately after mount.
- */
 /** Whether this device already closed the automatic start review for a game day. */
 function reviewSeen(key: string): boolean {
   try {
@@ -192,20 +190,6 @@ function markReviewSeen(key: string) {
   }
 }
 
-function useNow() {
-  const [now, setNow] = React.useState(0);
-  React.useEffect(() => {
-    const tick = () => setNow(Date.now());
-    const kick = window.setTimeout(tick, 0);
-    const timer = window.setInterval(tick, 1000);
-    return () => {
-      window.clearTimeout(kick);
-      window.clearInterval(timer);
-    };
-  }, []);
-  return now;
-}
-
 /**
  * dnd-kit generates `aria-describedby` ids from a module counter, so the ids
  * differ between the server render and the client render. Only attach its
@@ -217,11 +201,6 @@ function useMounted() {
     () => true,
     () => false,
   );
-}
-
-function waitSeconds(queuedAt: string | null, now: number) {
-  if (!queuedAt) return 0;
-  return Math.max(0, Math.floor((now - Date.parse(queuedAt)) / 1000));
 }
 
 function teamValue(team: { level: string }[]) {
@@ -393,9 +372,13 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     refreshInterval: 5000,
     revalidateOnFocus: true,
     keepPreviousData: true,
+    // A poll that brings nothing new must not redraw the board.
+    compare: sameBoard,
   });
   const data = freshData ?? initialData;
-  const now = useNow();
+  // Only minutes matter up here (reminders, plan notes, closing time); the per-second timers
+  // tick on their own (see live-clock.tsx), so the board is not redrawn every second.
+  const now = useClock(10_000);
 
   // A server action that changes the board sends the redrawn page back with its answer, in the
   // same trip. Use that fresh board instead of asking the server again; polling stays as the
@@ -518,6 +501,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     for (const request of data.leaveRequests) {
       if (announcedLeaves.current.has(request.id)) continue;
       announcedLeaves.current.add(request.id);
+      playSound("alert");
       toast.warning(`${request.nickname} wants to leave. Confirm or keep them on the board.`, {
         duration: 15000,
       });
@@ -620,6 +604,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const applyMove = (active: DragPayload | undefined, over: DropTarget | undefined) => {
     if (!active || !over || isCompleted) return;
     haptic("tap");
+    playSound("drop");
 
     if (over.kind === "queue") {
       returnToQueue(active);
@@ -912,6 +897,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     !startReviewOpen &&
     !renameTarget &&
     !endPromptOpen;
+  // A soft chime when the "start this game" pop-up appears, so it is noticed from across the court.
+  React.useEffect(() => {
+    if (startReminderOpen) playSound("alert");
+  }, [startReminderOpen]);
   const startReminderMoved = startReminder.some((match) => promotedIds.includes(match.id));
   const startLater = () =>
     setStartLaterIds((prev) => new Set([...prev, ...startReminder.map((match) => match.id)]));
@@ -956,6 +945,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // (used shuttle, not counted) before it starts.
   // Starting a game whose player is still on another court is refused; offer to re-pair it instead.
   const startGame = (matchId: string, free: boolean) => {
+    playSound("start");
     showNow((current) => optimisticStart(current, matchId, free, new Date().toISOString()));
     startTransition(async () => {
       const result = await startMatch(matchId, { free });
@@ -1058,6 +1048,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // Ending a game offers Undo for a few seconds, in case it was ended by mistake.
   const endGame = (matchId: string) => {
     promotionWatch.current = new Set(suggested.map((match) => match.id));
+    playSound("finish");
     showNow((current) => optimisticFinish(current, matchId, new Date().toISOString()));
     startTransition(async () => {
       const result = await completeMatch(matchId);
@@ -1262,7 +1253,11 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         {query ? "No player matches that search." : `No players ${tab === "waiting" ? "waiting" : tab}.`}
       </div>
     ) : (
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(10.25rem,1fr))] gap-1.5">
+      // Blocks glide to their new places when the order changes.
+      <FlipList
+        order={visible.map((player) => player.sessionPlayerId).join(" ")}
+        className="grid grid-cols-[repeat(auto-fill,minmax(10.25rem,1fr))] gap-1.5"
+      >
         {visible.map((player) => (
           <QueueRow
             key={player.sessionPlayerId}
@@ -1272,7 +1267,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             onQuickAdd={isCompleted || pairedIds.has(player.playerId) ? undefined : () => quickAdd(player)}
             onReturn={() => setDrafts((prev) => removeFromDrafts(prev, player.playerId))}
             player={player}
-            now={now}
             pending={pending}
             onCheckIn={() =>
               act(
@@ -1309,7 +1303,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
           />
         ))}
-      </div>
+      </FlipList>
     );
 
   return (
@@ -1535,7 +1529,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                 data-trim-id="board.plan-clock"
                 className="text-muted ml-auto inline-flex items-center gap-1.5 text-[11px]"
               >
-                <Dot tone="lime" /> {now ? formatClock(new Date(now)) : "--:--"} Manila
+                <Dot tone="lime" /> <ManilaClock /> Manila
               </span>
             </div>
             <div className="bg-line grid grid-cols-2 gap-px sm:grid-cols-5">
@@ -3056,8 +3050,6 @@ function CourtCard({
   }
 
   const live = match.status === "LIVE";
-  const elapsed =
-    match.startedAt && now ? Math.max(0, Math.floor((now - Date.parse(match.startedAt)) / 1000)) : 0;
   const balance = Math.abs(teamValue(match.team1) - teamValue(match.team2));
   const mismatch = mismatchWarning(match.team1, match.team2);
   const unstartedMinutes = !live && now ? Math.floor((now - Date.parse(match.changedAt)) / 60000) : 0;
@@ -3102,7 +3094,7 @@ function CourtCard({
             {live && (
               <span className="border-lime/30 bg-forest-deep/60 text-lime inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold">
                 <span className="animate-live-ring bg-lime text-lime h-1.5 w-1.5 rounded-full" />
-                {formatDuration(elapsed)}
+                <ElapsedTimer since={match.startedAt} />
               </span>
             )}
             <span
@@ -3617,7 +3609,6 @@ function QueueRow({
   player,
   draggable,
   drafted,
-  now,
   pending,
   onQuickAdd,
   onReturn,
@@ -3632,7 +3623,6 @@ function QueueRow({
   draggable: boolean;
   /** Already dropped into a court place that is still being filled by hand. */
   drafted: boolean;
-  now: number;
   pending: boolean;
   /** Puts the player in the next free court place. Absent when they are already in a paired game. */
   onQuickAdd?: () => void;
@@ -3644,7 +3634,6 @@ function QueueRow({
   onRequeue: () => void;
   onPriority: () => void;
 }) {
-  const wait = waitSeconds(player.queuedAt, now);
   const pairRequest = player.requests.find((request) => request.type === "PAIR_WITH");
   const againstRequest = player.requests.find((request) => request.type === "PLAY_AGAINST");
   const mounted = useMounted();
@@ -3677,6 +3666,7 @@ function QueueRow({
 
   return (
     <div
+      data-flip-id={player.sessionPlayerId}
       className={cn(
         "bg-paper animate-pop-in flex h-11 min-w-0 items-center rounded-full border-2 pr-1 shadow-sm transition",
         draggable ? "border-forest/30 hover:border-forest/60" : "border-line",
@@ -3719,17 +3709,7 @@ function QueueRow({
               {player.gamesPlayed}
               <Gamepad2 className="h-3 w-3" aria-hidden="true" />
             </span>
-            {player.status === "WAITING" && (
-              <span
-                className={cn(
-                  "shrink-0 font-mono font-bold tabular-nums",
-                  wait < 5 * 60 ? "text-forest" : wait < 15 * 60 ? "text-amber-700" : "text-coral",
-                )}
-                title="Waiting time"
-              >
-                {formatDuration(wait)}
-              </span>
-            )}
+            {player.status === "WAITING" && <WaitTimer queuedAt={player.queuedAt} />}
             {player.permanentPartnerNickname && (
               <span
                 className="text-forest inline-flex min-w-0 items-center gap-0.5"

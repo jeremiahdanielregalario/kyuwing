@@ -1,0 +1,13 @@
+The sound effects in this folder come from "Interface Sounds" (1.0) by Kenney
+(https://kenney.nl/assets/interface-sounds), released under Creative Commons
+Zero (CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/): free to use
+in personal, educational and commercial projects, credit not required.
+
+They were converted from OGG to AAC (.m4a) so they play on every tablet.
+
+  success.m4a  confirmation_001
+  error.m4a    error_004
+  start.m4a    glass_001
+  finish.m4a   confirmation_002
+  alert.m4a    question_001
+  drop.m4a     drop_002

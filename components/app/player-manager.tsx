@@ -147,6 +147,8 @@ export function PlayerManager({
     });
   };
 
+  // Typing stays instant: the long list catches up a moment later instead of blocking each key.
+  const needle = React.useDeferredValue(query).trim().toLowerCase();
   const filtered = players
     .filter((player) => {
       if (statusFilter === "active") return player.active;
@@ -158,7 +160,7 @@ export function PlayerManager({
     .filter((player) => {
       const haystack =
         `${player.nickname} ${(player.aliases ?? []).join(" ")} ${player.fullName ?? ""} ${player.contact ?? ""} ${player.notes ?? ""} ${levelLabel(player.level)}`.toLowerCase();
-      return haystack.includes(query.trim().toLowerCase());
+      return haystack.includes(needle);
     })
     .sort((a, b) => {
       let diff = 0;
