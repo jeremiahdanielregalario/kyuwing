@@ -277,7 +277,12 @@ export function NewGameDayButton({
             </Field>
           </div>
 
-          <CourtRateField value={courtRate} onChange={setCourtRate} plan={slots} />
+          <CourtRateField
+            value={courtRate}
+            onChange={setCourtRate}
+            plan={slots}
+            venueShortName={selectedVenue?.shortName ?? ""}
+          />
 
           <Field label="Name (optional)" hint="Defaults to venue + date, e.g. KBC · Monday, Nov 2.">
             <Input

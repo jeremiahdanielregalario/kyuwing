@@ -136,7 +136,7 @@ export type FeeRow = {
 export type FeeReport = {
   gameDay: BoardGameDay;
   /** How fees were worked out, with the split breakdown when the game day has a court rate. */
-  scheme: { mode: "VENUE" | "SPLIT"; split: FeeSplit | null };
+  scheme: { split: FeeSplit };
   rows: FeeRow[];
   summary: {
     totalPlayers: number;

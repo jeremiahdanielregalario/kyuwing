@@ -66,6 +66,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Fixed fee computation** — the flat fee is now always the total court rent divided by the players who checked in (rounded up), at every venue and for every game-day type. The court rate defaults to **₱300 per court per hour at DASC** and **₱250 at KBC**; **Court rate per hour** on a game day is now an optional override, and blank uses the venue's rate. Shuttles stay per game by player type. The per-venue **Fee table** (flat and per-game fees by player and game-day type) is deprecated and removed: **Venues** now shows the fixed court rate instead, the nav item is just **Venues**, and the Fees tab always shows the rent ÷ players breakdown. Game days that used the old fee table (no court rate) are now billed at the venue's default rate.
 - **Public roster footer** — removed the level-labels note (label list, "X means not rated yet" and who sets levels) from the bottom of `/roster`.
 - **Tidier player database on phones** — each player row shows only the trophy (when they have awards) and a ⋯ button that opens Attendance history, Edit, Archive and Delete in a sheet. The header no longer wraps. Tablet and desktop are unchanged.
 - **Tournament awards list fits phones** — each tournament shows its full name with the date, levels and teams below it, and View, Edit and Remove stay on one line.

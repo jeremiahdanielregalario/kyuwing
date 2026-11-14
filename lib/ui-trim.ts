@@ -48,11 +48,9 @@ export const TRIM_TARGETS: TrimTarget[] = [
   { id: "players.bracket-note", group: "Players", label: "Bracket-spread explainer" },
   { id: "players.level-legend", group: "Players", label: "Level legend footer" },
 
-  // Venues & fees
-  { id: "venues.description", group: "Venues & fees", label: "Page description" },
-  { id: "venues.rates-warning", group: "Venues & fees", label: "Placeholder-rates warning" },
-  { id: "venues.defaults-note", group: "Venues & fees", label: "“Defaults used…” note" },
-  { id: "venues.fee-note", group: "Venues & fees", label: "Fee-table explainer" },
+  // Venues
+  { id: "venues.description", group: "Venues", label: "Page description" },
+  { id: "venues.defaults-note", group: "Venues", label: "“Defaults used…” note" },
 
   // Guide
   { id: "guide.description", group: "Guide", label: "Page description" },

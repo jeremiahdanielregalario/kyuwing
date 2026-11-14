@@ -95,7 +95,11 @@ export default async function GameDaysPage() {
       >
         <Info label="KBC" value="Mondays" note="Kalayaan Badminton Center · 10 AM – 2 PM" />
         <Info label="DASC" value="Saturdays" note="Don Antonio Sports Center · 9 AM – 1 PM" />
-        <Info label="Types" value="Regular · Tipid · MEGA" note="Each type has its own fee table." />
+        <Info
+          label="Types"
+          value="Regular · Tipid · MEGA"
+          note="Fees are split the same way for every type."
+        />
       </div>
     </div>
   );

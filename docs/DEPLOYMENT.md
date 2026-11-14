@@ -132,7 +132,7 @@ The seed creates demo players and a **live demo game day**. Do **not** run the f
 To bootstrap only the venues and fee rules, either:
 
 - Edit `prisma/seed.ts` to guard the demo game-day creation with an environment check, or
-- Create the venues and fee matrix through the UI after the first login (recommended), or
+- Create the venues through the UI after the first login (recommended), or
 - Run a one-off script that upserts only `Venue` and `FeeRule`.
 
 If you do seed a staging environment, remember to replace the placeholder fees before real use.

@@ -1,6 +1,6 @@
 "use server";
 
-import type { GameDayType, PlayerCategory, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { fail, ok } from "@/lib/action-result";
 import type { ActionResult } from "@/lib/action-result";
@@ -1753,20 +1753,16 @@ export async function renameCourt(
 }
 
 function feeScheduleFor(gameDay: {
-  type: GameDayType;
   courtPlan: unknown;
   courtRatePerHour: number | null;
   players: Array<{ status: string }>;
-  venue: {
-    feeRules: Array<{ dayType: GameDayType; category: PlayerCategory; flatFee: number; perGameFee: number }>;
-  };
+  venue: { shortName: string };
 }) {
   return buildFeeSchedule({
-    type: gameDay.type,
     courtPlan: parseCourtPlan(gameDay.courtPlan),
     ratePerCourtHour: gameDay.courtRatePerHour,
+    venueShortName: gameDay.venue.shortName,
     attendees: gameDay.players.filter((player) => player.status !== "EXPECTED").length,
-    rules: gameDay.venue.feeRules,
   });
 }
 
@@ -1785,7 +1781,7 @@ export async function setPayment(sessionPlayerId: string, input: PaymentInput): 
   const row = await prisma.sessionPlayer.findUnique({
     where: { id: sessionPlayerId },
     include: {
-      gameDay: { include: { venue: { include: { feeRules: true } }, players: { select: { status: true } } } },
+      gameDay: { include: { venue: true, players: { select: { status: true } } } },
       player: true,
     },
   });
@@ -1857,7 +1853,7 @@ export async function markAllPaid(gameDayId: string): Promise<ActionResult<{ upd
   const gameDay = await prisma.gameDay.findUnique({
     where: { id: gameDayId },
     include: {
-      venue: { include: { feeRules: true } },
+      venue: true,
       players: { include: { player: true } },
     },
   });

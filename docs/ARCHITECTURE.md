@@ -104,7 +104,7 @@ All mutations are server actions in `lib/actions/`:
 | `auth.ts` | PIN login/logout |
 | `gamedays.ts` | Game day lifecycle, sign-ups, check-in, pairing, matches, payments |
 | `players.ts` | Roster CRUD, CSV/JSON import |
-| `venues.ts` | Venue details and fee matrix |
+| `venues.ts` | Venue details |
 
 Each action:
 

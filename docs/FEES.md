@@ -2,50 +2,34 @@
 
 Kyuwing records what each player owes for a session and whether they have paid. It does **not** process payments.
 
-> **The seeded amounts are placeholders.** They exist so the ledger and reports can be demonstrated. Replace them with the association's approved rates before using Kyuwing for real money. The UI labels the fee editor accordingly.
+## How fees are calculated
 
-## The rule matrix
-
-A fee rule is one row per:
+Fees are fixed and the same for every game-day type (Regular, Tipid, MEGA):
 
 ```
-(venue, game day type, player category) → flat fee + per-game fee
+court rent = court rate × hours × courts   (summed over every court block)
+flat fee   = court rent ÷ players who checked in, rounded up to the next peso
+total      = flat fee + shuttle rate × games played
 ```
 
-| Dimension | Values |
+**Default court rate**, per court per hour:
+
+| Venue | Rate |
 | --- | --- |
-| Venue | KBC, DASC (extensible) |
-| Game day type | `REGULAR`, `TIPID`, `MEGA` |
-| Player category | `ACTIVE`, `ALUMNI`, `APPLICANT` |
+| DASC | ₱300 |
+| KBC | ₱250 |
 
-Both amounts are **whole Philippine pesos** and stored as integers. `perGameFee` may be zero (Tipid days use this). `flatFee` may be zero for a pure per-game model.
+The rates live in `DEFAULT_COURT_RATES` (`lib/fees.ts`). A venue without a default has no court cost until the game day gets a rate. A game day can override the rate (New game day, or **Settings → Court rate per hour**); leaving it blank uses the venue's default.
 
-Rules are edited in **Venues → Fees** and saved as a matrix for the selected venue, with a column per game-day type and a row per category.
+**Shuttle rate per game**, by player category (`SPLIT_SHUTTLE_RATES`):
 
-### Placeholder seed values
+| Category | Per game |
+| --- | --- |
+| Active | ₱20 |
+| Inactive, Alumni, Applicant | ₱25 |
+| Non-affiliate | ₱30 |
 
-These are illustrative only.
-
-| Venue | Category | Regular | Tipid | MEGA |
-| --- | --- | --- | --- | --- |
-| KBC | Active | ₱250 + ₱50/game | ₱180 + ₱0/game | ₱300 + ₱50/game |
-| KBC | Alumni | ₱320 + ₱60/game | ₱230 + ₱0/game | ₱370 + ₱60/game |
-| KBC | Applicant | ₱350 + ₱60/game | ₱250 + ₱0/game | ₱400 + ₱60/game |
-| DASC | Active | ₱300 + ₱60/game | ₱220 + ₱0/game | ₱350 + ₱60/game |
-| DASC | Alumni | ₱370 + ₱70/game | ₱270 + ₱0/game | ₱420 + ₱70/game |
-| DASC | Applicant | ₱400 + ₱70/game | ₱300 + ₱0/game | ₱450 + ₱70/game |
-
-Rationale for the shape (not the numbers): Tipid days are court-fee-only with used shuttles, so the per-game component is zero. MEGA days run at a larger scale and carry a higher flat fee. Alumni and applicants sit above active members. Non-affiliates (plus-ones from outside the association) pay a higher per-game rate (₱30 in production).
-
-Every category needs a rule for every venue and game-day type: a player whose category has no rule is billed ₱0.
-
-## Calculation
-
-```ts
-total = flatFee + perGameFee × max(0, gamesPlayed)
-```
-
-Implemented in `computeFee` (`lib/fees.ts`).
+Example: 3 courts 10:00–12:00 and 4 courts 12:00–14:00 is 14 court-hours. At KBC (₱250) the rent is ₱3,500; with 28 players the flat fee is ₱125 each. An Active player who played 3 games owes ₱125 + 3 × ₱20 = ₱185.
 
 Key properties:
 
@@ -53,9 +37,13 @@ Key properties:
 - `gamesPlayed` increments when a match is completed, for all four players.
 - **Free games** do not increment `gamesPlayed`, so they add nothing to anyone's fee. A free game is offered when a game starts within 15 minutes of the reservation's end and is played with a used shuttle (`Match.free`).
 - Cancelled matches do not count. Suggested matches do not count until completed.
-- If no rule exists for the combination, the total is **0**, not an error — this makes adding a new category or venue safe until the matrix is filled in.
+- The share is recalculated from who is checked in, so it drops as more players arrive. Settle after the game day is complete; a player marked paid earlier keeps the amount recorded at that moment.
+- With nobody checked in there is no flat fee yet.
 - Negative game counts are clamped to 0.
-- Rounding happens at display time, not in the calculation. Amounts are whole pesos in practice.
+
+### Retired: the per-venue fee matrix
+
+Earlier versions had a **Venues → Fee table** with a flat + per-game fee for every venue, game-day type and player category, and a game day could opt into splitting the rent instead. That pre-setting of flat fees is deprecated: the Fee table is gone and the flat fee is always rent ÷ players. The `FeeRule` table is still in the database but is no longer read or written.
 
 ## The ledger
 
@@ -67,9 +55,7 @@ Key properties:
 | Category | player's permanent category |
 | Games | `SessionPlayer.gamesPlayed` |
 | W / L | derived from completed matches |
-| Flat | matched rule |
-| Per game | matched rule |
-| Total | `flat + perGame × games` |
+| Total | `flat share + shuttle rate × games` + extras |
 | Paid | settlement state |
 | Balance | `max(0, total - amountPaid)` |
 
@@ -94,22 +80,11 @@ Payment state is stored on `SessionPlayer` (`paid`, `amountPaid`, `paymentMethod
 
 ## Changing rates
 
-1. Go to **Venues**.
-2. Select KBC or DASC.
-3. Edit the fee matrix.
-4. Save.
+The default rates are in code (`DEFAULT_COURT_RATES`). If a venue changes its price for one game day, set **Court rate per hour** in that game day's Settings. Because the fee is computed from the game day's plan and rate at read time, editing the plan, rate or attendance recalculates the total for that game day, including completed ones. Export the report for a completed session first if you need the old figures; the exported workbook/PDF is the financial record.
 
-Rules are stored per venue, so changing KBC does not affect DASC. Because game days reference the venue's rules at read time, **changing a rule changes the computed total for existing game days too** — including completed ones. If you need historical accuracy:
+## Adding a venue
 
-- Export the report for any completed session before changing rates, or
-- Treat the exported workbook/PDF as the financial record of that session.
-
-There is currently no effective-dated fee rule table. This is a known limitation; the export-before-change workflow is the intended mitigation.
-
-## Adding a venue or category
-
-- **Venue:** create it in Venues, then fill in its 9 fee rules (3 day types × 3 categories). Missing rules compute to 0 and will be obvious in the ledger.
-- **Category:** categories are a Prisma enum (`ACTIVE`, `ALUMNI`, `APPLICANT`). Adding one requires a schema change, a migration, updates to `CATEGORY_LABELS`/`CATEGORY_SHORT`, the ledger filters, and the fee editor. The compiler will point at most of these.
+Create it in **Venues**. With no default rate its court cost is ₱0 until you set **Court rate per hour** on each game day, or add the venue to `DEFAULT_COURT_RATES`.
 
 ## Reporting checklist for the treasurer
 
@@ -130,31 +105,12 @@ Grips and other charges show in the **Extras** column and are included in **Tota
 
 If a player hands over more than they owe (usually cash with no coins), type the amount received. The **Change** column shows what to give back, and the toast says so. When the change has been handed over, tick **Settled**. Exact payments settle themselves; **Mark all paid** also settles everyone. Settled needs the player to be paid in full first, and it resets if their charges change.
 
-## Split-cost scheme (any venue)
-
-A game day can carry its own **Court rate per hour** instead of using the venue's fee matrix. Set it when you create the game day, or later in **Settings**. Leave it blank to keep using the venue rates.
-
-- **Court cost** = rate × hours × courts, summed over every block of the court plan. Example: 3 courts 10:00–12:00 and 4 courts 12:00–14:00 is 14 court-hours; at ₱200 that is ₱2,800.
-- **Flat fee** = court cost ÷ the players who checked in, rounded up to the next peso. Everyone pays the same share, whatever their category.
-- **Shuttles**, per game played: Active ₱20 · Alumni, Inactive, Applicant ₱25 · Non-affiliate ₱30.
-- **Total** = flat share + (games × shuttle rate). Free games still do not count.
-- The share is recalculated from who is checked in, so it drops as more players arrive. Settle after the game day is complete; a player marked paid earlier keeps the amount recorded at that moment.
-
-The Fees tab shows the breakdown (`court-hours × rate = cost ÷ players = share`). The rule lives in `buildFeeSchedule` in `lib/fees.ts`; the shuttle rates are `SPLIT_SHUTTLE_RATES` there.
+The Fees tab shows the breakdown (`court-hours × rate = rent ÷ players = share`). The rule lives in `buildFeeSchedule` in `lib/fees.ts`.
 
 ## Tests
 
-`lib/fees.test.ts` covers:
+`lib/fees.test.ts` covers the fee math (zero games, flat + per-game, negatives clamped), peso formatting and label coverage for every enum value.
 
-- Missing rule → 0.
-- Zero games → flat fee only.
-- Flat + per-game math, including zero flat and zero per-game.
-- Negative games clamped.
-- Fractional internal math.
-- Peso formatting: symbol, thousands separators, rounding, negatives (`-₱250`).
-- PDF formatting (`PHP`, no peso glyph).
-- Label coverage for every enum value.
-
-`lib/fee-split.test.ts` covers court-hours and cost, the round-up split, shuttle rates per category, and falling back to the venue rules.
+`lib/fee-split.test.ts` covers court-hours and cost, the round-up split, the DASC/KBC default rates and overrides, and shuttle rates per category.
 
 Run with `pnpm test`.

@@ -113,18 +113,16 @@ export function FeeLedger({ report }: { report: FeeReport }) {
 
   return (
     <div className="space-y-5">
-      {report.scheme.split && (
-        <div className="border-line bg-paper rounded-2xl border px-4 py-3 text-[13px] leading-relaxed">
-          <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Split court cost</p>
-          <p className="mt-1">
-            {report.scheme.split.courtHours} court-hours × {formatPeso(report.scheme.split.ratePerCourtHour)}{" "}
-            = <span className="font-semibold">{formatPeso(report.scheme.split.courtCost)}</span> ÷{" "}
-            {report.scheme.split.players} players ={" "}
-            <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} each</span>, plus
-            shuttles per game. The share changes if more players check in.
-          </p>
-        </div>
-      )}
+      <div className="border-line bg-paper rounded-2xl border px-4 py-3 text-[13px] leading-relaxed">
+        <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Split court cost</p>
+        <p className="mt-1">
+          {report.scheme.split.courtHours} court-hours × {formatPeso(report.scheme.split.ratePerCourtHour)} ={" "}
+          <span className="font-semibold">{formatPeso(report.scheme.split.courtCost)}</span> ÷{" "}
+          {report.scheme.split.players} players ={" "}
+          <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} each</span>, plus shuttles
+          per game. The share changes if more players check in.
+        </p>
+      </div>
 
       <PaymentCard />
 
@@ -225,9 +223,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
           <div>
             <h2 className="font-display text-base font-bold">Fee ledger</h2>
             <p data-trim-id="fees.formula" className="text-muted text-[11px]">
-              {report.scheme.split
-                ? "Total = court share + (games × shuttle rate). Court cost split among players."
-                : `Total = flat fee + (games × per-game rate). ${report.gameDay.type} rates · ${report.gameDay.venue.shortName}.`}
+              Total = court share + (games × shuttle rate). Court cost split among players.
             </p>
           </div>
           <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">

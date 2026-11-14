@@ -97,9 +97,7 @@ export type FeeSplit = {
 };
 
 export type FeeSchedule = {
-  /** `split` when the game day has its own court rate, otherwise the venue's rules. */
-  mode: "VENUE" | "SPLIT";
-  split: FeeSplit | null;
+  split: FeeSplit;
   feeFor: (
     category: PlayerCategory,
     gamesPlayed: number,
@@ -107,36 +105,43 @@ export type FeeSchedule = {
 };
 
 /**
+ * Default court rate per court per hour, by venue short code. A game day can override it,
+ * and a venue without a default has no court cost until a rate is set on the game day.
+ */
+export const DEFAULT_COURT_RATES: Record<string, number> = {
+  DASC: 300,
+  KBC: 250,
+};
+
+export function defaultCourtRate(venueShortName: string | null | undefined): number | null {
+  if (!venueShortName) return null;
+  return DEFAULT_COURT_RATES[venueShortName.trim().toUpperCase()] ?? null;
+}
+
+/** The rate a game day is charged at: its own rate if set, otherwise the venue's default. */
+export function effectiveCourtRate(
+  override: number | null | undefined,
+  venueShortName: string | null | undefined,
+): number {
+  return override ?? defaultCourtRate(venueShortName) ?? 0;
+}
+
+/**
  * One place that decides what a player owes.
  *
- * With a court rate per hour on the game day, the court cost (rate × hours ×
- * courts, summed over blocks) is divided evenly among everyone who checked in
- * and rounded up, and that share is the flat fee for all. Shuttles are charged
- * per game by category. With no rate, the venue's fee rules apply as before.
+ * The court cost (rate × hours × courts, summed over blocks) is divided evenly among
+ * everyone who checked in and rounded up; that share is the flat fee for all. The rate is
+ * the game day's own, or the venue's default (DASC ₱300, KBC ₱250 per court per hour).
+ * Shuttles are charged per game by category.
  */
 export function buildFeeSchedule(input: {
-  type: GameDayType;
   courtPlan: Array<Pick<CourtSlot, "start" | "end" | "courts">>;
+  /** The game day's own rate; leave empty to use the venue's default. */
   ratePerCourtHour: number | null | undefined;
+  venueShortName: string | null | undefined;
   attendees: number;
-  rules: Array<FeeRuleLike & { dayType: GameDayType; category: PlayerCategory }>;
 }): FeeSchedule {
-  const rate = input.ratePerCourtHour;
-  if (rate == null) {
-    return {
-      mode: "VENUE",
-      split: null,
-      feeFor: (category, games) => {
-        const rule = input.rules.find((r) => r.dayType === input.type && r.category === category);
-        return {
-          flatFee: rule?.flatFee ?? 0,
-          perGameFee: rule?.perGameFee ?? 0,
-          total: computeFee(rule, games),
-        };
-      },
-    };
-  }
-
+  const rate = effectiveCourtRate(input.ratePerCourtHour, input.venueShortName);
   const cost = courtCost(input.courtPlan, rate);
   const flatFee = input.attendees > 0 ? Math.ceil(cost / input.attendees) : 0;
   const split: FeeSplit = {
@@ -147,7 +152,6 @@ export function buildFeeSchedule(input: {
     flatFee,
   };
   return {
-    mode: "SPLIT",
     split,
     feeFor: (category, games) => {
       const perGameFee = SPLIT_SHUTTLE_RATES[category];

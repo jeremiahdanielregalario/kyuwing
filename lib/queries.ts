@@ -399,13 +399,6 @@ export async function getAwardsOverview(): Promise<AwardsOverview> {
   return { tournaments: dtos, byPlayer: awardsByPlayer(rows) };
 }
 
-export async function getVenuesWithFees() {
-  return prisma.venue.findMany({
-    include: { feeRules: true },
-    orderBy: { name: "asc" },
-  });
-}
-
 export async function getVenues() {
   return prisma.venue.findMany({ orderBy: { name: "asc" } });
 }
@@ -414,7 +407,7 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
   const gameDay = await prisma.gameDay.findUnique({
     where: { id: gameDayId },
     include: {
-      venue: { include: { feeRules: true } },
+      venue: true,
       players: { include: { player: true }, orderBy: { player: { nickname: "asc" } } },
       requests: true,
       matches: {
@@ -427,11 +420,10 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
   if (!gameDay) return null;
 
   const schedule = buildFeeSchedule({
-    type: gameDay.type,
     courtPlan: parseCourtPlan(gameDay.courtPlan),
     ratePerCourtHour: gameDay.courtRatePerHour,
+    venueShortName: gameDay.venue.shortName,
     attendees: gameDay.players.filter((row) => row.status !== "EXPECTED").length,
-    rules: gameDay.venue.feeRules,
   });
   const rows: FeeRow[] = gameDay.players.map((row) => {
     const fee = schedule.feeFor(row.player.category, row.gamesPlayed);
@@ -467,7 +459,7 @@ export async function getFeeReport(gameDayId: string): Promise<FeeReport | null>
 
   return {
     gameDay: toGameDayDto(gameDay),
-    scheme: { mode: schedule.mode, split: schedule.split },
+    scheme: { split: schedule.split },
     rows,
     summary: {
       totalPlayers: rows.length,
@@ -493,6 +485,6 @@ export async function getMatchHistoryForPairing(gameDayId: string) {
 
 export type GameDayListRow = Awaited<ReturnType<typeof getGameDays>>[number];
 export type PlayerRow = Awaited<ReturnType<typeof getPlayers>>[number];
-export type VenueRow = Awaited<ReturnType<typeof getVenuesWithFees>>[number];
+export type VenueRow = Awaited<ReturnType<typeof getVenues>>[number];
 export type MatchStatusFilter = MatchStatus | GameDayStatus;
 export type CourtPlan = CourtSlot[];

@@ -122,11 +122,11 @@ const faqs = [
   },
   {
     q: "What are Tipid and MEGA game days?",
-    a: "They are first-class game-day types, each with its own fee table. Tipid can charge court fees only (zero per-game), while MEGA can use more courts and longer blocks. The pairing board works the same way.",
+    a: "They are first-class game-day types. MEGA can use more courts and longer blocks, while Tipid keeps things simple. Fees are calculated the same way for every type, and the pairing board works the same way.",
   },
   {
     q: "How are fees calculated?",
-    a: "Total = flat fee + (games played × per-game rate). The rate depends on venue, game-day type, and player type. Every rate is editable in Venues & fees — the app ships with placeholder values for UP BadAss to replace.",
+    a: "Total = flat fee + (games played × shuttle rate). The flat fee is the total court rent (DASC ₱300, KBC ₱250 per court per hour) divided by the number of players who checked in. The shuttle rate per game depends on player type.",
   },
   {
     q: "Can we export the day's records?",
@@ -574,23 +574,24 @@ export default function HomePage() {
                 Zero arguments.
               </h2>
               <p className="text-muted mt-5 max-w-md text-[14px] leading-relaxed">
-                Kyuwing counts games as they finish, then applies the right flat fee and per-game rate for the
-                venue, game-day type, and player type. The exact rates are yours to set.
+                Kyuwing counts games as they finish. The flat fee is the total court rent divided by the
+                number of players, and each game adds the shuttle rate for the player type.
               </p>
               <div className="border-line bg-paper mt-7 rounded-2xl border p-5">
                 <p className="text-muted text-[10px] font-bold tracking-[0.16em] uppercase">The formula</p>
                 <p className="text-forest mt-2 font-mono text-sm font-bold">
-                  total = flat fee + (games × rate per game)
+                  total = flat fee + (games × shuttle rate)
                 </p>
                 <p className="text-muted mt-2 text-[12px]">
-                  Tipid days can set rate per game to zero. MEGA days can use their own table.
+                  Flat fee = court rent (rate × hours × courts) ÷ players. DASC ₱300 and KBC ₱250 per court
+                  per hour.
                 </p>
               </div>
               <Link
                 href="/app/venues"
                 className={cn(buttonVariants({ variant: "accent", size: "md" }), "mt-6")}
               >
-                Set the fee table
+                See the venues
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -833,7 +834,7 @@ export default function HomePage() {
             links={[
               ["Queue board", "/app"],
               ["Player roster", "/roster"],
-              ["Venues & fees", "/app/venues"],
+              ["Venues", "/app/venues"],
               ["Queue master", "/login"],
             ]}
           />

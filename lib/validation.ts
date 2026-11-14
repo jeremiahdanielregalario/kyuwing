@@ -106,13 +106,6 @@ export const venueUpdateSchema = z.object({
   address: z.string().trim().max(120).optional().nullable(),
 });
 
-export const feeRuleSchema = z.object({
-  dayType: z.enum(GAMEDAY_TYPE_KEYS),
-  category: z.enum(CATEGORY_KEYS),
-  flatFee: z.coerce.number().int().min(0).max(100000),
-  perGameFee: z.coerce.number().int().min(0).max(100000),
-});
-
 export function parseCategory(value: string | undefined | null): (typeof CATEGORY_KEYS)[number] | null {
   if (!value) return "ACTIVE";
   // Forms send the enum key itself (e.g. "NON_AFFILIATE"); imports send friendlier spellings.

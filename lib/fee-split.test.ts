@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildFeeSchedule, changeDue, courtCost, courtHours, extrasTotal, GRIP_PRICE } from "./fees";
+import {
+  buildFeeSchedule,
+  changeDue,
+  courtCost,
+  courtHours,
+  defaultCourtRate,
+  extrasTotal,
+  GRIP_PRICE,
+} from "./fees";
 
 const plan = [
   { start: "10:00", end: "12:00", courts: 3 },
@@ -19,7 +27,7 @@ describe("court cost", () => {
 
 describe("split fee schedule", () => {
   const split = (attendees: number) =>
-    buildFeeSchedule({ type: "REGULAR", courtPlan: plan, ratePerCourtHour: 200, attendees, rules: [] });
+    buildFeeSchedule({ courtPlan: plan, ratePerCourtHour: 200, venueShortName: "KBC", attendees });
 
   it("divides the court cost among players, rounded up to the next peso", () => {
     expect(split(30).split?.flatFee).toBe(94); // 2800 / 30 = 93.33
@@ -44,18 +52,63 @@ describe("split fee schedule", () => {
   });
 });
 
-describe("venue fee schedule", () => {
-  it("uses the venue rules when the game day has no court rate", () => {
-    const schedule = buildFeeSchedule({
-      type: "REGULAR",
+describe("default court rates", () => {
+  it("is 300 an hour per court at DASC and 250 at KBC", () => {
+    expect(defaultCourtRate("DASC")).toBe(300);
+    expect(defaultCourtRate("KBC")).toBe(250);
+    expect(defaultCourtRate("kbc")).toBe(250);
+    expect(defaultCourtRate("OTHER")).toBeNull();
+  });
+
+  it("splits the rent at the venue's rate when the game day has none", () => {
+    const dasc = buildFeeSchedule({
       courtPlan: plan,
       ratePerCourtHour: null,
-      attendees: 20,
-      rules: [{ dayType: "REGULAR", category: "ACTIVE", flatFee: 250, perGameFee: 50 }],
+      venueShortName: "DASC",
+      attendees: 28,
     });
-    expect(schedule.mode).toBe("VENUE");
-    expect(schedule.feeFor("ACTIVE", 2).total).toBe(350);
-    expect(schedule.feeFor("ALUMNI", 2).total).toBe(0);
+    expect(dasc.split.ratePerCourtHour).toBe(300);
+    expect(dasc.split.courtCost).toBe(4200); // 14 court-hours × 300
+    expect(dasc.split.flatFee).toBe(150); // 4200 / 28
+    const kbc = buildFeeSchedule({
+      courtPlan: plan,
+      ratePerCourtHour: null,
+      venueShortName: "KBC",
+      attendees: 28,
+    });
+    expect(kbc.split.courtCost).toBe(3500);
+    expect(kbc.split.flatFee).toBe(125);
+  });
+
+  it("lets a game day's own rate win over the venue default", () => {
+    const schedule = buildFeeSchedule({
+      courtPlan: plan,
+      ratePerCourtHour: 200,
+      venueShortName: "DASC",
+      attendees: 28,
+    });
+    expect(schedule.split.ratePerCourtHour).toBe(200);
+  });
+
+  it("charges no court cost at a venue with no default and no rate", () => {
+    const schedule = buildFeeSchedule({
+      courtPlan: plan,
+      ratePerCourtHour: null,
+      venueShortName: "NEW",
+      attendees: 10,
+    });
+    expect(schedule.split.flatFee).toBe(0);
+    expect(schedule.feeFor("ACTIVE", 2).total).toBe(40);
+  });
+
+  it("ignores the old venue fee rules: the flat fee is always rent ÷ players", () => {
+    const schedule = buildFeeSchedule({
+      courtPlan: plan,
+      ratePerCourtHour: null,
+      venueShortName: "KBC",
+      attendees: 20,
+    });
+    expect(schedule.feeFor("ALUMNI", 2)).toEqual({ flatFee: 175, perGameFee: 25, total: 225 });
   });
 });
 

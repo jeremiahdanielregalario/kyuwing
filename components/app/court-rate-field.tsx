@@ -1,41 +1,55 @@
 "use client";
 
 import { Field, Input } from "@/components/ui/input";
-import { courtCost, courtHours, formatPeso, SPLIT_SHUTTLE_RATES } from "@/lib/fees";
+import {
+  courtCost,
+  courtHours,
+  defaultCourtRate,
+  effectiveCourtRate,
+  formatPeso,
+  SPLIT_SHUTTLE_RATES,
+} from "@/lib/fees";
 
 type Plan = Array<{ start: string; end: string; courts: number }>;
 
 /**
- * Optional custom fee scheme for a game day: enter what the venue charges per
- * court per hour and the court cost is split among players as the flat fee.
- * Left blank, the venue's own fee rules apply.
+ * The court rate for a game day. The venue's default applies (DASC ₱300, KBC ₱250 per
+ * court per hour); typing a rate here overrides it for this game day only. The flat fee
+ * is always the total rent divided by the players who check in.
  */
 export function CourtRateField({
   value,
   onChange,
   plan,
+  venueShortName,
 }: {
   value: string;
   onChange: (value: string) => void;
   plan: Plan;
+  venueShortName: string;
 }) {
-  const rate = Number(value);
-  const valid = value.trim() !== "" && Number.isFinite(rate) && rate > 0;
+  const venueDefault = defaultCourtRate(venueShortName);
+  const override = value.trim() === "" ? null : Number(value);
+  const rate = effectiveCourtRate(override && override > 0 ? override : null, venueShortName);
   const hours = courtHours(plan);
 
   return (
     <Field
-      label="Court rate per hour (optional)"
-      hint="Peso rate per court per hour. Fill this in to split the court cost evenly among the players as the flat fee, at any venue. Leave blank to use the venue's fee rates."
+      label="Court rate per hour"
+      hint={
+        venueDefault !== null
+          ? `Peso rate per court per hour. ${venueShortName} is ${formatPeso(venueDefault)} unless you type a different rate here for this game day.`
+          : `Peso rate per court per hour. ${venueShortName} has no default rate, so enter what the venue charges.`
+      }
     >
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value.replace(/[^\d]/g, ""))}
         inputMode="numeric"
-        placeholder="e.g. 200"
+        placeholder={venueDefault !== null ? `${venueDefault} (venue default)` : "e.g. 250"}
         maxLength={6}
       />
-      {valid && (
+      {rate > 0 && (
         <p className="text-muted mt-2 text-[12px] leading-relaxed">
           <span className="text-ink font-semibold">
             {hours} court-hours × {formatPeso(rate)} = {formatPeso(courtCost(plan, rate))}

@@ -11,7 +11,7 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 - [ ] Open Kyuwing and log in with the queue-master PIN.
 - [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, court blocks.
 - [ ] Set the **Game time** first (when the booking starts and ends, e.g. 1:00–4:00 PM), then split it into court blocks to match the booking. Example: 3 courts 9:00–10:00 AM, 4 courts 10:00 AM–12:00 PM, 3 courts 12:00–2:00 PM. Blocks run back to back inside the game time: the first starts when the game starts, the last ends when it ends, and you only pick the times between blocks. **Add block** splits the longest block in half; removing a block gives its time to its neighbour. Shortening the game time trims or merges blocks that no longer fit.
-- [ ] Double-check the fee matrix in **Venues → Fees** if anything changed.
+- [ ] Check the court rate on each game day (DASC ₱300, KBC ₱250 per court per hour by default) if the venue changed its price.
 - [ ] Playing at a venue with no saved fees? Enter its **Court rate per hour** when you create the game day and the court cost is split among the players (see `docs/FEES.md`).
 - [ ] Build the sign-up list, or tap **Add all active players** and remove no-shows later.
 
@@ -194,7 +194,7 @@ Runner-up: Baby & JCB
 | “Add at least one court block in Settings first” | Empty court plan | Add a block in Settings |
 | Auto-pair produces a cross-bracket match | Queue is thin | Expected; check in more players for tighter matches |
 | Login rejected | Wrong PIN or `QUEUE_MASTER_PIN` changed | Use the current PIN; ask the operator |
-| Fees show 0 | No rule for venue/type/category | Fill the matrix in Venues → Fees |
+| Fees show 0 | No rule for venue/type/category | Fill the matrix in Venues |
 | Export fails | Server/database hiccup | Retry; if it persists, screenshot the error reference |
 
 ## Escalation

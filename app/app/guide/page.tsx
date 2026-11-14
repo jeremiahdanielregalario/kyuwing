@@ -72,7 +72,7 @@ const flow = [
     step: "06",
     icon: Wallet,
     title: "Settle and export",
-    body: "The fee ledger adds flat fee + per-game rate as games finish. Record payments, then download the Excel workbook or PDF for the treasurer.",
+    body: "The fee ledger adds the flat fee (court rent ÷ players) + shuttle rate per game as games finish. Record payments, then download the Excel workbook or PDF for the treasurer.",
     detail: "Fees → Record · Reports → Excel / PDF",
     href: "/app",
   },
@@ -378,7 +378,7 @@ export default function GuidePage() {
             },
             {
               q: "How do Tipid and MEGA days differ?",
-              a: "Only in the fee table and scale. The board, pairing, and reports work exactly the same way.",
+              a: "Only in scale. Fees, the board, pairing, and reports work exactly the same way.",
             },
             {
               q: "When should I complete the game day?",

@@ -9,7 +9,7 @@ const navItems = [
   { href: "/app", label: "Live board", short: "Board", icon: LayoutDashboard, liveBoard: true },
   { href: "/app/gamedays", label: "Game days", short: "Days", icon: CalendarDays },
   { href: "/app/players", label: "Players", short: "Players", icon: Users },
-  { href: "/app/venues", label: "Venues & fees", short: "Fees", icon: Wallet },
+  { href: "/app/venues", label: "Venues", short: "Venues", icon: Wallet },
   { href: "/app/guide", label: "Queue playbook", short: "Guide", icon: BookOpen },
 ];
 

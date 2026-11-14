@@ -232,7 +232,7 @@ export function GameDaySettings({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Game-day type" hint="Fee table follows this type.">
+              <Field label="Game-day type">
                 <Select
                   value={type}
                   onChange={(event) => setType(event.target.value as BoardGameDay["type"])}
@@ -263,7 +263,14 @@ export function GameDaySettings({
               </Field>
             </div>
 
-            <CourtRateField value={courtRate} onChange={setCourtRate} plan={slots} />
+            <CourtRateField
+              value={courtRate}
+              onChange={setCourtRate}
+              plan={slots}
+              venueShortName={
+                venues.find((venue) => venue.id === venueId)?.shortName ?? gameDay.venue.shortName
+              }
+            />
 
             <Field
               label="Notes"
