@@ -7,13 +7,18 @@ import { QUEUED_COURT } from "@/lib/datetime";
  * could highlight, and look like it fits in, a player's box. A court goes onto
  * other courts or waiting games, never itself; a player from the queue goes onto
  * player boxes, empty court slots and empty courts; a player already in a game
- * only onto other player boxes. Pure, so it is unit-tested.
+ * only onto other player boxes. The queue itself takes players coming off a court (from a game
+ * or from a hand-filled place), never a court card or a player who is already in it. Pure, so
+ * it is unit-tested.
  */
-export type DragData = { kind: string; matchId?: string };
+export type DragData = { kind: string; matchId?: string; fromDraft?: unknown };
 export type DropData = { kind: string; matchId?: string };
 
 export function canDropOn(active: DragData | undefined, target: DropData | undefined): boolean {
   if (!target) return false;
+  if (target.kind === "queue") {
+    return active?.kind === "match-player" || (active?.kind === "queue-player" && !!active.fromDraft);
+  }
   switch (active?.kind) {
     case "match":
       return target.kind === "court" && target.matchId !== active.matchId;

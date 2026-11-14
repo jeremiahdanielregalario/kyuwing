@@ -35,6 +35,15 @@ describe("canDropOn", () => {
     expect(canDropOn(dragging, draft)).toBe(false);
   });
 
+  it("lets only players coming off a court go back to the queue", () => {
+    const queue = { kind: "queue" };
+    expect(canDropOn({ kind: "match-player", matchId: "m1" }, queue)).toBe(true);
+    expect(canDropOn({ kind: "queue-player", fromDraft: { courtNumber: 1, index: 0 } }, queue)).toBe(true);
+    expect(canDropOn({ kind: "queue-player" }, queue)).toBe(false);
+    expect(canDropOn({ kind: "match", matchId: "m1" }, queue)).toBe(false);
+    expect(canDropOn(undefined, queue)).toBe(false);
+  });
+
   it("has no target when there is none", () => {
     expect(canDropOn({ kind: "match", matchId: "m1" }, undefined)).toBe(false);
   });

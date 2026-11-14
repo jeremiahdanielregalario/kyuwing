@@ -20,6 +20,7 @@ import {
   KeyboardSensor,
   MouseSensor,
   TouchSensor,
+  useDndContext,
   useDraggable,
   useDroppable,
   useSensor,
@@ -235,7 +236,9 @@ type DragPayload =
 type DropTarget =
   | { kind: "court"; courtNumber: number; matchId?: string }
   | { kind: "slot"; matchId: string; team: number; slot: number; playerId: string }
-  | { kind: "draft-slot"; courtNumber: number; index: number };
+  | { kind: "draft-slot"; courtNumber: number; index: number }
+  /** The queue itself: a player dragged back here leaves the court place or unstarted game. */
+  | { kind: "queue" };
 
 /**
  * Tap-to-move, the phone-friendly way to do what dragging does: tap a player or a court's grip
@@ -275,14 +278,22 @@ const collisionFor: CollisionDetection = (args) => {
   if (!point) return closestCenter(scoped);
   // Over the phone's queue panel there is nothing to drop on: letting go there cancels the drag.
   const panel = document.querySelector("[data-queue-panel]")?.getBoundingClientRect();
-  if (panel && point.y >= panel.top && point.y <= panel.bottom) return [];
+  // (Unless it is a player from a court, who goes back to the queue.)
+  const queueZone = scoped.droppableContainers.find((container) => container.id === QUEUE_ZONE_ID);
+  if (panel && point.y >= panel.top && point.y <= panel.bottom) {
+    return queueZone ? [{ id: QUEUE_ZONE_ID }] : [];
+  }
   const under = pointerWithin(scoped);
   if (under.length > 0) return under;
+  // The queue only counts when the pointer is really over it, never as "the nearest thing".
   return closestCenter({
     ...scoped,
+    droppableContainers: scoped.droppableContainers.filter((container) => container !== queueZone),
     collisionRect: { top: point.y, left: point.x, bottom: point.y, right: point.x, width: 0, height: 0 },
   });
 };
+
+const QUEUE_ZONE_ID = "queue-zone";
 
 /** Moves the drag overlay's corner to the pointer; `DragChip` then centres itself on it. */
 const overlayAtPointer: Modifier = ({ activatorEvent, activeNodeRect, transform }) => {
@@ -524,10 +535,70 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     );
   };
 
+  /**
+   * A player dragged back to the queue. From a hand-filled place they simply leave it. From a
+   * paired game that hasn't started, the game is taken apart: they go back to the queue and the
+   * other three stay on the court as hand-placed players (same sides), ready for Fill the rest.
+   */
+  const returnToQueue = (active: DragPayload) => {
+    if (active.kind === "queue-player") {
+      if (active.fromDraft) setDrafts((prev) => removeFromDrafts(prev, active.playerId));
+      return;
+    }
+    if (active.kind !== "match-player") return;
+    const match = data.activeMatches.find((item) => item.id === active.matchId);
+    if (!match) return;
+    if (match.status === "LIVE") {
+      toast.error(`${active.nickname} is playing. Finish or cancel the game first.`);
+      return;
+    }
+    const court = match.courtNumber;
+    const places = [match.team1[0], match.team1[1], match.team2[0], match.team2[1]].map((row) =>
+      row && row.playerId !== active.playerId ? row.playerId : null,
+    );
+    // The others can only stay if the court stays empty: a waiting game would move onto a freed
+    // court, and the waiting court has one set of places.
+    const keep =
+      court === QUEUED_COURT
+        ? !(drafts[QUEUED_COURT] ?? EMPTY_DRAFT).some(Boolean)
+        : !data.activeMatches.some((item) => item.courtNumber === QUEUED_COURT);
+    showNow((current) => optimisticCancel(current, match.id));
+    if (keep) {
+      setDrafts((prev) => {
+        const cleared = places.reduce<CourtDrafts>(
+          (all, id) => (id ? removeFromDrafts(all, id) : all),
+          removeFromDrafts(prev, active.playerId),
+        );
+        return { ...cleared, [court]: places };
+      });
+    }
+    startTransition(async () => {
+      const result = await cancelMatch(match.id);
+      if (result.ok) {
+        haptic("success");
+        toast.success(
+          keep
+            ? `${active.nickname} is back in the queue. The other three stay on the court.`
+            : `${active.nickname} is back in the queue. The game was taken apart.`,
+        );
+      } else {
+        void mutate();
+        if (keep) setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
+        haptic("warning");
+        toast.error(result.error);
+      }
+    });
+  };
+
   /** Puts a dragged or tapped item down on a target. */
   const applyMove = (active: DragPayload | undefined, over: DropTarget | undefined) => {
     if (!active || !over || isCompleted) return;
     haptic("tap");
+
+    if (over.kind === "queue") {
+      returnToQueue(active);
+      return;
+    }
 
     if (active.kind === "match") {
       if (over.kind === "court" && over.courtNumber !== QUEUED_COURT) {
@@ -1590,7 +1661,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   >
                     <GripVertical className="text-forest h-3.5 w-3.5" />
                     Drag a court card onto another court to swap them. Drag a player block onto a place to
-                    swap players, or fill an open court with four players (drag them in, or press +).
+                    swap players, or fill an open court with four players (drag them in, or press +). Drag a
+                    player from a court back to the queue to take them off, even from a paired game that
+                    hasn&apos;t started.
                   </p>
                   <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
                     {courtNumbers.map((court) => {
@@ -1797,7 +1870,8 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                 <div aria-hidden="true" style={{ height: queueMinimized ? "3.75rem" : QUEUE_PANEL_HEIGHT }} />
                 {mounted &&
                   createPortal(
-                    <section
+                    <QueueDropZone
+                      as="section"
                       data-queue-panel
                       data-trim-id="board.queue-panel"
                       aria-label="The queue"
@@ -1853,41 +1927,45 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                           </div>
                         </>
                       )}
-                    </section>,
+                    </QueueDropZone>,
                     document.body,
                   )}
               </>
             ) : (
-              <Card className="h-fit lg:sticky lg:top-24">
-                <div className="border-line/80 border-b px-4 pt-4 pb-3">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
-                    <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
-                      <Users className="h-3 w-3" /> {data.players.length}
-                    </span>
+              <QueueDropZone className="relative h-fit rounded-3xl lg:sticky lg:top-24">
+                <Card>
+                  <div className="border-line/80 border-b px-4 pt-4 pb-3">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
+                      <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
+                        <Users className="h-3 w-3" /> {data.players.length}
+                      </span>
+                    </div>
+                    <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">{queueTabs}</div>
+                    <div className="relative mt-3">{queueSearch}</div>
                   </div>
-                  <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">{queueTabs}</div>
-                  <div className="relative mt-3">{queueSearch}</div>
-                </div>
 
-                <div className="px-2 py-2 lg:max-h-[min(62vh,640px)] lg:overflow-y-auto">{queueList}</div>
+                  <div className="px-2 py-2 lg:max-h-[min(62vh,640px)] lg:overflow-y-auto">{queueList}</div>
 
-                <div
-                  data-trim-id="board.queue-footer"
-                  className="border-line/80 flex items-center justify-between border-t px-4 py-3"
-                >
-                  <span className="text-muted text-[11px]">
-                    Longest wait{" "}
-                    <span className="text-forest font-mono font-bold">{data.stats.longestWaitMinutes}m</span>
-                  </span>
-                  <Link
-                    href={`/app/gamedays/${data.gameDay.id}/signups`}
-                    className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+                  <div
+                    data-trim-id="board.queue-footer"
+                    className="border-line/80 flex items-center justify-between border-t px-4 py-3"
                   >
-                    Manage sign-ups <ChevronRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </Card>
+                    <span className="text-muted text-[11px]">
+                      Longest wait{" "}
+                      <span className="text-forest font-mono font-bold">
+                        {data.stats.longestWaitMinutes}m
+                      </span>
+                    </span>
+                    <Link
+                      href={`/app/gamedays/${data.gameDay.id}/signups`}
+                      className="text-forest inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+                    >
+                      Manage sign-ups <ChevronRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </Card>
+              </QueueDropZone>
             )}
           </div>
 
@@ -2500,6 +2578,20 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   · tap a highlighted {picked.kind === "match" ? "court" : "place"}
                 </span>
               </p>
+              {canDropOn(picked, { kind: "queue" }) && (
+                <Button
+                  size="sm"
+                  variant="accent"
+                  onClick={() => {
+                    const item = picked;
+                    setPicked(null);
+                    applyMove(item, { kind: "queue" });
+                  }}
+                  className="h-9 shrink-0"
+                >
+                  <Undo2 className="h-3.5 w-3.5" /> To queue
+                </Button>
+              )}
               <Button size="sm" variant="paper" onClick={() => setPicked(null)} className="h-9 shrink-0">
                 Cancel
               </Button>
@@ -2508,6 +2600,43 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
           )}
       </DndContext>
     </TapMoveContext>
+  );
+}
+
+/**
+ * The queue as a drop target. While a player from a court is being dragged it lights up, and
+ * letting go on it sends them back to the queue.
+ */
+function QueueDropZone({
+  as: Tag = "div",
+  className,
+  children,
+  ...rest
+}: React.HTMLAttributes<HTMLElement> & { as?: "div" | "section" }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: QUEUE_ZONE_ID,
+    data: { kind: "queue" } satisfies DropTarget,
+  });
+  const { active } = useDndContext();
+  const offered = canDropOn(active?.data.current as DragPayload | undefined, { kind: "queue" }) && !!active;
+  return (
+    <Tag
+      ref={setNodeRef}
+      {...rest}
+      className={cn(
+        className,
+        "transition-shadow",
+        offered && (isOver ? "ring-gold ring-4" : "ring-gold/60 ring-2"),
+      )}
+    >
+      {offered && (
+        <span className="bg-gold text-ink shadow-float pointer-events-none absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full px-3 py-1 text-[11px] font-bold whitespace-nowrap">
+          <Undo2 className="mr-1 inline h-3 w-3" />
+          {isOver ? "Let go to return to the queue" : "Drop here to return to the queue"}
+        </span>
+      )}
+      {children}
+    </Tag>
   );
 }
 
