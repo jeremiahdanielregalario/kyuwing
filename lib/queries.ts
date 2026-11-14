@@ -251,7 +251,6 @@ export async function getPlayers() {
 export async function getPublicRoster(): Promise<PublicRoster> {
   const [players, attendance, awards] = await Promise.all([
     prisma.player.findMany({
-      where: { active: true },
       select: { id: true, nickname: true, fullName: true, level: true, category: true, active: true },
     }),
     getAttendanceOverview(),

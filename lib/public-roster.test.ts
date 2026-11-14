@@ -28,11 +28,11 @@ const players = [
   {
     id: "cuid-old",
     nickname: "Archived",
-    fullName: "SECRET Archived",
+    fullName: "Old Timer",
     level: "D",
     category: "INACTIVE" as const,
-    contact: null,
-    notes: null,
+    contact: "0918 SECRET",
+    notes: "SECRET archived note",
     active: false,
     createdAt: new Date(),
   },
@@ -81,31 +81,33 @@ const awards: AwardsOverview = {
 describe("toPublicRoster", () => {
   const roster = toPublicRoster(players, attendance, awards);
 
-  it("lists active players only, sorted by nickname, with aliases instead of database ids", () => {
-    expect(roster.players.map((player) => [player.id, player.nickname])).toEqual([
-      ["r1", "amy"],
-      ["r2", "Zed"],
+  it("lists everyone sorted by nickname, flags archived players, and uses aliases instead of ids", () => {
+    expect(roster.players.map((player) => [player.id, player.nickname, player.archived])).toEqual([
+      ["r1", "amy", false],
+      ["r2", "Archived", true],
+      ["r3", "Zed", false],
     ]);
   });
 
   it("keeps the shared fields and blanks an empty full name", () => {
-    expect(roster.players[1]).toEqual({
-      id: "r2",
+    expect(roster.players[2]).toEqual({
+      id: "r3",
       nickname: "Zed",
       fullName: "Zed Santos",
       level: "B",
       category: "ALUMNI",
+      archived: false,
     });
     expect(roster.players[0].fullName).toBeNull();
   });
 
   it("re-keys recency, history and awards by alias", () => {
-    expect(Object.keys(roster.recency)).toEqual(["r2"]);
-    expect(Object.keys(roster.history)).toEqual(["r2"]);
+    expect(Object.keys(roster.recency)).toEqual(["r3"]);
+    expect(Object.keys(roster.history).sort()).toEqual(["r2", "r3"]);
     expect(roster.awards.r1?.[0].tournament).toBe("Cup");
   });
 
-  it("never carries contacts, notes, archived players or database ids", () => {
+  it("never carries contacts, notes or database ids, archived players included", () => {
     const json = JSON.stringify(roster);
     expect(json).not.toContain("SECRET");
     expect(json).not.toContain("cuid-");

@@ -29,13 +29,15 @@ function backLink(value: string | string[] | undefined): string | null {
 export default async function PublicRosterPage({ searchParams }: Props) {
   const back = backLink((await searchParams).back);
   const roster = await getPublicRoster();
-  const players = roster.players.map((player) => ({
+  const players = roster.players.map(({ archived, ...player }) => ({
     ...player,
     contact: null,
     notes: null,
-    active: true,
+    active: !archived,
   }));
-  const count = (category: string) => players.filter((player) => player.category === category).length;
+  // Archived players are in the list (behind "Show archived") but not in the counts or chart.
+  const activePlayers = players.filter((player) => player.active);
+  const count = (category: string) => activePlayers.filter((player) => player.category === category).length;
 
   return (
     <div className="min-h-dvh pb-12">
@@ -66,7 +68,7 @@ export default async function PublicRosterPage({ searchParams }: Props) {
           <p className="text-cream/60 mt-2 max-w-2xl text-[13px] leading-relaxed">
             Everyone on the active roster with their level, how often they have been playing, and their
             tournament podiums. Tap the clock icon for a player&apos;s attendance, or the trophy for their
-            awards.
+            awards. Press Show archived to see past players too.
           </p>
         </div>
       </header>
@@ -75,7 +77,7 @@ export default async function PublicRosterPage({ searchParams }: Props) {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
             label="Active players"
-            value={players.length}
+            value={activePlayers.length}
             hint="On the roster"
             icon={<Users className="h-4 w-4" />}
             tone="forest"
@@ -85,7 +87,7 @@ export default async function PublicRosterPage({ searchParams }: Props) {
           <Stat label="Applicants" value={count("APPLICANT")} hint="Applying to join" />
         </div>
 
-        <BracketSpread players={players} />
+        <BracketSpread players={activePlayers} />
 
         <PlayerManager
           readOnly
@@ -99,7 +101,7 @@ export default async function PublicRosterPage({ searchParams }: Props) {
           readOnly
           events={roster.events}
           snapshots={roster.recency}
-          playerCount={players.length}
+          playerCount={activePlayers.length}
           today={manilaDateKey()}
         />
 

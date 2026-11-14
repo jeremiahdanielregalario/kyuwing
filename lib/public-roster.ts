@@ -2,8 +2,9 @@
  * The public, view-only roster (`/roster`), linked from the landing page and the live view.
  *
  * Shows what the club agreed to share: nickname, full name, level, player type, playing
- * recency with attendance history, and tournament awards. Never contacts or notes, and only
- * active players (archived players stay private). Database ids are replaced by short aliases.
+ * recency with attendance history, and tournament awards. Never contacts or notes. Archived
+ * players are included with `archived: true`, so the page can hide them until someone presses
+ * "Show archived". Database ids are replaced by short aliases.
  * Pure, so it can be unit-tested for leaks.
  */
 import type { PlayerAward } from "./awards";
@@ -19,6 +20,8 @@ export type PublicRosterPlayer = {
   fullName: string | null;
   level: string;
   category: Category;
+  /** Archived from the roster; hidden on the page until "Show archived" is pressed. */
+  archived: boolean;
 };
 
 export type PublicRoster = {
@@ -42,9 +45,9 @@ export function toPublicRoster(
   attendance: AttendanceOverview,
   awards: AwardsOverview,
 ): PublicRoster {
-  const shown = players
-    .filter((player) => player.active)
-    .sort((a, b) => a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" }));
+  const shown = [...players].sort((a, b) =>
+    a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" }),
+  );
 
   const roster: PublicRoster = {
     players: [],
@@ -63,6 +66,7 @@ export function toPublicRoster(
       fullName: player.fullName?.trim() || null,
       level: player.level,
       category: player.category,
+      archived: !player.active,
     });
     const recency = attendance.byPlayer[player.id];
     if (recency) roster.recency[alias] = recency;

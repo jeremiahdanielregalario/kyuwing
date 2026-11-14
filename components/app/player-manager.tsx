@@ -394,7 +394,7 @@ export function PlayerManager({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {!readOnly && (
+            {(!readOnly || players.some((player) => !player.active)) && (
               <Button
                 size="sm"
                 className="whitespace-nowrap"
@@ -402,7 +402,13 @@ export function PlayerManager({
                 onClick={() => setStatusFilter(statusFilter === "archived" ? "active" : "archived")}
               >
                 <Archive className="h-3.5 w-3.5" />{" "}
-                {statusFilter === "archived" ? "Hide archive" : "Show archive"}
+                {statusFilter === "archived"
+                  ? readOnly
+                    ? "Hide archived"
+                    : "Hide archive"
+                  : readOnly
+                    ? "Show archived"
+                    : "Show archive"}
               </Button>
             )}
             <span className="text-muted hidden items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase sm:inline-flex">
