@@ -3123,31 +3123,31 @@ function CourtCard({
           </div>
         </div>
 
-        {waiting && transferTo && onTransfer && !isCompleted && (
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-            <p
-              role="status"
-              className="bg-gold/85 text-ink animate-pop-in relative rounded-full px-2.5 py-1 text-[11px] leading-tight font-bold"
-            >
-              {transferTo} is empty
-              <span
-                aria-hidden
-                className="bg-gold/85 absolute top-1/2 -right-1 h-2 w-2 -translate-y-1/2 rotate-45"
-              />
-            </p>
-            <Button
-              size="sm"
-              onClick={onTransfer}
-              disabled={pending}
-              title={`Move these four onto ${transferTo}`}
-              className={cn("h-9 px-3.5", WAITING_BUTTON)}
-            >
-              <ArrowRightToLine className="h-3.5 w-3.5" /> Transfer to Court
-            </Button>
-          </div>
-        )}
-
-        <div className="mt-2.5 grid grid-cols-2 gap-x-8">
+        <div className="relative mt-2.5 grid grid-cols-2 gap-x-8">
+          {/* Floats over the players, a little see-through, so it takes no room in the card. */}
+          {waiting && transferTo && onTransfer && !isCompleted && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5">
+              <p
+                role="status"
+                className="bg-gold/75 text-ink shadow-float animate-pop-in relative rounded-full px-2.5 py-1 text-[11px] leading-none font-bold whitespace-nowrap backdrop-blur-sm"
+              >
+                {transferTo} is empty
+                <span
+                  aria-hidden
+                  className="bg-gold/75 absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45"
+                />
+              </p>
+              <Button
+                size="sm"
+                onClick={onTransfer}
+                disabled={pending}
+                title={`Move these four onto ${transferTo}`}
+                className="shadow-float animate-pop-in pointer-events-auto h-9 !bg-[#0a0a0a]/75 px-3.5 !text-[#ffd600] backdrop-blur-sm hover:!bg-[#0a0a0a]/90"
+              >
+                <ArrowRightToLine className="h-3.5 w-3.5" /> Transfer to Court
+              </Button>
+            </div>
+          )}
           <div className="space-y-1.5">
             {match.team1.map((player) => (
               <PlayerChip
