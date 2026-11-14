@@ -1,5 +1,6 @@
 "use client";
 
+import { formatTimeRange, time12 } from "@/lib/datetime";
 import * as React from "react";
 import { AlertCircle, Check, ClipboardPaste, Loader2, Trash2 } from "lucide-react";
 import { checkSignupText } from "@/lib/actions/signup-text";
@@ -129,7 +130,8 @@ export function SignupTextPanel({
                 <p className="text-muted">
                   {check.header.title}
                   {check.header.date && ` · ${check.header.date}`}
-                  {check.header.start && ` · ${check.header.start}–${check.header.end}`}
+                  {check.header.start &&
+                    ` · ${check.header.end ? formatTimeRange(check.header.start, check.header.end) : time12(check.header.start)}`}
                   {check.header.venueShort && !check.header.venueId && (
                     <span className="text-coral font-semibold">
                       {" "}

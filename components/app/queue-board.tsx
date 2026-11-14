@@ -100,6 +100,7 @@ import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
   formatClock,
+  formatTimeRange,
   formatDuration,
   formatGameDate,
   minutesLeftInReservation,
@@ -1119,7 +1120,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               >
                 <span className="inline-flex items-center gap-1.5">
                   <Clock3 className="h-3.5 w-3.5" />
-                  {slot ? `${slot.start}–${slot.end} · ${slot.courts} courts` : "No court block set"}
+                  {slot
+                    ? `${formatTimeRange(slot.start, slot.end)} · ${slot.courts} courts`
+                    : "No court block set"}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Activity className="h-3.5 w-3.5" />
@@ -1236,9 +1239,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                         : "border-line bg-paper text-ink-soft hover:border-forest/40 hover:bg-cream/60",
                     )}
                   >
-                    <span className="font-mono">
-                      {row.start}–{row.end}
-                    </span>
+                    <span className="font-mono">{formatTimeRange(row.start, row.end)}</span>
                     <span className="ml-1.5 opacity-60">· {row.courts}c</span>
                     {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
                     {isValidating && current && (
@@ -1343,7 +1344,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                 <div className="flex items-baseline gap-2">
                   <h2 className="font-display text-lg font-bold tracking-tight">Courts</h2>
                   <span data-trim-id="board.courts-block" className="text-muted text-[11px]">
-                    {slot ? `Block ${slot.start}–${slot.end}` : ""}
+                    {slot ? `Block ${formatTimeRange(slot.start, slot.end)}` : ""}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -2171,7 +2172,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             open={addCourtOpen}
             onClose={() => setAddCourtOpen(false)}
             title="Add a court"
-            description={slot ? `Adds one court to ${slot.label} (${slot.start}–${slot.end}).` : undefined}
+            description={
+              slot ? `Adds one court to ${slot.label} (${formatTimeRange(slot.start, slot.end)}).` : undefined
+            }
             size="sm"
             footer={
               <>

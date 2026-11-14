@@ -303,7 +303,7 @@ describe("time helpers", () => {
   });
 
   it("formats a time range", () => {
-    expect(formatTimeRange("09:00", "14:00")).toBe("09:00–14:00");
+    expect(formatTimeRange("09:00", "14:00")).toBe("9:00 AM–2:00 PM");
   });
 
   it("computes elapsed minutes without going negative", () => {

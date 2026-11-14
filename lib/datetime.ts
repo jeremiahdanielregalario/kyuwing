@@ -90,8 +90,15 @@ export function minutesToLabel(totalMinutes: number): string {
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 }
 
+/** "13:00" → "1:00 PM". */
+export function time12(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m ?? 0).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+
+/** "10:00","14:00" → "10:00 AM–2:00 PM". */
 export function formatTimeRange(start: string, end: string): string {
-  return `${start}–${end}`;
+  return `${time12(start)}–${time12(end)}`;
 }
 
 export function elapsedMinutes(

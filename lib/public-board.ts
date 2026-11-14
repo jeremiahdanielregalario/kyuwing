@@ -9,7 +9,7 @@
  * Pure, so it can be unit-tested.
  */
 import type { BoardData, BoardMatch, FeeRow } from "./board-types";
-import { courtName, QUEUED_COURT } from "./datetime";
+import { courtName, formatTimeRange, QUEUED_COURT } from "./datetime";
 
 export type PublicPlayer = { nickname: string; levelLabel: string };
 
@@ -97,7 +97,7 @@ export function toPublicBoard(data: BoardData, feeRows: FeeRow[] | null = null):
       date: data.gameDay.date,
       venue: data.gameDay.venue.name,
       status: data.gameDay.status,
-      block: slot ? `${slot.start}–${slot.end}` : null,
+      block: slot ? formatTimeRange(slot.start, slot.end) : null,
     },
     courts,
     nextUp: data.activeMatches.filter((match) => match.courtNumber === QUEUED_COURT).map(toMatch),

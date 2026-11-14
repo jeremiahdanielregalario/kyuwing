@@ -6,7 +6,7 @@ import { Building2, Clock3, LayoutGrid, MapPin, Save, Wallet } from "lucide-reac
 import { toast } from "sonner";
 import { updateVenue } from "@/lib/actions/venues";
 import { defaultCourtRate, formatPeso, SPLIT_SHUTTLE_RATES } from "@/lib/fees";
-import { weekdayLabel } from "@/lib/datetime";
+import { formatTimeRange, weekdayLabel } from "@/lib/datetime";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -102,7 +102,7 @@ export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
             <span>
               <span className="block text-[12px] font-bold">{row.name}</span>
               <span className={cn("block text-[10px]", row.id === venue.id ? "text-cream/60" : "text-muted")}>
-                {weekdayLabel(row.dayOfWeek)} · {row.defaultStart}–{row.defaultEnd}
+                {weekdayLabel(row.dayOfWeek)} · {formatTimeRange(row.defaultStart, row.defaultEnd)}
               </span>
             </span>
           </button>
@@ -197,8 +197,8 @@ export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
               <MapPin className="h-3.5 w-3.5" /> {details.address || "No address yet"}
             </p>
             <p className="flex items-center gap-2">
-              <Clock3 className="h-3.5 w-3.5" /> {weekdayLabel(details.dayOfWeek)} · {details.defaultStart}–
-              {details.defaultEnd}
+              <Clock3 className="h-3.5 w-3.5" /> {weekdayLabel(details.dayOfWeek)} ·{" "}
+              {formatTimeRange(details.defaultStart, details.defaultEnd)}
             </p>
             <p className="flex items-center gap-2">
               <LayoutGrid className="h-3.5 w-3.5" /> {details.defaultCourts} courts by default
