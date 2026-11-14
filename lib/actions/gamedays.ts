@@ -21,6 +21,7 @@ import {
   renamedCourt,
   withoutCourt,
 } from "@/lib/datetime";
+import { syncGameDayAttendance } from "@/lib/attendance";
 import { canUndoCheckIn } from "@/lib/check-in";
 import { addCourtForWindow, formatTime12, planProblem, planWindow } from "@/lib/court-plan";
 import { applyCourtSetup, type CourtSetup } from "@/lib/court-setup";
@@ -230,22 +231,24 @@ export async function setGameDayStatus(
   if (authError) return authError;
 
   if (status === "COMPLETED") {
-    await prisma.$transaction([
-      prisma.match.updateMany({
+    const logged = await prisma.$transaction(async (tx) => {
+      await tx.match.updateMany({
         where: { gameDayId: id, status: { in: ["SUGGESTED", "LIVE"] } },
         data: { status: "CANCELLED", endedAt: new Date() },
-      }),
-      prisma.sessionPlayer.updateMany({
+      });
+      await tx.sessionPlayer.updateMany({
         where: { gameDayId: id, status: "PLAYING" },
         data: { status: "DONE", queuedAt: null },
-      }),
-      prisma.gameDay.update({
+      });
+      await tx.gameDay.update({
         where: { id },
         data: { status: "COMPLETED", completedAt: new Date() },
-      }),
-    ]);
+      });
+      return logAttendanceFromGameDay(tx, id);
+    });
     refreshGameDay(id);
-    return ok("Game day closed. Reports are ready to export.");
+    refreshAttendance();
+    return ok(`Game day closed.${loggedText(logged)} Reports are ready to export.`);
   }
 
   await prisma.gameDay.update({
@@ -337,6 +340,81 @@ export async function extendGameDay(gameDayId: string, until: string, courts: nu
  * be counted as played (they usually finished as time ran out); suggested and
  * waiting games are cancelled. Players then settle fees.
  */
+/**
+ * Logs an ended game day on the attendance lists (Players → Logged lists), so recency and each
+ * player's history follow without pasting the chat list. Everyone who checked in is logged as
+ * played. The list is linked to the game day, so ending it again after a reopen updates the same
+ * list. When a list for that date was already pasted from the chat (and isn't linked to another
+ * game day), that list is used, keeping its waitlist. Returns how many played.
+ */
+async function logAttendanceFromGameDay(tx: Prisma.TransactionClient, gameDayId: string): Promise<number> {
+  const gameDay = await tx.gameDay.findUnique({
+    where: { id: gameDayId },
+    select: {
+      name: true,
+      date: true,
+      attendance: { select: { id: true } },
+      players: { select: { playerId: true, status: true } },
+    },
+  });
+  if (!gameDay) return 0;
+  const session = gameDay.players.map((row) => ({
+    playerId: row.playerId,
+    checkedIn: row.status !== "EXPECTED",
+  }));
+  const played = session.filter((row) => row.checkedIn).length;
+
+  let eventId = gameDay.attendance?.id;
+  if (!eventId) {
+    const pasted = await tx.attendanceEvent.findMany({
+      where: { date: gameDay.date, kind: "GAMEDAY", gameDayId: null },
+      select: { id: true },
+    });
+    if (pasted.length === 1) {
+      eventId = pasted[0].id;
+      await tx.attendanceEvent.update({ where: { id: eventId }, data: { gameDayId } });
+    } else {
+      if (played === 0) return 0;
+      eventId = (
+        await tx.attendanceEvent.create({
+          data: { date: gameDay.date, kind: "GAMEDAY", label: gameDay.name, gameDayId },
+          select: { id: true },
+        })
+      ).id;
+    }
+  }
+
+  const existing = await tx.attendanceEntry.findMany({
+    where: { eventId },
+    select: { playerId: true, status: true },
+  });
+  const change = syncGameDayAttendance(existing, session);
+  if (change.remove.length > 0) {
+    await tx.attendanceEntry.deleteMany({ where: { eventId, playerId: { in: change.remove } } });
+  }
+  if (change.upsertPlayed.length > 0) {
+    await tx.attendanceEntry.updateMany({
+      where: { eventId, playerId: { in: change.upsertPlayed } },
+      data: { status: "PLAYED" },
+    });
+    await tx.attendanceEntry.createMany({
+      data: change.upsertPlayed.map((playerId) => ({ eventId, playerId, status: "PLAYED" as const })),
+      skipDuplicates: true,
+    });
+  }
+  return played;
+}
+
+function loggedText(played: number): string {
+  return played > 0 ? ` ${played} ${played === 1 ? "player" : "players"} logged in attendance.` : "";
+}
+
+/** Pages that show attendance: the Players page and the public roster. */
+function refreshAttendance() {
+  revalidatePath("/app/players");
+  revalidatePath("/roster");
+}
+
 export async function endGameDay(gameDayId: string, countLiveGames: boolean): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;
@@ -351,7 +429,7 @@ export async function endGameDay(gameDayId: string, countLiveGames: boolean): Pr
   });
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
+  const logged = await prisma.$transaction(async (tx) => {
     if (countLiveGames) {
       for (const match of live) {
         await tx.match.update({ where: { id: match.id }, data: { status: "COMPLETED", endedAt: now } });
@@ -372,14 +450,16 @@ export async function endGameDay(gameDayId: string, countLiveGames: boolean): Pr
       data: { status: "DONE", queuedAt: null },
     });
     await tx.gameDay.update({ where: { id: gameDayId }, data: { status: "COMPLETED", completedAt: now } });
+    return logAttendanceFromGameDay(tx, gameDayId);
   });
 
   refreshGameDay(gameDayId);
+  refreshAttendance();
   const counted =
     countLiveGames && live.length > 0
       ? ` ${live.length} game${live.length === 1 ? "" : "s"} in progress counted.`
       : "";
-  return ok(`Game day ended.${counted} Collect fees next.`);
+  return ok(`Game day ended.${counted}${loggedText(logged)} Collect fees next.`);
 }
 
 export async function deleteGameDay(id: string): Promise<ActionResult> {

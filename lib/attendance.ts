@@ -101,3 +101,26 @@ export function parseAttendanceBlock(
     waitlist: parseNameList(waitlistLines.join("\n"), isKnown),
   };
 }
+
+export type AttendanceSyncEntry = { playerId: string; status: "PLAYED" | "WAITLIST" };
+
+/**
+ * What an ended game day does to its attendance list. Everyone who checked in played. A list
+ * already logged for that date (e.g. pasted from the chat) keeps its other names, so the chat's
+ * waitlist survives; a sign-up of this game day who never checked in (or whose check-in was
+ * undone before it was ended again) is taken off the Played list. Pure, so it is unit-tested.
+ */
+export function syncGameDayAttendance(
+  existing: AttendanceSyncEntry[],
+  session: Array<{ playerId: string; checkedIn: boolean }>,
+): { upsertPlayed: string[]; remove: string[] } {
+  const played = session.filter((row) => row.checkedIn).map((row) => row.playerId);
+  const noShows = new Set(session.filter((row) => !row.checkedIn).map((row) => row.playerId));
+  const already = new Map(existing.map((entry) => [entry.playerId, entry.status]));
+  return {
+    upsertPlayed: played.filter((id) => already.get(id) !== "PLAYED"),
+    remove: existing
+      .filter((entry) => entry.status === "PLAYED" && noShows.has(entry.playerId))
+      .map((entry) => entry.playerId),
+  };
+}

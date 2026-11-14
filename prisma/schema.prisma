@@ -159,10 +159,13 @@ model AttendanceEvent {
   date      DateTime         @db.Date
   label     String?
   kind      AttendanceKind   @default(GAMEDAY)
+  /// The game day this list was logged from when it ended. Null for lists pasted from the chat.
+  gameDayId String?          @unique
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
   entries AttendanceEntry[]
+  gameDay GameDay?         @relation(fields: [gameDayId], references: [id], onDelete: SetNull)
 
   @@index([date])
 }
@@ -253,6 +256,7 @@ model GameDay {
   matches  Match[]
   requests PairingRequest[]
   leaveRequests LeaveRequest[]
+  attendance    AttendanceEvent?
 
   @@index([date])
   @@index([status])

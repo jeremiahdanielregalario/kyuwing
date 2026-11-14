@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fullNameKeys, nameKey, parseAttendanceBlock, parseNameList } from "./attendance";
+import {
+  fullNameKeys,
+  nameKey,
+  parseAttendanceBlock,
+  parseNameList,
+  syncGameDayAttendance,
+} from "./attendance";
 
 const EXHIBIT_1 = `Official MEGA Game Day (KBC) 
 Nov 2, 2026; Monday
@@ -126,5 +132,28 @@ describe("nameKey", () => {
   it("normalises case and spacing", () => {
     expect(nameKey("  Jgops ")).toBe("jgops");
     expect(nameKey("Lou  Ian")).toBe("lou ian");
+  });
+});
+
+describe("syncGameDayAttendance", () => {
+  const session = [
+    { playerId: "a", checkedIn: true },
+    { playerId: "b", checkedIn: true },
+    { playerId: "c", checkedIn: false },
+  ];
+
+  it("logs everyone who checked in as played, and nobody else", () => {
+    expect(syncGameDayAttendance([], session)).toEqual({ upsertPlayed: ["a", "b"], remove: [] });
+  });
+
+  it("keeps a pasted list's other names, promotes the waitlisted who played, drops no-shows", () => {
+    const existing = [
+      { playerId: "a", status: "PLAYED" as const },
+      { playerId: "b", status: "WAITLIST" as const },
+      { playerId: "c", status: "PLAYED" as const },
+      { playerId: "w", status: "WAITLIST" as const },
+      { playerId: "z", status: "PLAYED" as const },
+    ];
+    expect(syncGameDayAttendance(existing, session)).toEqual({ upsertPlayed: ["b"], remove: ["c"] });
   });
 });

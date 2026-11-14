@@ -143,6 +143,10 @@ When the reservation runs out (the end of the last block, on the game day itself
 
 The **Players** page has a **Playing recency** section. Its counters show Playing often, Playing, and Tournament only; every status below appears in the Recency column of the player database. It separates people who still play from people who have drifted away, using the lists posted in the group chat.
 
+Game days run in Kyuwing log themselves: when you press **End game day** (or close the game day in Settings), everyone who checked in is saved as **Played** on a list for that date, named after the game day. Sign-ups who never checked in are left out. If a list for that date was already pasted from the chat, the app adds to that list instead of making a second one, so its waitlist stays. If you reopen the game day and end it again, the same list is updated. You only need to paste lists for days not run in the app, or to add a waitlist.
+
+To log a list by hand:
+
 1. Open **Players → Log attendance**.
 2. Pick the date and whether it was a **Game day** or a **Tournament**.
 3. Paste the whole chat message into **Played**. Numbering, blank slots, and headers (title, date, time) are ignored, and anything under a `Waitlist:` line is counted as waitlisted. You can also paste a waitlist separately into the second box.
