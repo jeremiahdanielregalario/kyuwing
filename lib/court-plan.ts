@@ -1,4 +1,4 @@
-import { timeToMinutes } from "@/lib/datetime";
+import { timeToMinutes, type CourtSlot } from "@/lib/datetime";
 
 /**
  * Court plan editing: a game day has one game time (e.g. 1:00–4:00 PM), split into court
@@ -187,4 +187,128 @@ export function planProblem(blocks: Array<{ start: string; end: string }>): stri
     if (next && timeToMinutes(next.start) < timeToMinutes(block.end)) return "Court blocks can't overlap.";
   }
   return null;
+}
+
+/** A court plan can hold this many blocks (see `gameDayCreateSchema`). */
+export const MAX_PLAN_BLOCKS = 8;
+const MAX_BLOCK_COURTS = 20;
+
+export type AddedCourt = {
+  plan: CourtSlot[];
+  /** For each block of the new plan: true when it carries the added court. */
+  added: boolean[];
+  /** For each block of the new plan: the index of the block it came from in the old plan. */
+  origins: number[];
+  /** Court-hours the extra court adds, i.e. what it adds to the rent before the rate. */
+  courtHours: number;
+};
+
+/**
+ * Adds one court for the time `from`–`until` only, e.g. an extra court taken for an hour in the
+ * middle of the game day. Fees follow court-hours (see `courtHours`), so the court is charged
+ * only for that time. A block the time cuts through is split: the part inside gets one more
+ * court (named `label`), the parts before and after keep their courts. The time is clipped to
+ * the reservation. New blocks get an id from `makeId` and an unused "Block N" name.
+ */
+export function addCourtForWindow(
+  plan: CourtSlot[],
+  from: string,
+  until: string,
+  label: string,
+  makeId: (index: number) => string,
+): AddedCourt | { error: string } {
+  if (plan.length === 0) return { error: "Add a court block in Settings first." };
+  if (!/^\d{2}:\d{2}$/.test(from) || !/^\d{2}:\d{2}$/.test(until)) return { error: "Pick valid times." };
+  const low = timeToMinutes(from);
+  const high = timeToMinutes(until);
+  if (high <= low) return { error: "The court must be used until a time after it starts." };
+
+  const next: CourtSlot[] = [];
+  const added: boolean[] = [];
+  const origins: number[] = [];
+  const names = plan.map((block) => ({ label: block.label }));
+  let minutes = 0;
+  let made = 0;
+  let full = false;
+
+  plan.forEach((block, origin) => {
+    const start = timeToMinutes(block.start);
+    const end = timeToMinutes(block.end);
+    const a = Math.max(start, low);
+    const b = Math.min(end, high);
+    if (a >= b) {
+      next.push(block);
+      added.push(false);
+      origins.push(origin);
+      return;
+    }
+    if (block.courts >= MAX_BLOCK_COURTS) full = true;
+    const courtLabels = Array.from({ length: block.courts }, (_, index) => block.courtLabels?.[index] ?? "");
+    courtLabels.push(label);
+    const pieces: Array<{ start: number; end: number; extra: boolean }> = [];
+    if (a > start) pieces.push({ start, end: a, extra: false });
+    pieces.push({ start: a, end: b, extra: true });
+    if (b < end) pieces.push({ start: b, end, extra: false });
+    pieces.forEach((piece, index) => {
+      // The first piece stays the original block; the rest are new blocks.
+      const identity = index === 0 ? { id: block.id, label: block.label } : newBlock();
+      next.push({
+        ...block,
+        ...identity,
+        // Keep the block's own start and end exactly as stored (they may be off the grid).
+        start: piece.start === start ? block.start : minutesToTime(piece.start),
+        end: piece.end === end ? block.end : minutesToTime(piece.end),
+        ...(piece.extra ? { courts: block.courts + 1, courtLabels } : {}),
+      });
+      added.push(piece.extra);
+      origins.push(origin);
+    });
+    minutes += b - a;
+  });
+
+  function newBlock() {
+    const name = nextBlockLabel(names);
+    names.push({ label: name });
+    return { id: makeId(made++), label: name };
+  }
+
+  if (minutes === 0) return { error: "Pick a time inside the reserved court time." };
+  if (full) return { error: `A block can have at most ${MAX_BLOCK_COURTS} courts.` };
+  if (next.length > MAX_PLAN_BLOCKS)
+    return {
+      error: `That would split the court plan into more than ${MAX_PLAN_BLOCKS} blocks. Pick times that line up with the blocks, or tidy the plan in Settings.`,
+    };
+  return { plan: next, added, origins, courtHours: minutes / 60 };
+}
+
+/**
+ * Start times to offer for a court added mid-day: every 30 minutes from the start of the
+ * reservation up to (not including) its end, plus the start of every block.
+ */
+export function addCourtStartChoices(plan: PlanBlock[]): string[] {
+  const game = planWindow(plan);
+  if (!game) return [];
+  const start = timeToMinutes(game.start);
+  const end = timeToMinutes(game.end);
+  // Block starts are offered too, even off the grid, so the court can line up with a block.
+  const minutes = new Set(plan.map((block) => timeToMinutes(block.start)));
+  for (
+    let time = Math.ceil(start / TIME_STEP_MINUTES) * TIME_STEP_MINUTES;
+    time < end;
+    time += TIME_STEP_MINUTES
+  ) {
+    minutes.add(time);
+  }
+  return [...minutes]
+    .filter((time) => time >= start && time < end)
+    .sort((a, b) => a - b)
+    .map(minutesToTime);
+}
+
+/** The latest of `choices` at or before `now` ("HH:MM"), or the first when `now` is earlier than all. */
+export function latestChoiceAtOrBefore(choices: string[], now: string): string {
+  const current = timeToMinutes(now);
+  let pick = choices[0] ?? now;
+  for (const choice of choices) if (timeToMinutes(choice) <= current) pick = choice;
+  return pick;
 }

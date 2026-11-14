@@ -11,8 +11,13 @@ import {
   setBlockEnd,
   splitBlock,
   timeChoices,
+  addCourtForWindow,
+  addCourtStartChoices,
+  latestChoiceAtOrBefore,
+  minutesToTime,
   type PlanBlock,
 } from "./court-plan";
+import { courtHours } from "./fees";
 
 const block = (id: string, start: string, end: string, courts = 3): PlanBlock => ({
   id,
@@ -143,5 +148,91 @@ describe("shiftPlanEnd (MEGA extra hour)", () => {
   it("never runs past the last pickable time or ends before it starts", () => {
     expect(times(shiftPlanEnd([block("a", "20:00", "23:00")], 60))).toEqual(["20:00-23:30"]);
     expect(times(shiftPlanEnd([block("a", "10:00", "10:45")], -60))).toEqual(["10:00-10:30"]);
+  });
+});
+
+describe("addCourtForWindow (a court added mid-day)", () => {
+  const id = (index: number) => `new-${index}`;
+  const one = [{ id: "a", label: "First block", start: "17:30", end: "19:30", courts: 4 }];
+
+  it("charges only the hour it is used: 4 courts, then 5 for an hour, then 4", () => {
+    const result = addCourtForWindow(one, "18:00", "19:00", "9", id);
+    if ("error" in result) throw new Error(result.error);
+    expect(result.plan.map((b) => [b.id, b.label, b.start, b.end, b.courts])).toEqual([
+      ["a", "First block", "17:30", "18:00", 4],
+      ["new-0", "Block 2", "18:00", "19:00", 5],
+      ["new-1", "Block 3", "19:00", "19:30", 4],
+    ]);
+    expect(result.plan[1].courtLabels).toEqual(["", "", "", "", "9"]);
+    expect(result.plan[0].courtLabels).toBeUndefined();
+    expect(result.added).toEqual([false, true, false]);
+    expect(result.origins).toEqual([0, 0, 0]);
+    expect(result.courtHours).toBe(1);
+    expect(courtHours(result.plan) - courtHours(one)).toBe(1);
+    expect(planProblem(result.plan)).toBeNull();
+  });
+
+  it("until the end of the reserved time splits once", () => {
+    const result = addCourtForWindow(one, "18:30", "19:30", "", id);
+    if ("error" in result) throw new Error(result.error);
+    expect(result.plan.map((b) => [b.start, b.end, b.courts])).toEqual([
+      ["17:30", "18:30", 4],
+      ["18:30", "19:30", 5],
+    ]);
+    expect(result.courtHours).toBe(1);
+  });
+
+  it("does not split when the time covers whole blocks, and clips to the reservation", () => {
+    const result = addCourtForWindow(one, "16:00", "23:00", "", id);
+    if ("error" in result) throw new Error(result.error);
+    expect(result.plan).toEqual([{ ...one[0], courts: 5, courtLabels: ["", "", "", "", ""] }]);
+    expect(result.courtHours).toBe(2);
+  });
+
+  it("runs across blocks, keeping each block's own court names", () => {
+    const plan = [
+      { id: "a", label: "First block", start: "13:00", end: "14:00", courts: 2, courtLabels: ["5", "6"] },
+      { id: "b", label: "Block 2", start: "14:00", end: "16:00", courts: 3 },
+    ];
+    const result = addCourtForWindow(plan, "13:30", "15:00", "7", id);
+    if ("error" in result) throw new Error(result.error);
+    expect(result.plan.map((b) => [b.id, b.label, b.start, b.end, b.courts, b.courtLabels])).toEqual([
+      ["a", "First block", "13:00", "13:30", 2, ["5", "6"]],
+      ["new-0", "Block 3", "13:30", "14:00", 3, ["5", "6", "7"]],
+      ["b", "Block 2", "14:00", "15:00", 4, ["", "", "", "7"]],
+      ["new-1", "Block 4", "15:00", "16:00", 3, undefined],
+    ]);
+    expect(result.added).toEqual([false, true, true, false]);
+    expect(result.origins).toEqual([0, 0, 1, 1]);
+    expect(result.courtHours).toBe(1.5);
+    expect(plan[0].courts).toBe(2);
+  });
+
+  it("refuses bad times, full blocks and plans that would get too many blocks", () => {
+    expect(addCourtForWindow(one, "19:00", "18:00", "", id)).toHaveProperty("error");
+    expect(addCourtForWindow(one, "20:00", "21:00", "", id)).toHaveProperty("error");
+    expect(addCourtForWindow(one, "soon", "21:00", "", id)).toHaveProperty("error");
+    expect(addCourtForWindow([], "18:00", "19:00", "", id)).toHaveProperty("error");
+    expect(addCourtForWindow([{ ...one[0], courts: 20 }], "18:00", "19:00", "", id)).toHaveProperty("error");
+    const eight = Array.from({ length: 8 }, (_, i) => ({
+      id: `b${i}`,
+      label: `Block ${i + 1}`,
+      start: minutesToTime(600 + i * 60),
+      end: minutesToTime(660 + i * 60),
+      courts: 2,
+    }));
+    expect(addCourtForWindow(eight, "10:30", "11:00", "", id)).toHaveProperty("error");
+    expect(addCourtForWindow(eight, "10:00", "12:00", "", id)).not.toHaveProperty("error");
+  });
+});
+
+describe("times offered for a mid-day court", () => {
+  it("offers every half hour inside the reservation, and defaults to the one in play", () => {
+    const choices = addCourtStartChoices([{ id: "a", label: "A", start: "17:45", end: "19:30", courts: 4 }]);
+    expect(choices).toEqual(["17:45", "18:00", "18:30", "19:00"]);
+    expect(latestChoiceAtOrBefore(choices, "18:40")).toBe("18:30");
+    expect(latestChoiceAtOrBefore(choices, "16:00")).toBe("17:45");
+    expect(latestChoiceAtOrBefore(choices, "22:00")).toBe("19:00");
+    expect(addCourtStartChoices([])).toEqual([]);
   });
 });

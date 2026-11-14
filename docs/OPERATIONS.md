@@ -76,7 +76,11 @@ Every move is saved immediately and every other device sees it on the next poll.
 ### Common situations
 
 **The venue frees up another court.**
-Press **Add court** above the court cards. It adds a court to the block you are viewing (courts named 5, 6, 7 suggest 8). If a game is waiting in Next up, it moves onto the new court. Remove courts in **Settings**.
+Press **Add court** above the court cards. The pop-up asks for the court's name (courts named 5, 6, 7 suggest 8) and how long it is used: **Used from** (it starts at the half hour in progress; change it if the court was taken earlier or starts later) and **For how long** (**Until the end** of the reserved time, or 30 min, 1 hour, 1 hour 30 min, 2 hours or 3 hours only). It shows the time and how much that adds to the court rent.
+
+The court is charged only for that time. Example: 4 courts are reserved 5:30–7:30 PM and after an hour you add one court for 1 hour. The rent becomes 4 courts × 2 hours + 1 court × 1 hour = 9 court-hours, not 10, and every player's share follows. To do this the app splits the court plan around that time (here into 5:30–6:30 with 4 courts and 6:30–7:30 with 5), which you will see in the court plan row and in **Settings**, where you can still adjust it. A plan holds at most 8 blocks.
+
+If the court is in use now and a game is waiting in Next up, that game moves onto it. When the court's time is over, press the next block in the court plan row as usual; a game still on the extra court keeps its card until it is finished. Remove courts in **Settings**.
 
 **A court becomes unavailable** (a failed reservation, a broken net).
 Press the **−** button in that court's header and confirm. The court leaves the block you are viewing; the other courts keep their names (removing Court 6 from 5–8 leaves 5, 7, 8). A suggested game on it moves to the waiting courts. A game in progress must be finished or cancelled first, so the button is disabled on live courts. A block always keeps at least one court.

@@ -22,7 +22,7 @@ import {
   withoutCourt,
 } from "@/lib/datetime";
 import { canUndoCheckIn } from "@/lib/check-in";
-import { planProblem } from "@/lib/court-plan";
+import { addCourtForWindow, formatTime12, planProblem, planWindow } from "@/lib/court-plan";
 import { applyCourtSetup, type CourtSetup } from "@/lib/court-setup";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
 import { isUnrated, levelLabel, parseLevel } from "@/lib/levels";
@@ -37,6 +37,7 @@ import {
 import { checkSignup, notReadyReason } from "@/lib/signup-check";
 import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import {
+  addCourtSchema,
   chargesSchema,
   courtSetupSchema,
   gameDayCreateSchema,
@@ -1619,14 +1620,18 @@ export async function updateMatchCourt(matchId: string, courtNumber: number): Pr
 }
 
 /**
- * Add one court to a block mid-session, e.g. when the venue frees an extra
- * court for a time slot. A game waiting in Next up moves straight onto it.
+ * Add one court mid-session for the time it is used: from `from` until `until`
+ * (or the end of the reservation when `until` is null). The court plan is split
+ * around that time, so the rent, and each player's share, counts the court only
+ * for those hours. A game waiting in Next up moves straight onto the court when
+ * it is in play now. `slotIndex` is the block the queue master is looking at;
+ * the answer says which block to show after the plan is split.
  */
 export async function addCourt(
   gameDayId: string,
   slotIndex: number,
-  label?: string,
-): Promise<ActionResult<{ court: number }>> {
+  input: { label?: string; from: string; until: string | null },
+): Promise<ActionResult<{ slotIndex: number }>> {
   const authError = await guard();
   if (authError) return authError;
 
@@ -1637,29 +1642,56 @@ export async function addCourt(
   if (!gameDay) return fail("Game day not found.");
   if (gameDay.status === "COMPLETED") return fail("This game day is already closed.");
 
+  const parsed = addCourtSchema.safeParse(input);
+  if (!parsed.success) return fail("Pick when the court is used.");
+
   const plan = parseCourtPlan(gameDay.courtPlan);
-  const slot = plan[slotIndex];
-  if (!slot) return fail("Pick a court block first.");
-  if (slot.courts >= 20) return fail("A block can have at most 20 courts.");
+  if (!plan[slotIndex]) return fail("Pick a court block first.");
+  const reserved = planWindow(plan);
+  if (!reserved) return fail("Add a court block in Settings first.");
+  const wasInPlay = slotIndex === currentSlotIndex(plan);
 
-  const court = slot.courts + 1;
-  const courtLabels = Array.from({ length: slot.courts }, (_, index) => slot.courtLabels?.[index] ?? "");
-  courtLabels.push(normalizeCourtLabel(label ?? ""));
-  const nextSlot = { ...slot, courts: court, courtLabels };
-  const nextPlan = plan.map((row, index) => (index === slotIndex ? nextSlot : row));
+  const stamp = Date.now();
+  const result = addCourtForWindow(
+    plan,
+    parsed.data.from,
+    parsed.data.until ?? reserved.end,
+    normalizeCourtLabel(parsed.data.label ?? ""),
+    (index) => `slot-${stamp}-${index}`,
+  );
+  if ("error" in result) return fail(result.error);
 
+  // Games sit on court positions of the block in play, so a waiting game only moves onto the
+  // new court when the court is in play right now.
+  const nowIndex = currentSlotIndex(result.plan);
+  const inPlay = result.added[nowIndex];
   const filled = await prisma.$transaction(async (tx) => {
-    await tx.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: nextPlan } });
-    return promoteQueuedGames(tx, gameDayId, court, slotIndex);
+    await tx.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: result.plan } });
+    return inPlay ? promoteQueuedGames(tx, gameDayId, result.plan[nowIndex].courts, nowIndex) : [];
   });
 
   refreshGameDay(gameDayId);
-  const name = courtName(nextSlot, court);
+  const withCourt = result.plan.filter((_, index) => result.added[index]);
+  const first = withCourt[0];
+  const name = courtName(first, first.courts);
+  const when = `${formatTime12(first.start)}–${formatTime12(withCourt[withCourt.length - 1].end)}`;
+  const fromSame = (index: number) => result.origins[index] === slotIndex;
+  const firstAdded = result.plan.findIndex((_, index) => fromSame(index) && result.added[index]);
+  const view = wasInPlay
+    ? nowIndex
+    : firstAdded >= 0
+      ? firstAdded
+      : Math.max(
+          0,
+          result.plan.findIndex((_, index) => fromSame(index)),
+        );
   return ok(
     filled.length > 0
-      ? `${name} added to ${slot.label}. The first Next up game moved onto it.`
-      : `${name} added to ${slot.label}.`,
-    { court },
+      ? `${name} added for ${when}. The first Next up game moved onto it.`
+      : inPlay
+        ? `${name} added for ${when}.`
+        : `${name} added for ${when}. It shows on the board in that court block.`,
+    { slotIndex: view },
   );
 }
 

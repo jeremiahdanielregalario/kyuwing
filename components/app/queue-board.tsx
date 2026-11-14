@@ -102,7 +102,16 @@ import {
   addWalkIn,
 } from "@/lib/actions/gamedays";
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
-import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
+import {
+  addCourtForWindow,
+  addCourtStartChoices,
+  formatSpan,
+  formatTime12,
+  latestChoiceAtOrBefore,
+  minutesToTime,
+  planWindow,
+} from "@/lib/court-plan";
+import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS, effectiveCourtRate, formatPeso } from "@/lib/fees";
 import { LEVEL_OPTIONS, isUnrated, levelLabel, levelTone, levelValue } from "@/lib/levels";
 import {
   EMPTY_DRAFT,
@@ -115,6 +124,8 @@ import { canDropOn, canTapOn, eventPoint, samePick } from "@/lib/drag-targets";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
+  currentSlotIndex,
+  manilaTime,
   formatClock,
   formatTimeRange,
   formatDuration,
@@ -421,6 +432,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [renameLabel, setRenameLabel] = React.useState("");
   const [renameEveryBlock, setRenameEveryBlock] = React.useState(true);
   const [newCourtLabel, setNewCourtLabel] = React.useState("");
+  // A court added mid-day is charged only for the time it is used: from this time, for this long.
+  const [newCourtFrom, setNewCourtFrom] = React.useState("");
+  const [newCourtLength, setNewCourtLength] = React.useState<"end" | number>("end");
   const [freePrompt, setFreePrompt] = React.useState<{
     count: number;
     minutesLeft: number;
@@ -990,8 +1004,34 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     setNewCourtLabel(
       slot && numbers.length === slot.courts && numbers.length > 0 ? String(Math.max(...numbers) + 1) : "",
     );
+    // Looking at the block in play: the court starts now (the half hour in progress).
+    // Looking at another block: it starts with that block.
+    const choices = addCourtStartChoices(plan);
+    setNewCourtFrom(
+      slot && plan[currentSlotIndex(plan)] !== slot && choices.includes(slot.start)
+        ? slot.start
+        : latestChoiceAtOrBefore(choices, manilaTime()),
+    );
+    setNewCourtLength("end");
     setAddCourtOpen(true);
   };
+
+  // What the Add a court pop-up is about to do, worked out from its two choices.
+  const reservedEnd = planWindow(plan)?.end ?? "";
+  const newCourtStarts = addCourtStartChoices(plan);
+  const newCourtFromTime = newCourtStarts.includes(newCourtFrom) ? newCourtFrom : (newCourtStarts[0] ?? "");
+  const minutesToEnd =
+    reservedEnd && newCourtFromTime ? timeToMinutes(reservedEnd) - timeToMinutes(newCourtFromTime) : 0;
+  const newCourtLengths = [30, 60, 90, 120, 180].filter((minutes) => minutes < minutesToEnd);
+  const newCourtUntil =
+    newCourtLength === "end" || newCourtLength >= minutesToEnd
+      ? reservedEnd
+      : minutesToTime(timeToMinutes(newCourtFromTime) + newCourtLength);
+  const newCourtPreview =
+    addCourtOpen && newCourtFromTime && newCourtUntil
+      ? addCourtForWindow(plan, newCourtFromTime, newCourtUntil, newCourtLabel, (index) => `preview-${index}`)
+      : null;
+  const courtRate = effectiveCourtRate(data.gameDay.courtRatePerHour, data.gameDay.venue.shortName);
 
   // Ending a game offers Undo for a few seconds, in case it was ended by mistake.
   const endGame = (matchId: string) => {
@@ -2421,9 +2461,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             open={addCourtOpen}
             onClose={() => setAddCourtOpen(false)}
             title="Add a court"
-            description={
-              slot ? `Adds one court to ${slot.label} (${formatTimeRange(slot.start, slot.end)}).` : undefined
-            }
+            description="Say how long the court is used. It is added to the rent, and to each player's share, for that time only."
             size="sm"
             footer={
               <>
@@ -2431,13 +2469,27 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                   Cancel
                 </Button>
                 <Button
-                  onClick={() =>
+                  onClick={() => {
+                    let show: number | undefined;
                     act(
-                      () => addCourt(data.gameDay.id, slotIndex, newCourtLabel),
-                      () => setAddCourtOpen(false),
-                    )
-                  }
+                      async () => {
+                        const result = await addCourt(data.gameDay.id, slotIndex, {
+                          label: newCourtLabel,
+                          from: newCourtFromTime,
+                          until: newCourtLength === "end" ? null : newCourtUntil,
+                        });
+                        if (result.ok) show = result.data?.slotIndex;
+                        return result;
+                      },
+                      () => {
+                        setAddCourtOpen(false);
+                        // The plan may have been split into more blocks: keep showing the right one.
+                        if (show !== undefined) setSlotIndex(show);
+                      },
+                    );
+                  }}
                   loading={pending}
+                  disabled={!newCourtPreview || "error" in newCourtPreview}
                 >
                   <Plus className="h-4 w-4" /> Add court
                 </Button>
@@ -2452,8 +2504,62 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                 maxLength={24}
               />
             </Field>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Field label="Used from">
+                <Select value={newCourtFromTime} onChange={(event) => setNewCourtFrom(event.target.value)}>
+                  {newCourtStarts.map((time) => (
+                    <option key={time} value={time}>
+                      {formatTime12(time)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="For how long">
+                <Select
+                  value={
+                    newCourtLength === "end" || newCourtLength >= minutesToEnd
+                      ? "end"
+                      : String(newCourtLength)
+                  }
+                  onChange={(event) =>
+                    setNewCourtLength(event.target.value === "end" ? "end" : Number(event.target.value))
+                  }
+                >
+                  <option value="end">Until the end ({reservedEnd ? formatTime12(reservedEnd) : "—"})</option>
+                  {newCourtLengths.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {formatSpan("00:00", minutesToTime(minutes))} only
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            {newCourtPreview &&
+              ("error" in newCourtPreview ? (
+                <p className="bg-coral/10 text-coral mt-3 rounded-xl px-3 py-2 text-[12px] font-semibold">
+                  {newCourtPreview.error}
+                </p>
+              ) : (
+                <p className="bg-cream-deep/60 text-ink mt-3 rounded-xl px-3 py-2 text-[12px]">
+                  <span className="font-semibold">
+                    {formatTimeRange(newCourtFromTime, newCourtUntil)} ·{" "}
+                    {formatSpan(newCourtFromTime, newCourtUntil)}
+                  </span>
+                  {courtRate > 0 && (
+                    <>
+                      {" "}
+                      · adds{" "}
+                      <span className="font-semibold">
+                        {formatPeso(Math.round(newCourtPreview.courtHours * courtRate))}
+                      </span>{" "}
+                      to the court rent ({formatPeso(courtRate)} an hour)
+                    </>
+                  )}
+                </p>
+              ))}
             <p className="text-muted mt-3 text-[11px]">
-              The first game in Next up moves onto the new court. Remove courts in Settings.
+              The first game in Next up moves onto the new court when it is in use now. Remove courts in
+              Settings.
             </p>
           </Modal>
 

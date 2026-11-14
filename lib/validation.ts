@@ -63,6 +63,16 @@ export const courtSlotSchema = z.object({
   courtLabels: z.array(z.string().trim().max(24)).max(20).optional(),
 });
 
+/** A court added mid-day: its name and the time it is used (`until` null = end of the reservation). */
+export const addCourtSchema = z.object({
+  label: z.string().max(60).optional(),
+  from: z.string().regex(/^\d{2}:\d{2}$/),
+  until: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .nullable(),
+});
+
 /** The courts confirmed when a game day starts (see `lib/court-setup.ts`). */
 export const courtSetupSchema = z
   .array(
