@@ -2798,9 +2798,9 @@ function RemoveCourtButton({
       disabled={pending || live}
       aria-label={`Remove ${name}`}
       title={live ? "Finish or cancel the game in progress before removing this court" : `Remove ${name}`}
-      className="border-cream/20 text-cream/50 hover:border-coral/60 hover:bg-coral/20 hover:text-cream grid h-6 w-6 place-items-center rounded-full border transition disabled:opacity-30"
+      className="bg-coral text-paper press grid h-7 w-7 shrink-0 place-items-center rounded-full shadow-sm ring-2 ring-white/80 transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
     >
-      <Minus className="h-3 w-3" />
+      <Minus className="h-4 w-4" strokeWidth={3.5} />
     </button>
   );
 }

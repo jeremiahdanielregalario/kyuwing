@@ -83,7 +83,7 @@ The court is charged only for that time. Example: 4 courts are reserved 5:30–7
 If the court is in use now and a game is waiting in Next up, that game moves onto it. When the court's time is over, press the next block in the court plan row as usual; a game still on the extra court keeps its card until it is finished. Remove courts in **Settings**.
 
 **A court becomes unavailable** (a failed reservation, a broken net).
-Press the **−** button in that court's header and confirm. The court leaves the block you are viewing; the other courts keep their names (removing Court 6 from 5–8 leaves 5, 7, 8). A suggested game on it moves to the waiting courts. A game in progress must be finished or cancelled first, so the button is disabled on live courts. A block always keeps at least one court.
+Press the red **−** button in that court's header and confirm. The court leaves the block you are viewing; the other courts keep their names (removing Court 6 from 5–8 leaves 5, 7, 8). A suggested game on it moves to the waiting courts. A game in progress must be finished or cancelled first, so the button is disabled on live courts. A block always keeps at least one court.
 
 **The venue switches court numbers.**
 Tap a court's name on its card (it is underlined) to rename it. Type the number (`9` shows as Court 9) or a name like `Main court`. Leave **Use this name in every block** ticked to rename that court in every time block, or untick it to change just the block you are viewing. Two courts in the same block can't share a name.
