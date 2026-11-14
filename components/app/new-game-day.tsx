@@ -10,8 +10,8 @@ import { gameTime, MEGA_EXTRA_MINUTES, shiftPlanEnd } from "@/lib/court-plan";
 import { Button } from "@/components/ui/button";
 import { CourtRateField } from "@/components/app/court-rate-field";
 import { CourtPlanEditor } from "@/components/app/court-plan-editor";
-import { SignupTextPanel } from "@/components/app/signup-text-panel";
-import type { SignupCheck } from "@/lib/signup-check";
+import { EMPTY_SIGNUP_TEXTS, SignupTextPanel } from "@/components/app/signup-text-panel";
+import type { SignupCheck, SignupTexts } from "@/lib/signup-check";
 import { officerNames } from "@/lib/signup-text";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -62,10 +62,11 @@ export function NewGameDayButton({
   const [financeMemberName, setFinanceMemberName] = React.useState("");
   const [courtRate, setCourtRate] = React.useState("");
   // The Messenger sign-up list, when the game day is started from one.
-  const [listText, setListText] = React.useState("");
+  const [listTexts, setListTexts] = React.useState<SignupTexts>(EMPTY_SIGNUP_TEXTS);
+  const listText = listTexts.members.trim() || listTexts.applicants.trim();
   const [listCheck, setListCheck] = React.useState<SignupCheck | null>(null);
   const appliedHeader = React.useRef("");
-  const listBlocked = Boolean(listText.trim()) && !listCheck?.ready;
+  const listBlocked = Boolean(listText) && !listCheck?.ready;
   const listPlayers = listCheck?.ready ? listCheck.lines.filter((line) => !line.waitlist).length : 0;
   const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue)] : []);
   const [pending, startTransition] = React.useTransition();
@@ -142,7 +143,8 @@ export function NewGameDayButton({
         notes,
         queueMasterName,
         financeMemberName,
-        signupText: listText.trim() ? listText : null,
+        signupText: listTexts.members.trim() ? listTexts.members : null,
+        applicantsText: listTexts.applicants.trim() ? listTexts.applicants : null,
         courtRatePerHour: courtRate ? Number(courtRate) : null,
         courtPlan: slots.map(({ numbers, ...slot }) => {
           const courtLabels = parseCourtNumbers(numbers);
@@ -203,7 +205,7 @@ export function NewGameDayButton({
               </span>
             </summary>
             <div className="border-line border-t p-4">
-              <SignupTextPanel text={listText} onTextChange={setListText} onChecked={applyList} />
+              <SignupTextPanel texts={listTexts} onTextsChange={setListTexts} onChecked={applyList} />
             </div>
           </details>
 

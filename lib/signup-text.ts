@@ -10,10 +10,16 @@
  *   3. @Shawn Elizarde
  *   4. Randolf
  *
+ * The chat keeps two lists: members and alumni by official nickname, and
+ * applicants as "Nickname Surname" ("Matt Dela Cruz"). Each is pasted in its own
+ * box and parsed with its `list`; placeholder lines like "18-43. MEMALUMNS" and
+ * empty numbered lines are skipped.
+ *
  * `parseSignupText` reads the header and the numbered lines; `resolveSignup`
  * checks every name against the official nicknames in the player database.
- * Only exact official nicknames count: a full name or a typo is reported with
- * a suggestion, and the queue master has to fix the line. Pure, so it is
+ * Only exact official nicknames count (plus "Nickname Surname" on the applicants
+ * list): a full name or a typo is reported with a suggestion, and the queue
+ * master has to fix the line. Pure, so it is
  * unit-tested; the database lookup lives in `lib/signup-check.ts`.
  */
 import { aliasIndex } from "./aliases";
@@ -21,6 +27,8 @@ import { fullNameKeys, nameKey } from "./attendance";
 
 export type SignupType = "REGULAR" | "TIPID" | "MEGA";
 export type SignupRole = "QM" | "FIN";
+/** Which Messenger list a line came from. */
+export type SignupList = "members" | "applicants";
 
 export type SignupHeader = {
   /** First line of the message, e.g. "Official MEGA Game Day (KBC)". */
@@ -47,6 +55,8 @@ export type SignupLine = {
   mention: boolean;
   /** Listed under a "Waitlist" heading: not confirmed, so not added. */
   waitlist: boolean;
+  /** The members-and-alumni list or the applicants list. */
+  list: SignupList;
 };
 
 export type ParsedSignup = { header: SignupHeader; lines: SignupLine[]; ignored: string[] };
@@ -56,6 +66,8 @@ const DATE_RE =
   /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/i;
 const TIME_RE = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
 const NUMBERED = /^\s*(\d{1,3})\s*[.)]\s*(.*)$/;
+/** "18-43. MEMALUMNS", "38-54. APPS": places kept for the other list, not players. */
+const RANGE = /^\s*\d{1,3}\s*[-–—]\s*\d{1,3}\s*(?:[.)]|\s+(?![ap]\.?m\b)[a-z])/i;
 const WAITLIST = /^\s*(?:wait\s*-?\s*list|waiting\s+list|reserved?|bench)\b/i;
 const ROLE = /^\s*(qm|queue\s*master|fin|finance(?:\s*member)?)\s*[:\-–]\s*/i;
 
@@ -93,7 +105,7 @@ function parseDate(line: string): string | null {
   return `${year}-${pad(month)}-${pad(day)}`;
 }
 
-export function parseSignupText(input: string): ParsedSignup {
+export function parseSignupText(input: string, list: SignupList = "members"): ParsedSignup {
   const rows = input.split(/\r?\n/);
   const header: SignupHeader = {
     title: null,
@@ -111,6 +123,8 @@ export function parseSignupText(input: string): ParsedSignup {
   rows.forEach((raw, lineIndex) => {
     const row = raw.trim();
     if (!row) return;
+    // Only inside the list, so a header time like "10-3PM" is never taken for one.
+    if (inList && RANGE.test(row)) return;
 
     const numbered = NUMBERED.exec(row);
     if (numbered) {
@@ -124,7 +138,17 @@ export function parseSignupText(input: string): ParsedSignup {
       }
       const mention = text.startsWith("@");
       text = text.replace(/^@+\s*/, "").trim();
-      lines.push({ lineIndex, number: Number(numbered[1]), role, name: text, mention, waitlist: inWaitlist });
+      // An open place ("2." with no name) under the waitlist.
+      if (!text) return;
+      lines.push({
+        lineIndex,
+        number: Number(numbered[1]),
+        role,
+        name: text,
+        mention,
+        waitlist: inWaitlist,
+        list,
+      });
       return;
     }
 
@@ -183,7 +207,27 @@ export type ResolvedLine = SignupLine & {
   suggestions: string[];
   /** Matched through one of the player's other names (e.g. "LA" for "Ian LA"), not the nickname. */
   viaAlias?: boolean;
+  /** Matched as "Nickname Surname" ("Matt Dela Cruz"), the applicants list's format. */
+  viaSurname?: boolean;
 };
+
+/**
+ * Keys for "Nickname Surname". Stored full names read "DELA CRUZ, Matthew", so the surname is
+ * the part before the comma; without a comma, the last one or two words are tried.
+ */
+export function nicknameSurnameKeys(nickname: string, fullName: string | null): string[] {
+  if (!fullName?.trim()) return [];
+  const [before, after] = fullName.split(",").map((part) => part.trim());
+  const surnames = after
+    ? [before]
+    : (() => {
+        const words = before.split(/\s+/);
+        return [words.slice(-1), words.slice(-2)]
+          .filter((part) => part.length < words.length)
+          .map((part) => part.join(" "));
+      })();
+  return surnames.filter(Boolean).map((surname) => nameKey(`${nickname} ${surname}`));
+}
 
 function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, index) => index);
@@ -208,21 +252,33 @@ export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): Reso
     if (!player.fullName) continue;
     for (const key of fullNameKeys(player.fullName)) byFullName.set(key, player.nickname);
   }
+  // "Nickname Surname"; a key two players share matches nobody.
+  const bySurname = new Map<string, string | null>();
+  for (const player of players) {
+    for (const key of nicknameSurnameKeys(player.nickname, player.fullName)) {
+      const current = bySurname.get(key);
+      bySurname.set(key, current === undefined || current === player.nickname ? player.nickname : null);
+    }
+  }
 
   const seen = new Set<string>();
   return lines.map((line) => {
     const key = nameKey(line.name);
     const viaAlias = !byNickname.has(key) && byAlias.has(key);
-    const official = byNickname.get(key) ?? byAlias.get(key);
+    const fromSurname = bySurname.get(key) ?? undefined;
+    // Applicants are listed as "Nickname Surname", so that counts as official on their list.
+    const viaSurname =
+      !byNickname.has(key) && !viaAlias && line.list === "applicants" && Boolean(fromSurname);
+    const official = byNickname.get(key) ?? byAlias.get(key) ?? (viaSurname ? fromSurname : undefined);
     if (official) {
       if (!line.waitlist && seen.has(official)) {
-        return { ...line, status: "duplicate", nickname: official, suggestions: [], viaAlias };
+        return { ...line, status: "duplicate", nickname: official, suggestions: [], viaAlias, viaSurname };
       }
       if (!line.waitlist) seen.add(official);
-      return { ...line, status: "ok", nickname: official, suggestions: [], viaAlias };
+      return { ...line, status: "ok", nickname: official, suggestions: [], viaAlias, viaSurname };
     }
 
-    const fromFullName = byFullName.get(key);
+    const fromFullName = byFullName.get(key) ?? fromSurname;
     if (fromFullName) {
       return { ...line, status: "suggest", nickname: fromFullName, suggestions: [fromFullName] };
     }

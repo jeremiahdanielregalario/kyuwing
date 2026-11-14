@@ -170,8 +170,9 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
   let playerIds: string[] = [];
   let listQueueMaster: string | null = null;
   let listFinance: string | null = null;
-  if (parsed.data.signupText?.trim()) {
-    const check = await checkSignup(parsed.data.signupText);
+  const texts = { members: parsed.data.signupText ?? "", applicants: parsed.data.applicantsText ?? "" };
+  if (texts.members.trim() || texts.applicants.trim()) {
+    const check = await checkSignup(texts);
     if (!check.ready) return fail(notReadyReason(check));
     const confirmed = check.lines.filter((line) => !line.waitlist);
     const nicknames = [...new Set(confirmed.map((line) => line.nickname!))];

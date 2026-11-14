@@ -4,38 +4,54 @@ import { formatTimeRange, time12 } from "@/lib/datetime";
 import * as React from "react";
 import { AlertCircle, Check, ClipboardPaste, Loader2, Trash2 } from "lucide-react";
 import { checkSignupText } from "@/lib/actions/signup-text";
-import type { SignupCheck } from "@/lib/signup-check";
-import { removeLine, rewriteLine, type ResolvedLine } from "@/lib/signup-text";
+import type { SignupCheck, SignupTexts } from "@/lib/signup-check";
+import { removeLine, rewriteLine, type ResolvedLine, type SignupList } from "@/lib/signup-text";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const EXAMPLE = `Official MEGA Game Day (KBC)
-Nov 2, 2026; Monday
-10AM - 3PM
+const MEMBERS_EXAMPLE = `Official Game Day (DASC)
+Nov 16, 2026; Monday
+11AM - 4PM
 
-1. QM: Jgops
-2. FIN: Dylan
-3. Randolf
-4. Lou`;
+1. QM: Roniel
+2. FIN: Ivana
+3. Jess
+4. Harry
+5-20. APPS`;
+
+const APPLICANTS_EXAMPLE = `Official Game Day (DASC)
+Nov 16, 2026; Monday
+11AM - 3PM
+
+1. Clyde Abella
+2. Matt Dela Cruz
+3-20. MEMALUMNS`;
+
+export const EMPTY_SIGNUP_TEXTS: SignupTexts = { members: "", applicants: "" };
 
 /**
- * Paste box for the Messenger sign-up list. It checks the list as it is typed or
- * pasted and shows what has to change: every name must be an official nickname.
- * Fixes rewrite the pasted text itself, so the text stays the single source.
+ * Paste boxes for the Messenger sign-up lists: one for members and alumni (official
+ * nicknames), one for applicants ("Nickname Surname"). They are checked as they are typed or
+ * pasted, and the panel shows what has to change. Fixes rewrite the pasted text itself, so
+ * the text stays the single source.
  */
 export function SignupTextPanel({
-  text,
-  onTextChange,
+  texts,
+  onTextsChange,
   gameDayId,
   onChecked,
 }: {
-  text: string;
-  onTextChange: (text: string) => void;
+  texts: SignupTexts;
+  onTextsChange: (texts: SignupTexts) => void;
   /** Check against a game day, to show who is already signed up. */
   gameDayId?: string;
   onChecked?: (check: SignupCheck | null) => void;
 }) {
+  // Both lists as one string, to tell whether a finished check is still current.
+  const text = texts.applicants.trim() ? `${texts.members}\u0000${texts.applicants}` : texts.members;
+  const { members, applicants } = texts;
+  const setList = (list: SignupList, value: string) => onTextsChange({ ...texts, [list]: value });
   // The latest finished check, with the text it was for.
   const [result, setResult] = React.useState<{
     text: string;
@@ -56,14 +72,14 @@ export function SignupTextPanel({
       return;
     }
     const timer = window.setTimeout(async () => {
-      const response = await checkSignupText(text, gameDayId);
+      const response = await checkSignupText({ members, applicants }, gameDayId);
       if (ticket !== latest.current) return;
       const check = response.ok && response.data ? response.data : null;
       setResult({ text, check, error: response.ok ? null : response.error });
       onCheckedRef.current?.(check);
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [text, gameDayId]);
+  }, [text, members, applicants, gameDayId]);
 
   const shown = text.trim() ? result : null;
   const check = shown?.check ?? null;
@@ -75,30 +91,57 @@ export function SignupTextPanel({
   const confirmed = check ? check.lines.filter((line) => !line.waitlist) : [];
   const waitlisted = check ? check.lines.filter((line) => line.waitlist) : [];
   const viaAlias = confirmed.filter((line) => line.status === "ok" && line.viaAlias);
+  const memberCount = confirmed.filter((line) => line.list === "members").length;
+  const applicantCount = confirmed.length - memberCount;
 
   const fixAll = () => {
     // Rewriting keeps line numbers, so the fixes can be applied one after another.
-    onTextChange(fullNameFixes.reduce((current, line) => rewriteLine(current, line, line.nickname!), text));
+    const fix = (list: SignupList) =>
+      fullNameFixes
+        .filter((line) => line.list === list)
+        .reduce((current, line) => rewriteLine(current, line, line.nickname!), texts[list]);
+    onTextsChange({ members: fix("members"), applicants: fix("applicants") });
   };
 
   return (
     <div className="space-y-3">
-      <div>
-        <Textarea
-          value={text}
-          onChange={(event) => onTextChange(event.target.value)}
-          placeholder={EXAMPLE}
-          rows={9}
-          className="font-mono text-[12px]"
-          spellCheck={false}
-        />
-        <p className="text-muted mt-1.5 text-[11px] leading-relaxed">
-          Paste the list from Messenger as is. Every name has to be the player&apos;s{" "}
-          <span className="text-ink font-semibold">official nickname</span>, the one in the player database,
-          or one of the other names saved for them (like &ldquo;LA&rdquo; for Ian LA), so the app knows
-          exactly who they are. Names written as full names or with typos are flagged below.
-        </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-semibold">Members &amp; alumni list</span>
+          <Textarea
+            value={members}
+            onChange={(event) => setList("members", event.target.value)}
+            placeholder={MEMBERS_EXAMPLE}
+            rows={9}
+            className="font-mono text-[12px]"
+            spellCheck={false}
+          />
+          <span className="text-muted mt-1 block text-[11px]">
+            By official nickname, e.g. &ldquo;Jess&rdquo;.
+          </span>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-semibold">Applicants list</span>
+          <Textarea
+            value={applicants}
+            onChange={(event) => setList("applicants", event.target.value)}
+            placeholder={APPLICANTS_EXAMPLE}
+            rows={9}
+            className="font-mono text-[12px]"
+            spellCheck={false}
+          />
+          <span className="text-muted mt-1 block text-[11px]">
+            By nickname and surname, e.g. &ldquo;Matt Dela Cruz&rdquo;.
+          </span>
+        </label>
       </div>
+      <p className="text-muted text-[11px] leading-relaxed">
+        Paste each list from Messenger as is; either box can stay empty. Every name has to be the
+        player&apos;s <span className="text-ink font-semibold">official nickname</span> from the player
+        database, one of the other names saved for them (like &ldquo;LA&rdquo; for Ian LA), or on the
+        applicants list their nickname and surname. Lines like &ldquo;18-43. MEMALUMNS&rdquo; are skipped.
+        Full names, @ mentions and typos are flagged below.
+      </p>
 
       {text.trim() && (
         <div
@@ -122,7 +165,9 @@ export function SignupTextPanel({
             <div className="space-y-1">
               <p className="inline-flex items-center gap-1.5 font-semibold">
                 {check.ready ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                {confirmed.length} {confirmed.length === 1 ? "name" : "names"} ·{" "}
+                {confirmed.length} {confirmed.length === 1 ? "name" : "names"}
+                {applicantCount > 0 &&
+                  ` (${memberCount} members & alumni, ${applicantCount} applicants)`} ·{" "}
                 {check.ready
                   ? "all official nicknames. Ready."
                   : `${problems.length} ${problems.length === 1 ? "needs" : "need"} fixing before you can continue`}
@@ -142,6 +187,7 @@ export function SignupTextPanel({
                   )}
                 </p>
               )}
+              {check.headerMismatch && <p className="text-coral font-semibold">{check.headerMismatch}</p>}
               {viaAlias.length > 0 && (
                 <p className="text-muted">
                   Read as nicknames: {viaAlias.map((line) => `${line.name} → ${line.nickname}`).join(", ")}.
@@ -183,10 +229,10 @@ export function SignupTextPanel({
           <ul className="border-line divide-line/60 divide-y overflow-hidden rounded-2xl border bg-white">
             {problems.map((line) => (
               <ProblemRow
-                key={`${line.lineIndex}-${line.name}`}
+                key={`${line.list}-${line.lineIndex}-${line.name}`}
                 line={line}
-                onUse={(nickname) => onTextChange(rewriteLine(text, line, nickname))}
-                onRemove={() => onTextChange(removeLine(text, line))}
+                onUse={(nickname) => setList(line.list, rewriteLine(texts[line.list], line, nickname))}
+                onRemove={() => setList(line.list, removeLine(texts[line.list], line))}
               />
             ))}
           </ul>
@@ -210,6 +256,9 @@ function ProblemRow({
       <span className="text-muted w-6 font-mono text-[10px] font-bold">{line.number}</span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-semibold">
+          {line.list === "applicants" && (
+            <span className="text-muted mr-1.5 text-[10px] font-bold uppercase">Applicants</span>
+          )}
           {line.role && (
             <span className="text-muted mr-1.5 text-[10px] font-bold uppercase">{line.role}</span>
           )}
@@ -220,10 +269,14 @@ function ProblemRow({
             ? "That's a full name, not the official nickname."
             : line.status === "duplicate"
               ? "Already listed above."
-              : "Not an official nickname."}
+              : line.list === "applicants"
+                ? "No player with that nickname and surname."
+                : "Not an official nickname."}
           {line.status === "unknown" &&
             line.suggestions.length === 0 &&
-            " Add them in Players first, or fix the spelling."}
+            (line.list === "applicants"
+              ? " Add them in Players first (category Applicant, full name with their surname), or fix the spelling."
+              : " Add them in Players first, or fix the spelling.")}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">

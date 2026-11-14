@@ -21,11 +21,41 @@ export type SignupCheck = {
   alreadyOnList: string[];
   /** Nicknames that are official but archived, shown as a heads-up. */
   inactive: string[];
+  /** Set when the two lists' headers name different dates or venues. */
+  headerMismatch: string | null;
 };
 
-/** Reads a pasted Messenger list and checks it against the database. Read-only. */
-export async function checkSignup(text: string, gameDayId?: string): Promise<SignupCheck> {
-  const parsed = parseSignupText(text);
+/** The two Messenger lists: members and alumni, and applicants. Either may be empty. */
+export type SignupTexts = { members: string; applicants: string };
+
+export function signupTexts(input: SignupTexts | string | null | undefined): SignupTexts {
+  if (!input) return { members: "", applicants: "" };
+  return typeof input === "string" ? { members: input, applicants: "" } : input;
+}
+
+/**
+ * Reads the pasted Messenger lists and checks them against the database. Read-only. The
+ * game day's details come from the members list's header, or the applicants list's when the
+ * members box is empty; a name on both lists is flagged as listed twice.
+ */
+export async function checkSignup(input: SignupTexts | string, gameDayId?: string): Promise<SignupCheck> {
+  const texts = signupTexts(input);
+  const members = parseSignupText(texts.members, "members");
+  const applicants = parseSignupText(texts.applicants, "applicants");
+  const parsed = {
+    header: members.header.title ? members.header : applicants.header,
+    lines: [...members.lines, ...applicants.lines],
+    ignored: [...members.ignored, ...applicants.ignored],
+  };
+  const mismatch: string[] = [];
+  if (members.header.date && applicants.header.date && members.header.date !== applicants.header.date) {
+    mismatch.push(`dates (${members.header.date} and ${applicants.header.date})`);
+  }
+  const shortA = members.header.venueShort?.toLowerCase();
+  const shortB = applicants.header.venueShort?.toLowerCase();
+  if (shortA && shortB && shortA !== shortB) {
+    mismatch.push(`venues (${members.header.venueShort} and ${applicants.header.venueShort})`);
+  }
   const [players, venues, existing] = await Promise.all([
     prisma.player.findMany({
       select: { id: true, nickname: true, fullName: true, aliases: true, active: true },
@@ -60,6 +90,9 @@ export async function checkSignup(text: string, gameDayId?: string): Promise<Sig
     inactive: confirmed
       .filter((line) => line.nickname && inactive.has(line.nickname))
       .map((line) => line.nickname!),
+    headerMismatch: mismatch.length
+      ? `The two lists name different ${mismatch.join(" and ")}. The members list is used.`
+      : null,
   };
 }
 

@@ -44,9 +44,9 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
 import { SavingPill } from "@/components/ui/saving-pill";
-import { SignupTextPanel } from "@/components/app/signup-text-panel";
+import { EMPTY_SIGNUP_TEXTS, SignupTextPanel } from "@/components/app/signup-text-panel";
 import { addPlayersFromText } from "@/lib/actions/signup-text";
-import type { SignupCheck } from "@/lib/signup-check";
+import type { SignupCheck, SignupTexts } from "@/lib/signup-check";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -84,7 +84,7 @@ export function SignupManager({
   const [tab, setTab] = React.useState<"all" | "expected" | "waiting" | "done">("all");
   const [quickOpen, setQuickOpen] = React.useState(false);
   const [pasteOpen, setPasteOpen] = React.useState(false);
-  const [pasteText, setPasteText] = React.useState("");
+  const [pasteTexts, setPasteTexts] = React.useState<SignupTexts>(EMPTY_SIGNUP_TEXTS);
   const [pasteCheck, setPasteCheck] = React.useState<SignupCheck | null>(null);
   const [quick, setQuick] = React.useState({ nickname: "", level: "C", category: "ACTIVE" });
   const [addQuery, setAddQuery] = React.useState("");
@@ -377,10 +377,10 @@ export function SignupManager({
             <Button
               onClick={() =>
                 act(
-                  () => addPlayersFromText(gameDayId, pasteText),
+                  () => addPlayersFromText(gameDayId, pasteTexts),
                   () => {
                     setPasteOpen(false);
-                    setPasteText("");
+                    setPasteTexts(EMPTY_SIGNUP_TEXTS);
                   },
                 )
               }
@@ -393,8 +393,8 @@ export function SignupManager({
         }
       >
         <SignupTextPanel
-          text={pasteText}
-          onTextChange={setPasteText}
+          texts={pasteTexts}
+          onTextsChange={setPasteTexts}
           gameDayId={gameDayId}
           onChecked={setPasteCheck}
         />

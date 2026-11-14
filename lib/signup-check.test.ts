@@ -28,6 +28,7 @@ function checkFor(text: string): SignupCheck {
     ready: lines.length > 0 && blocking === 0,
     alreadyOnList: [],
     inactive: [],
+    headerMismatch: null,
   };
 }
 
