@@ -66,6 +66,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Public roster footer** — removed the level-labels note (label list, "X means not rated yet" and who sets levels) from the bottom of `/roster`.
 - **Tidier player database on phones** — each player row shows only the trophy (when they have awards) and a ⋯ button that opens Attendance history, Edit, Archive and Delete in a sheet. The header no longer wraps. Tablet and desktop are unchanged.
 - **Tournament awards list fits phones** — each tournament shows its full name with the date, levels and teams below it, and View, Edit and Remove stay on one line.
 - **Simpler login page** — the note about the PIN and deployment settings is gone from the queue master sign-in.

@@ -8,7 +8,6 @@ import { RecencyPanel } from "@/components/app/recency-panel";
 import { Logo } from "@/components/logo";
 import { Stat } from "@/components/ui/stat";
 import { manilaDateKey } from "@/lib/datetime";
-import { LEVELS } from "@/lib/levels";
 import { getPublicRoster } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -106,10 +105,6 @@ export default async function PublicRosterPage({ searchParams }: Props) {
 
         <AwardsPanel readOnly tournaments={roster.tournaments} nicknames={[]} today={manilaDateKey()} />
 
-        <p className="text-muted text-[11px] leading-relaxed">
-          Level labels: {LEVELS.map((level) => level.label).join(" · ")}. X means not rated yet. Levels are
-          set by the queue masters; ask one of them if yours looks off.
-        </p>
         <p className="text-muted text-center text-[11px]">View only · App by Danyel Regalario</p>
       </main>
     </div>
