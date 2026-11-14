@@ -2139,7 +2139,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     key={player.sessionPlayerId}
                     className="border-line/70 flex items-center gap-3 rounded-xl border px-3 py-2.5"
                   >
-                    <Avatar name={player.nickname} level={player.levelLabel} />
+                    <Avatar name={player.nickname} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
                       <p className="text-muted text-[10px]">

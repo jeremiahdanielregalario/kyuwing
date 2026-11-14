@@ -449,7 +449,7 @@ export function PlayerManager({
             <ul className="divide-line/60 divide-y md:hidden">
               {filtered.map((player) => (
                 <li key={player.id} className="animate-pop-in flex items-center gap-3 px-4 py-3">
-                  <Avatar name={player.nickname} level={levelLabel(player.level)} />
+                  <Avatar name={player.nickname} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
@@ -562,7 +562,7 @@ export function PlayerManager({
                     <tr key={player.id} className="border-line/50 hover:bg-cream/30 border-b transition">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2.5">
-                          <Avatar name={player.nickname} level={levelLabel(player.level)} />
+                          <Avatar name={player.nickname} />
                           <div className="min-w-0">
                             <p className="font-semibold">{player.nickname}</p>
                             <p className="text-muted truncate text-[10px]">

@@ -125,6 +125,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- **Level shown once per player** — the Players list and the board's check-in list showed each level twice (a small tag on the initials circle and the coloured badge by the name). Only the coloured badge is shown now.
 - **Court plan row no longer jumps** — the small dot that flashed inside the court block button while the board synced is gone (the header already says "Syncing board…"), so the button keeps its width. On phones the "Court plan" label is hidden so the block and the Manila clock fit on one line.
 - **Players dropped on a court can be moved again** — a player placed in an open court's slot used to be stuck there (only ⊗ worked). They can now be dragged or tapped to another place, court or game, and two placed players trade places. A player can no longer sit in two court places at once.
 - **Queue blocks keep their outline** — the outlines no longer disappear, and the blocks no longer refuse to drag, while a move is saving.
