@@ -68,6 +68,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Two QMs on a Messenger list** — when a pasted sign-up list has more than one `QM:` (or `FIN:`) line, every one is kept and the field is filled as "Roniel & Jgops" instead of only the first. The reports page, PDF and Excel then label them **Queue masters** / **Finance members**.
 - **Late players are not prioritized** — auto-pair now counts the games a late player missed (from their check-in time versus the first court time, after a 10-minute grace) as if played, scaled by courts and players checked in. Arriving late no longer earns a head start for having fewer games, and the later the arrival the more games are lost. Priority and placing by hand still override it.
 - **Lighter start reminder on court cards** — the gold "Not started yet. Press Start once all four are on court" note is now a short, slightly see-through "Start game · 1 min ago" tag that floats over the court above **Start**, so the card no longer grows to make room for it.
 - **Clearer Remove court button** — the **−** in a court's header is now a solid red circle with a bold white minus, larger and easier to spot. It is dimmed while a game is in progress on that court.

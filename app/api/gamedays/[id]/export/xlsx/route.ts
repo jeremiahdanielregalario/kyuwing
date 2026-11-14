@@ -6,6 +6,7 @@ import { formatClock, formatGameDate } from "@/lib/datetime";
 import { CATEGORY_LABELS, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { levelLabel } from "@/lib/levels";
 import { getFeeReport } from "@/lib/queries";
+import { officerLabel } from "@/lib/signup-text";
 import { slugify } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -68,8 +69,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   summary.addRow([]);
   const summaryRows: Array<[string, string | number]> = [
     ["Venue", report.gameDay.venue.name],
-    ["Queue master", report.gameDay.queueMasterName ?? "—"],
-    ["Finance member", report.gameDay.financeMemberName ?? "—"],
+    [officerLabel("Queue master", report.gameDay.queueMasterName), report.gameDay.queueMasterName ?? "—"],
+    [
+      officerLabel("Finance member", report.gameDay.financeMemberName),
+      report.gameDay.financeMemberName ?? "—",
+    ],
     ["Date", formatGameDate(report.gameDay.date, { weekday: true })],
     ["Game-day type", GAMEDAY_TYPE_LABELS[report.gameDay.type]],
     ["Status", report.gameDay.status],

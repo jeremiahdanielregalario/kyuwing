@@ -12,6 +12,7 @@ import { CourtRateField } from "@/components/app/court-rate-field";
 import { CourtPlanEditor } from "@/components/app/court-plan-editor";
 import { SignupTextPanel } from "@/components/app/signup-text-panel";
 import type { SignupCheck } from "@/lib/signup-check";
+import { officerNames } from "@/lib/signup-text";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 
@@ -96,8 +97,12 @@ export function NewGameDayButton({
       return;
     }
     const header = check.header;
+    // Every QM / FIN line counts: two QMs fill the field as "Roniel & Jgops".
     const roleName = (role: "QM" | "FIN") =>
-      check.lines.find((line) => line.role === role && line.status === "ok")?.nickname ?? null;
+      officerNames(
+        check.lines.filter((line) => line.status === "ok"),
+        role,
+      );
     const key = JSON.stringify([
       header.title,
       header.type,

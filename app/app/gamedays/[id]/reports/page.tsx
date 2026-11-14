@@ -12,6 +12,7 @@ import { formatClock, formatGameDate } from "@/lib/datetime";
 import { GAMEDAY_TYPE_LABELS, formatPeso } from "@/lib/fees";
 import { formatPlayTime, playTimeByPlayer } from "@/lib/play-time";
 import { getFeeReport } from "@/lib/queries";
+import { officerLabel } from "@/lib/signup-text";
 
 export const dynamic = "force-dynamic";
 
@@ -72,13 +73,13 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
         <div className="border-line bg-paper flex flex-wrap gap-x-8 gap-y-2 rounded-2xl border px-4 py-3 text-[13px]">
           <p>
             <span className="text-muted mr-2 text-[10px] font-bold tracking-[0.14em] uppercase">
-              Queue master
+              {officerLabel("Queue master", report.gameDay.queueMasterName)}
             </span>
             <span className="font-semibold">{report.gameDay.queueMasterName ?? "Not set"}</span>
           </p>
           <p>
             <span className="text-muted mr-2 text-[10px] font-bold tracking-[0.14em] uppercase">
-              Finance member
+              {officerLabel("Finance member", report.gameDay.financeMemberName)}
             </span>
             <span className="font-semibold">{report.gameDay.financeMemberName ?? "Not set"}</span>
           </p>

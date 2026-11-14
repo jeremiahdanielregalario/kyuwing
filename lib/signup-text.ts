@@ -258,3 +258,33 @@ export function removeLine(input: string, line: SignupLine): string {
 export function blockingLines(lines: ResolvedLine[]): ResolvedLine[] {
   return lines.filter((line) => !line.waitlist && line.status !== "ok");
 }
+
+/** Longest officer name a game day stores (`queueMasterName` / `financeMemberName`). */
+export const OFFICER_NAME_MAX = 60;
+
+/**
+ * Everyone listed with a role, e.g. two `QM:` lines on one game day. Joins their nicknames as
+ * "Roniel & Jgops" (or "A, B & C"), without repeats, trimmed to whole names that fit in
+ * `OFFICER_NAME_MAX`. Null when nobody has the role.
+ */
+export function officerNames(
+  lines: Array<{ role?: SignupRole | null; nickname?: string | null }>,
+  role: SignupRole,
+): string | null {
+  const names: string[] = [];
+  for (const line of lines) {
+    const name = line.role === role ? line.nickname?.trim() : null;
+    if (name && !names.includes(name)) names.push(name);
+  }
+  while (names.length > 1 && joinNames(names).length > OFFICER_NAME_MAX) names.pop();
+  return names.length > 0 ? joinNames(names).slice(0, OFFICER_NAME_MAX) : null;
+}
+
+function joinNames(names: string[]): string {
+  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} & ${names.at(-1)}`;
+}
+
+/** "Queue master" or "Queue masters", depending on whether the stored name lists more than one. */
+export function officerLabel(singular: string, name: string | null | undefined): string {
+  return name && / & /.test(name) ? `${singular}s` : singular;
+}

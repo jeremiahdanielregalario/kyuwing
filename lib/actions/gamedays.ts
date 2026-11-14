@@ -38,6 +38,7 @@ import {
   playerAvailableAt,
 } from "@/lib/planning";
 import { checkSignup, notReadyReason } from "@/lib/signup-check";
+import { officerNames } from "@/lib/signup-text";
 import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import {
   addCourtSchema,
@@ -162,8 +163,8 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
       select: { id: true },
     });
     playerIds = found.map((player) => player.id);
-    listQueueMaster = confirmed.find((line) => line.role === "QM")?.nickname ?? null;
-    listFinance = confirmed.find((line) => line.role === "FIN")?.nickname ?? null;
+    listQueueMaster = officerNames(confirmed, "QM");
+    listFinance = officerNames(confirmed, "FIN");
   }
 
   const date = dateOnlyFromKey(parsed.data.date);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   blockingLines,
+  officerLabel,
+  officerNames,
   parseSignupText,
   resolveSignup,
   removeLine,
@@ -163,5 +165,43 @@ describe("removeLine", () => {
     const text = "Game\n1. Lou\n2. Lou\n3. Carl";
     const lines = parseSignupText(text).lines;
     expect(removeLine(text, lines[1])).toBe("Game\n1. Lou\n3. Carl");
+  });
+});
+
+describe("officerNames", () => {
+  const list = `Official Game Day (DASC)
+Nov 18, 2026; Wednesday
+10AM - 3PM
+
+1. QM: Roniel
+2. QM: Jgops
+3. FIN: Ivana
+4. Jess
+5. Harry`;
+
+  it("reads every QM line, not just the first", () => {
+    const { lines } = parseSignupText(list);
+    const named = lines.map((line) => ({ ...line, nickname: line.name }));
+    expect(named.filter((line) => line.role === "QM")).toHaveLength(2);
+    expect(officerNames(named, "QM")).toBe("Roniel & Jgops");
+    expect(officerNames(named, "FIN")).toBe("Ivana");
+  });
+
+  it("joins three, skips repeats and returns null when nobody has the role", () => {
+    const lines = ["A", "B", "A", "C"].map((nickname) => ({ role: "QM" as const, nickname }));
+    expect(officerNames(lines, "QM")).toBe("A, B & C");
+    expect(officerNames(lines, "FIN")).toBeNull();
+  });
+
+  it("drops whole names that do not fit", () => {
+    const long = "x".repeat(40);
+    const lines = [long, "Jgops", "y".repeat(30)].map((nickname) => ({ role: "QM" as const, nickname }));
+    expect(officerNames(lines, "QM")).toBe(`${long} & Jgops`);
+  });
+
+  it("labels plural names", () => {
+    expect(officerLabel("Queue master", "Roniel & Jgops")).toBe("Queue masters");
+    expect(officerLabel("Queue master", "Roniel")).toBe("Queue master");
+    expect(officerLabel("Queue master", null)).toBe("Queue master");
   });
 });
