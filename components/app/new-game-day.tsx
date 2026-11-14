@@ -196,7 +196,7 @@ export function NewGameDayButton({
         }
       >
         <div className="space-y-4">
-          <details className="border-line bg-paper group rounded-2xl border" open={Boolean(listText)}>
+          <details className="border-line bg-paper group rounded-2xl border" open>
             <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold">
               <ClipboardPaste className="h-4 w-4" />
               Start from the Messenger list

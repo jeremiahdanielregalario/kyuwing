@@ -143,14 +143,6 @@ export function SignupTextPanel({
           </span>
         </label>
       </div>
-      <p className="text-muted text-[11px] leading-relaxed">
-        Paste each list from Messenger as is; either box can stay empty. Each name is read as the
-        player&apos;s <span className="text-ink font-semibold">official nickname</span>: the nickname itself,
-        one of the other names saved for them (like &ldquo;LA&rdquo; for Ian LA), their full name, or their
-        nickname and surname (&ldquo;Thea Rello&rdquo;), @ mentions included. Lines like &ldquo;18-43.
-        MEMALUMNS&rdquo; are skipped. Typos, unknown names and names that fit more than one player are flagged
-        below.
-      </p>
 
       {text.trim() && (
         <div

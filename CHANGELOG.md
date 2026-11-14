@@ -73,6 +73,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Messenger list box open by default** — on New game day, **Start from the Messenger list** now starts expanded, and the long explanation under the two boxes is gone.
 - **Full names on the Messenger list are read automatically** — a full name ("Jeremiah Daniel Regalario", "@Leidovic Keth Gellang") or a nickname and surname ("Thea Rello") that fits exactly one player is now read as their nickname on either list, with no **Use "…"** to press; the box lists them under "Read as nicknames". Only a name that fits more than one player still asks which one. The **Use nicknames for all** button is gone, as there is nothing left for it to do.
 - **Any start time** — the game time and court block pickers now offer the whole day from 12:00 AM, not just from 5:00 AM.
 - **Transfer to Court instead of automatic moves** — a waiting game no longer jumps onto a court by itself when a game ends, a match is cancelled, a court is added or the day is extended. When a court is empty, the next waiting game whose players are all off court shows a gold "Court 5 is empty" note and a black **Transfer to Court** button; press it to put the game on that court, then Start it. The end-of-game message says when a waiting game is ready to transfer. Auto-pair with an empty court still sends waiting games there first.
