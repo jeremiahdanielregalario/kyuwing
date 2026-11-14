@@ -77,15 +77,19 @@ export const QUEUE_MASTER_PER_GAME = 20;
 export const BASE_PRICE_STEP = 5;
 
 /**
- * Whether a nickname is one of the game day's queue masters. The stored name may list more
- * than one ("Roniel & Jgops", "A, B & C"); matching ignores case and spaces at the ends.
+ * Whether a player is one of the game day's queue masters. The stored name may list more
+ * than one ("Roniel & Jgops", "A, B & C") and may use one of the player's other names
+ * ("J" for Jgops); matching ignores case and spaces.
  */
-export function isQueueMasterOnDuty(nickname: string, queueMasterName: string | null | undefined): boolean {
+export function isQueueMasterOnDuty(
+  nickname: string,
+  queueMasterName: string | null | undefined,
+  aliases: string[] = [],
+): boolean {
   if (!queueMasterName) return false;
-  const key = nickname.trim().toLowerCase();
-  return queueMasterName
-    .split(/\s*(?:&|,|\band\b)\s*/i)
-    .some((name) => name.trim().toLowerCase() === key && key.length > 0);
+  const key = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+  const mine = new Set([nickname, ...aliases].map(key).filter(Boolean));
+  return queueMasterName.split(/\s*(?:&|,|\band\b)\s*/i).some((name) => mine.has(key(name)));
 }
 
 /** Badminton grip, sold on the day, per piece in pesos. */

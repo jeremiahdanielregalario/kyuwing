@@ -32,6 +32,11 @@ export const PAYMENT_METHOD_KEYS = ["CASH", "GCASH", "BANK", "OTHER"] as const;
 export const playerSchema = z.object({
   nickname: z.string().trim().min(1, "Nickname is required").max(30, "Keep nicknames under 30 characters"),
   fullName: z.string().trim().max(80).optional().nullable(),
+  /** Other names they sign up with in the chat. */
+  aliases: z
+    .array(z.string().trim().min(1).max(30, "Keep each other name under 30 characters"))
+    .max(10, "Up to 10 other names")
+    .optional(),
   level: z.enum(SKILL_LEVEL_KEYS),
   category: z.enum(CATEGORY_KEYS).default("ACTIVE"),
   contact: z.string().trim().max(60).optional().nullable(),

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { fail, ok } from "@/lib/action-result";
 import type { ActionResult } from "@/lib/action-result";
+import { aliasIndex } from "@/lib/aliases";
 import { fullNameKeys, nameKey, parseAttendanceBlock, parseNameList } from "@/lib/attendance";
 import { isQueueMaster } from "@/lib/auth";
 import { dateOnlyFromKey } from "@/lib/datetime";
@@ -39,9 +40,10 @@ export async function logAttendanceEvent(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return fail("Pick a valid date.");
 
   const players = await prisma.player.findMany({
-    select: { id: true, nickname: true, fullName: true },
+    select: { id: true, nickname: true, fullName: true, aliases: true },
   });
-  const nicknames = new Set(players.map((player) => nameKey(player.nickname)));
+  const byAlias = aliasIndex(players.map((player) => ({ aliases: player.aliases, value: player.id })));
+  const nicknames = new Set([...players.map((player) => nameKey(player.nickname)), ...byAlias.keys()]);
   const isKnown = (key: string) => nicknames.has(key);
 
   // The played box may hold a whole chat message, including its own "Waitlist:" section.
@@ -69,6 +71,7 @@ export async function logAttendanceEvent(
       if (fullNameCounts.get(key) === 1) byKey.set(key, player.id);
     }
   }
+  for (const [key, id] of byAlias) byKey.set(key, id);
   for (const player of players) byKey.set(nameKey(player.nickname), player.id);
 
   const playedIds = new Map<string, "PLAYED" | "WAITLIST">();

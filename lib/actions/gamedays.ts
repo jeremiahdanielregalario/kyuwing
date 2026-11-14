@@ -1926,7 +1926,7 @@ export async function setPayment(sessionPlayerId: string, input: PaymentInput): 
   }
 
   const fee = feeScheduleFor(row.gameDay).feeFor(row.player.category, row.gamesPlayed, {
-    queueMaster: isQueueMasterOnDuty(row.player.nickname, row.gameDay.queueMasterName),
+    queueMaster: isQueueMasterOnDuty(row.player.nickname, row.gameDay.queueMasterName, row.player.aliases),
     voucher,
   });
   const total = fee.total + extrasTotal({ gripCount, otherCharge });
@@ -1996,7 +1996,7 @@ export async function markAllPaid(gameDayId: string): Promise<ActionResult<{ upd
     if (row.paid) continue;
     const total =
       schedule.feeFor(row.player.category, row.gamesPlayed, {
-        queueMaster: isQueueMasterOnDuty(row.player.nickname, gameDay.queueMasterName),
+        queueMaster: isQueueMasterOnDuty(row.player.nickname, gameDay.queueMasterName, row.player.aliases),
         voucher: row.voucher,
       }).total + extrasTotal(row);
     await prisma.sessionPlayer.update({

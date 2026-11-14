@@ -13,7 +13,7 @@ total      = base price + shuttle rate × games played + ₱10 (applicants and P
            + extras (grips, other charges)
 ```
 
-- **Queue masters on duty** (the nicknames in the game day's queue master field, e.g. "Roniel & Jgops") pay no base price, ₱20 a game whatever their category, and no surcharge. They still count as players when the rent is divided, as in the sheet. Matching is by nickname, ignoring case, so the queue master field must use the same nicknames as the roster (`isQueueMasterOnDuty`).
+- **Queue masters on duty** (the nicknames in the game day's queue master field, e.g. "Roniel & Jgops") pay no base price, ₱20 a game whatever their category, and no surcharge. They still count as players when the rent is divided, as in the sheet. Matching is by nickname or one of the player's **Also goes by** names, ignoring case (`isQueueMasterOnDuty`).
 - **₱10 surcharge** for Applicants and Non-affiliates ("Plus 1"), once per game day (`NON_MEMBER_SURCHARGE`).
 - **Voucher**: a discount in pesos entered in the Record payment dialog (`SessionPlayer.voucher`). It never takes the fee below ₱0; grips and other charges are added after it.
 

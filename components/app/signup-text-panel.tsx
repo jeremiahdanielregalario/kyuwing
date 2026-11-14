@@ -74,6 +74,7 @@ export function SignupTextPanel({
   const fullNameFixes = problems.filter((line) => line.status === "suggest");
   const confirmed = check ? check.lines.filter((line) => !line.waitlist) : [];
   const waitlisted = check ? check.lines.filter((line) => line.waitlist) : [];
+  const viaAlias = confirmed.filter((line) => line.status === "ok" && line.viaAlias);
 
   const fixAll = () => {
     // Rewriting keeps line numbers, so the fixes can be applied one after another.
@@ -94,7 +95,8 @@ export function SignupTextPanel({
         <p className="text-muted mt-1.5 text-[11px] leading-relaxed">
           Paste the list from Messenger as is. Every name has to be the player&apos;s{" "}
           <span className="text-ink font-semibold">official nickname</span>, the one in the player database,
-          so the app knows exactly who they are. Names written as full names or with typos are flagged below.
+          or one of the other names saved for them (like &ldquo;LA&rdquo; for Ian LA), so the app knows
+          exactly who they are. Names written as full names or with typos are flagged below.
         </p>
       </div>
 
@@ -138,6 +140,11 @@ export function SignupTextPanel({
                       · venue &ldquo;{check.header.venueShort}&rdquo; not found, pick one yourself
                     </span>
                   )}
+                </p>
+              )}
+              {viaAlias.length > 0 && (
+                <p className="text-muted">
+                  Read as nicknames: {viaAlias.map((line) => `${line.name} → ${line.nickname}`).join(", ")}.
                 </p>
               )}
               {waitlisted.length > 0 && (

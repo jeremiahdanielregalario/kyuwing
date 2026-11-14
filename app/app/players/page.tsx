@@ -31,6 +31,7 @@ export default async function PlayersPage() {
     id: player.id,
     nickname: player.nickname,
     fullName: player.fullName,
+    aliases: player.aliases,
     level: player.level,
     category: player.category,
     contact: player.contact,

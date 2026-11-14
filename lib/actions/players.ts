@@ -6,6 +6,7 @@ import { fail, ok } from "@/lib/action-result";
 import type { ActionResult } from "@/lib/action-result";
 import { isQueueMaster } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { aliasConflict, cleanAliases } from "@/lib/aliases";
 import { parseLevel } from "@/lib/levels";
 import { parseCategory, playerSchema, type PlayerInput } from "@/lib/validation";
 
@@ -37,18 +38,45 @@ function normalizeRow(row: Record<string, unknown>) {
   };
 }
 
+/**
+ * The player's other names, cleaned, or an error when one already belongs to someone else
+ * (as a nickname or another player's other name). Undefined when the form did not send any,
+ * so an update leaves them as they are.
+ */
+async function checkedAliases(
+  nickname: string,
+  input: string[] | undefined,
+  playerId?: string,
+): Promise<string[] | undefined | string> {
+  if (input === undefined) return undefined;
+  const aliases = cleanAliases(nickname, input);
+  if (aliases.length === 0) return aliases;
+  const others = await prisma.player.findMany({
+    where: playerId ? { id: { not: playerId } } : {},
+    select: { nickname: true, aliases: true },
+  });
+  const conflict = aliasConflict(aliases, others);
+  if (!conflict) return aliases;
+  return conflict.asNickname
+    ? `"${conflict.alias}" is already ${conflict.owner}'s nickname.`
+    : `"${conflict.alias}" is already another name for ${conflict.owner}.`;
+}
+
 export async function createPlayer(input: PlayerInput): Promise<ActionResult<{ id: string }>> {
   const authError = await guard();
   if (authError) return authError;
 
   const parsed = playerSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the player details.");
+  const aliases = await checkedAliases(parsed.data.nickname, parsed.data.aliases);
+  if (typeof aliases === "string") return fail(aliases);
 
   try {
     const player = await prisma.player.create({
       data: {
         nickname: parsed.data.nickname,
         fullName: parsed.data.fullName || null,
+        aliases,
         level: parsed.data.level,
         category: parsed.data.category,
         contact: parsed.data.contact || null,
@@ -72,6 +100,8 @@ export async function updatePlayer(id: string, input: PlayerInput): Promise<Acti
 
   const parsed = playerSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the player details.");
+  const aliases = await checkedAliases(parsed.data.nickname, parsed.data.aliases, id);
+  if (typeof aliases === "string") return fail(aliases);
 
   try {
     await prisma.player.update({
@@ -79,6 +109,7 @@ export async function updatePlayer(id: string, input: PlayerInput): Promise<Acti
       data: {
         nickname: parsed.data.nickname,
         fullName: parsed.data.fullName || null,
+        ...(aliases ? { aliases } : {}),
         level: parsed.data.level,
         category: parsed.data.category,
         contact: parsed.data.contact || null,

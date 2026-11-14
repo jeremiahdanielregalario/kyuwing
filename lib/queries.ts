@@ -426,7 +426,7 @@ async function loadFeeReport(gameDayId: string): Promise<FeeReport | null> {
     attendees: gameDay.players.filter((row) => row.status !== "EXPECTED").length,
   });
   const rows: FeeRow[] = gameDay.players.map((row) => {
-    const queueMaster = isQueueMasterOnDuty(row.player.nickname, gameDay.queueMasterName);
+    const queueMaster = isQueueMasterOnDuty(row.player.nickname, gameDay.queueMasterName, row.player.aliases);
     const fee = schedule.feeFor(row.player.category, row.gamesPlayed, { queueMaster, voucher: row.voucher });
     const extras = extrasTotal(row);
     const { flatFee, perGameFee, surcharge, voucher } = fee;

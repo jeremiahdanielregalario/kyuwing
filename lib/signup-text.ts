@@ -16,6 +16,7 @@
  * a suggestion, and the queue master has to fix the line. Pure, so it is
  * unit-tested; the database lookup lives in `lib/signup-check.ts`.
  */
+import { aliasIndex } from "./aliases";
 import { fullNameKeys, nameKey } from "./attendance";
 
 export type SignupType = "REGULAR" | "TIPID" | "MEGA";
@@ -168,7 +169,7 @@ export function parseSignupText(input: string): ParsedSignup {
   return { header, lines, ignored };
 }
 
-export type KnownPlayer = { nickname: string; fullName: string | null };
+export type KnownPlayer = { nickname: string; fullName: string | null; aliases?: string[] | null };
 
 export type ResolvedLine = SignupLine & {
   /**
@@ -180,6 +181,8 @@ export type ResolvedLine = SignupLine & {
   nickname: string | null;
   /** Official nicknames it might have been meant to be. */
   suggestions: string[];
+  /** Matched through one of the player's other names (e.g. "LA" for "Ian LA"), not the nickname. */
+  viaAlias?: boolean;
 };
 
 function distance(a: string, b: string): number {
@@ -199,6 +202,7 @@ function distance(a: string, b: string): number {
 /** Checks each pasted name against the official nicknames. */
 export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): ResolvedLine[] {
   const byNickname = new Map(players.map((player) => [nameKey(player.nickname), player.nickname]));
+  const byAlias = aliasIndex(players.map((player) => ({ aliases: player.aliases, value: player.nickname })));
   const byFullName = new Map<string, string>();
   for (const player of players) {
     if (!player.fullName) continue;
@@ -208,13 +212,14 @@ export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): Reso
   const seen = new Set<string>();
   return lines.map((line) => {
     const key = nameKey(line.name);
-    const official = byNickname.get(key);
+    const viaAlias = !byNickname.has(key) && byAlias.has(key);
+    const official = byNickname.get(key) ?? byAlias.get(key);
     if (official) {
       if (!line.waitlist && seen.has(official)) {
-        return { ...line, status: "duplicate", nickname: official, suggestions: [] };
+        return { ...line, status: "duplicate", nickname: official, suggestions: [], viaAlias };
       }
       if (!line.waitlist) seen.add(official);
-      return { ...line, status: "ok", nickname: official, suggestions: [] };
+      return { ...line, status: "ok", nickname: official, suggestions: [], viaAlias };
     }
 
     const fromFullName = byFullName.get(key);

@@ -134,6 +134,8 @@ model Player {
   id        String         @id @default(cuid())
   nickname  String         @unique
   fullName  String?
+  /// Other names the player signs up with in the chat ("LA" for "Ian LA"), matched like the nickname.
+  aliases   String[]       @default([])
   level     SkillLevel
   category  PlayerCategory @default(ACTIVE)
   contact   String?

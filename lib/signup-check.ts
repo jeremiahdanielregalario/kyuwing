@@ -27,7 +27,9 @@ export type SignupCheck = {
 export async function checkSignup(text: string, gameDayId?: string): Promise<SignupCheck> {
   const parsed = parseSignupText(text);
   const [players, venues, existing] = await Promise.all([
-    prisma.player.findMany({ select: { id: true, nickname: true, fullName: true, active: true } }),
+    prisma.player.findMany({
+      select: { id: true, nickname: true, fullName: true, aliases: true, active: true },
+    }),
     prisma.venue.findMany({ select: { id: true, name: true, shortName: true } }),
     gameDayId
       ? prisma.sessionPlayer.findMany({

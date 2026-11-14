@@ -51,11 +51,14 @@ import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { parseAliases } from "@/lib/aliases";
 
 type PlayerRecord = {
   id: string;
   nickname: string;
   fullName: string | null;
+  /** Other names they sign up with in the chat. Left out on the public roster. */
+  aliases?: string[];
   level: string;
   category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | "NON_AFFILIATE";
   contact: string | null;
@@ -67,6 +70,7 @@ type FormState = {
   id?: string;
   nickname: string;
   fullName: string;
+  aliases: string;
   level: string;
   category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | "NON_AFFILIATE";
   contact: string;
@@ -76,6 +80,7 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   nickname: "",
   fullName: "",
+  aliases: "",
   level: "C",
   category: "ACTIVE",
   contact: "",
@@ -152,7 +157,7 @@ export function PlayerManager({
     .filter((player) => categoryFilter === "ALL" || player.category === categoryFilter)
     .filter((player) => {
       const haystack =
-        `${player.nickname} ${player.fullName ?? ""} ${player.contact ?? ""} ${player.notes ?? ""} ${levelLabel(player.level)}`.toLowerCase();
+        `${player.nickname} ${(player.aliases ?? []).join(" ")} ${player.fullName ?? ""} ${player.contact ?? ""} ${player.notes ?? ""} ${levelLabel(player.level)}`.toLowerCase();
       return haystack.includes(query.trim().toLowerCase());
     })
     .sort((a, b) => {
@@ -223,6 +228,7 @@ export function PlayerManager({
       id: player.id,
       nickname: player.nickname,
       fullName: player.fullName ?? "",
+      aliases: (player.aliases ?? []).join(", "),
       level: player.level,
       category: player.category,
       contact: player.contact ?? "",
@@ -239,6 +245,7 @@ export function PlayerManager({
     const payload = {
       nickname: form.nickname.trim(),
       fullName: form.fullName.trim() || null,
+      aliases: parseAliases(form.aliases),
       level: form.level as LevelKey,
       category: form.category,
       contact: form.contact.trim() || null,
@@ -454,6 +461,7 @@ export function PlayerManager({
                       {player.fullName || !readOnly ? " · " : null}
                       {CATEGORY_SHORT[player.category]}
                     </p>
+                    <AliasLine aliases={player.aliases} />
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <RecencyBadge snapshot={recency[player.id]} />
                       {recencyCaption(recency[player.id]) && (
@@ -560,6 +568,7 @@ export function PlayerManager({
                             <p className="text-muted truncate text-[10px]">
                               {player.fullName ?? (readOnly ? "" : "No full name")}
                             </p>
+                            <AliasLine aliases={player.aliases} />
                           </div>
                         </div>
                       </td>
@@ -647,6 +656,17 @@ export function PlayerManager({
               />
             </Field>
           </div>
+          <Field
+            label="Also goes by (optional)"
+            hint="Other names they write in the Messenger list, separated by commas. The app reads them as this nickname."
+          >
+            <Input
+              value={form.aliases}
+              onChange={(event) => setForm({ ...form, aliases: event.target.value })}
+              placeholder="e.g. LA, Chris"
+              maxLength={200}
+            />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Level">
               <Select
@@ -1053,4 +1073,10 @@ function PlayerActions({
       )}
     </div>
   );
+}
+
+/** "Also goes by LA, Chris" under a player's name, when they have other names. */
+function AliasLine({ aliases }: { aliases?: string[] }) {
+  if (!aliases || aliases.length === 0) return null;
+  return <p className="text-muted truncate text-[10px] italic">Also goes by {aliases.join(", ")}</p>;
 }
