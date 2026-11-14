@@ -106,6 +106,22 @@ export function fitPlan<T extends PlanBlock>(blocks: T[], start: string, end: st
   return kept;
 }
 
+/** A MEGA game day starts out with this much more court time than a regular one. */
+export const MEGA_EXTRA_MINUTES = 60;
+
+/**
+ * Moves the game's end by `deltaMinutes` (the last block grows or shrinks; earlier boundaries
+ * stay). Clamped so the game still ends after it starts and not past the last pickable time.
+ * Used to give a MEGA game day an extra hour by default; the queue master can still edit it.
+ */
+export function shiftPlanEnd<T extends PlanBlock>(blocks: T[], deltaMinutes: number): T[] {
+  const game = planWindow(blocks);
+  if (!game) return blocks;
+  const start = timeToMinutes(game.start);
+  const end = Math.min(LATEST, Math.max(start + TIME_STEP_MINUTES, timeToMinutes(game.end) + deltaMinutes));
+  return fitPlan(blocks, game.start, minutesToTime(end));
+}
+
 /** Moves the boundary after block `index`: it ends, and the next block starts, at `time`. */
 export function setBlockEnd<T extends PlanBlock>(blocks: T[], index: number, time: string): T[] {
   if (index < 0 || index >= blocks.length - 1) return blocks;

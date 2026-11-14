@@ -24,7 +24,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CourtRateField } from "@/components/app/court-rate-field";
 import { CourtPlanEditor } from "@/components/app/court-plan-editor";
-import { fitPlan, gameTime, planProblem, planWindow } from "@/lib/court-plan";
+import {
+  fitPlan,
+  gameTime,
+  MEGA_EXTRA_MINUTES,
+  planProblem,
+  planWindow,
+  shiftPlanEnd,
+} from "@/lib/court-plan";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
@@ -82,6 +89,14 @@ export function GameDaySettings({
         toast.error(result.error);
       }
     });
+  };
+
+  // Choosing MEGA gives the game one more court hour by default; choosing another type takes
+  // it back. The times stay editable below.
+  const changeType = (next: BoardGameDay["type"]) => {
+    if (next === "MEGA" && type !== "MEGA") setSlots(shiftPlanEnd(slots, MEGA_EXTRA_MINUTES));
+    else if (next !== "MEGA" && type === "MEGA") setSlots(shiftPlanEnd(slots, -MEGA_EXTRA_MINUTES));
+    setType(next);
   };
 
   const save = () => {
@@ -235,11 +250,11 @@ export function GameDaySettings({
               <Field label="Game-day type">
                 <Select
                   value={type}
-                  onChange={(event) => setType(event.target.value as BoardGameDay["type"])}
+                  onChange={(event) => changeType(event.target.value as BoardGameDay["type"])}
                 >
                   <option value="REGULAR">Regular</option>
                   <option value="TIPID">Tipid (court fee only)</option>
-                  <option value="MEGA">MEGA</option>
+                  <option value="MEGA">MEGA (+1 hour of courts)</option>
                 </Select>
               </Field>
             </div>

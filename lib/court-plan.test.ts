@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   fitPlan,
+  MEGA_EXTRA_MINUTES,
+  shiftPlanEnd,
   formatSpan,
   formatTime12,
   planProblem,
@@ -121,5 +123,25 @@ describe("planProblem", () => {
     expect(planProblem([block("a", "15:00", "15:00")])).toMatch(/end after/);
     expect(planProblem([block("a", "13:00", "15:00"), block("b", "14:00", "16:00")])).toMatch(/overlap/);
     expect(planProblem([])).toMatch(/at least one/);
+  });
+});
+
+describe("shiftPlanEnd (MEGA extra hour)", () => {
+  it("adds an hour to the end of a single block", () => {
+    expect(times(shiftPlanEnd([block("a", "10:00", "14:00")], MEGA_EXTRA_MINUTES))).toEqual(["10:00-15:00"]);
+  });
+
+  it("only lengthens the last block when there are several", () => {
+    const plan = [block("a", "10:00", "12:00"), block("b", "12:00", "14:00")];
+    expect(times(shiftPlanEnd(plan, MEGA_EXTRA_MINUTES))).toEqual(["10:00-12:00", "12:00-15:00"]);
+  });
+
+  it("takes the hour back when shifted by the negative amount", () => {
+    expect(times(shiftPlanEnd([block("a", "10:00", "15:00")], -MEGA_EXTRA_MINUTES))).toEqual(["10:00-14:00"]);
+  });
+
+  it("never runs past the last pickable time or ends before it starts", () => {
+    expect(times(shiftPlanEnd([block("a", "20:00", "23:00")], 60))).toEqual(["20:00-23:30"]);
+    expect(times(shiftPlanEnd([block("a", "10:00", "10:45")], -60))).toEqual(["10:00-10:30"]);
   });
 });

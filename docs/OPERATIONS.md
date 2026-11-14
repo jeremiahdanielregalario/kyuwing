@@ -9,7 +9,7 @@ For the person holding the tablet. This is the day-of runbook; the in-app **Play
 - [ ] Know who is queue master and who is the finance member for the day; enter both when you create the game day (they appear on the session report and can be changed in **Settings**).
 - [ ] Confirm the venue booking and the exact court numbers, and enter them in each block's **Court numbers** when you create the game day (`5, 6, 7, 8` or `5-8`). The board, toasts, and the players' live view then use those numbers.
 - [ ] Open Kyuwing and log in with the queue-master PIN.
-- [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, court blocks.
+- [ ] Create the game day: venue, date, **Regular / Tipid / MEGA**, court blocks. Choosing MEGA adds one court hour by default (the last block grows); adjust the times if needed.
 - [ ] Set the **Game time** first (when the booking starts and ends, e.g. 1:00–4:00 PM), then split it into court blocks to match the booking. Example: 3 courts 9:00–10:00 AM, 4 courts 10:00 AM–12:00 PM, 3 courts 12:00–2:00 PM. Blocks run back to back inside the game time: the first starts when the game starts, the last ends when it ends, and you only pick the times between blocks. **Add block** splits the longest block in half; removing a block gives its time to its neighbour. Shortening the game time trims or merges blocks that no longer fit.
 - [ ] Check the court rate on each game day (DASC ₱300, KBC ₱250 per court per hour by default) if the venue changed its price.
 - [ ] Playing at a venue with no saved fees? Enter its **Court rate per hour** when you create the game day and the court cost is split among the players (see `docs/FEES.md`).

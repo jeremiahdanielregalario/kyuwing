@@ -6,7 +6,7 @@ import { CalendarPlus, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { createGameDay } from "@/lib/actions/gamedays";
 import { courtName, parseCourtNumbers } from "@/lib/datetime";
-import { gameTime } from "@/lib/court-plan";
+import { gameTime, MEGA_EXTRA_MINUTES, shiftPlanEnd } from "@/lib/court-plan";
 import { Button } from "@/components/ui/button";
 import { CourtRateField } from "@/components/app/court-rate-field";
 import { CourtPlanEditor } from "@/components/app/court-plan-editor";
@@ -74,7 +74,18 @@ export function NewGameDayButton({
   const changeVenue = (id: string) => {
     setVenueId(id);
     const venue = venues.find((item) => item.id === id);
-    if (venue) setSlots([makeSlot(venue)]);
+    if (venue) {
+      const fresh = [makeSlot(venue)];
+      setSlots(type === "MEGA" ? shiftPlanEnd(fresh, MEGA_EXTRA_MINUTES) : fresh);
+    }
+  };
+
+  // A MEGA game day starts with one more court hour than a regular one; switching back takes
+  // it away again. Either way the queue master can adjust the times afterwards.
+  const changeType = (next: string) => {
+    if (next === "MEGA" && type !== "MEGA") setSlots(shiftPlanEnd(slots, MEGA_EXTRA_MINUTES));
+    else if (next !== "MEGA" && type === "MEGA") setSlots(shiftPlanEnd(slots, -MEGA_EXTRA_MINUTES));
+    setType(next);
   };
 
   // Fill the form from the list's header (venue, date, type, times, QM and FIN) when it changes.
@@ -208,10 +219,10 @@ export function NewGameDayButton({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Game-day type">
-              <Select value={type} onChange={(event) => setType(event.target.value)}>
+              <Select value={type} onChange={(event) => changeType(event.target.value)}>
                 <option value="REGULAR">Regular</option>
                 <option value="TIPID">Tipid (court fee only)</option>
-                <option value="MEGA">MEGA</option>
+                <option value="MEGA">MEGA (+1 hour of courts)</option>
               </Select>
             </Field>
           </div>
