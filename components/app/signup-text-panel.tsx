@@ -89,10 +89,13 @@ export function SignupTextPanel({
   const checking = Boolean(text.trim()) && result?.text !== text;
 
   const problems = check ? check.lines.filter((line) => !line.waitlist && line.status !== "ok") : [];
-  const fullNameFixes = problems.filter((line) => line.status === "suggest");
   const confirmed = check ? check.lines.filter((line) => !line.waitlist) : [];
   const waitlisted = check ? check.lines.filter((line) => line.waitlist) : [];
-  const viaAlias = confirmed.filter((line) => line.status === "ok" && line.viaAlias);
+  // Read through another name, a full name or "Nickname Surname"; applicants are expected to
+  // be written as "Nickname Surname", so those aren't listed.
+  const viaAlias = confirmed.filter(
+    (line) => line.status === "ok" && (line.viaAlias || (line.viaSurname && line.list === "members")),
+  );
   const memberCount = confirmed.filter((line) => line.list === "members").length;
   const applicantCount = confirmed.length - memberCount;
 
@@ -106,16 +109,6 @@ export function SignupTextPanel({
       if (!result.ok) toast.error(result.error);
       else if (result.message) toast.success(result.message);
     });
-  };
-
-  const fixAll = () => {
-    // Rewriting keeps line numbers, so the fixes can be applied one after another.
-    const fix = (list: SignupList) =>
-      fullNameFixes
-        .filter((line) => line.list === list)
-        .reduce((current, line) => rewriteLine(current, line, line.nickname!), texts[list]);
-    onTextsChange({ members: fix("members"), applicants: fix("applicants") });
-    remember(fullNameFixes.map((line) => ({ name: line.name, nickname: line.nickname! })));
   };
 
   return (
@@ -151,11 +144,12 @@ export function SignupTextPanel({
         </label>
       </div>
       <p className="text-muted text-[11px] leading-relaxed">
-        Paste each list from Messenger as is; either box can stay empty. Every name has to be the
-        player&apos;s <span className="text-ink font-semibold">official nickname</span> from the player
-        database, one of the other names saved for them (like &ldquo;LA&rdquo; for Ian LA), or on the
-        applicants list their nickname and surname. Lines like &ldquo;18-43. MEMALUMNS&rdquo; are skipped.
-        Full names, @ mentions and typos are flagged below.
+        Paste each list from Messenger as is; either box can stay empty. Each name is read as the
+        player&apos;s <span className="text-ink font-semibold">official nickname</span>: the nickname itself,
+        one of the other names saved for them (like &ldquo;LA&rdquo; for Ian LA), their full name, or their
+        nickname and surname (&ldquo;Thea Rello&rdquo;), @ mentions included. Lines like &ldquo;18-43.
+        MEMALUMNS&rdquo; are skipped. Typos, unknown names and names that fit more than one player are flagged
+        below.
       </p>
 
       {text.trim() && (
@@ -241,11 +235,6 @@ export function SignupTextPanel({
                 time it needs no fixing.
               </p>
             </div>
-            {fullNameFixes.length > 1 && (
-              <Button size="sm" variant="paper" onClick={fixAll}>
-                Use nicknames for all {fullNameFixes.length} full names
-              </Button>
-            )}
           </div>
           <datalist id={NICKNAME_LIST_ID}>
             {check.players.map((player) => (
@@ -313,7 +302,7 @@ function ProblemRow({
         </p>
         <p className="text-muted text-[11px]">
           {line.status === "suggest"
-            ? "That's a full name, not the official nickname."
+            ? "That name fits more than one player. Pick the right one."
             : line.status === "duplicate"
               ? "Already listed above."
               : line.list === "applicants"

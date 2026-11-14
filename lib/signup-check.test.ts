@@ -34,10 +34,8 @@ function checkFor(text: string): SignupCheck {
 }
 
 describe("notReadyReason", () => {
-  it("tells the queue master which nickname to use for a full name", () => {
-    expect(notReadyReason(checkFor("G\n1. Lou\n2. @Shawn Elizarde"))).toContain(
-      'Shawn Elizarde (use "Shawn")',
-    );
+  it("does not hold up a list for a full name that fits one player", () => {
+    expect(checkFor("G\n1. Lou\n2. @Shawn Elizarde").ready).toBe(true);
   });
 
   it("names a name that is not official, and a duplicate", () => {

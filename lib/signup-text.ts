@@ -17,9 +17,9 @@
  *
  * `parseSignupText` reads the header and the numbered lines; `resolveSignup`
  * checks every name against the official nicknames in the player database.
- * Only exact official nicknames count (plus "Nickname Surname" on the applicants
- * list): a full name or a typo is reported with a suggestion, and the queue
- * master has to fix the line. Pure, so it is
+ * Official nicknames and saved other names count, and so does a full name or
+ * "Nickname Surname" that fits exactly one player. A name that fits several players,
+ * or none (a typo), is reported with suggestions and the queue master fixes the line. Pure, so it is
  * unit-tested; the database lookup lives in `lib/signup-check.ts`.
  */
 import { aliasIndex } from "./aliases";
@@ -197,17 +197,18 @@ export type KnownPlayer = { nickname: string; fullName: string | null; aliases?:
 
 export type ResolvedLine = SignupLine & {
   /**
-   * ok: an official nickname. suggest: not an official nickname, but it matches a
-   * player's full name. unknown: no match. duplicate: the same player twice.
+   * ok: an official nickname, another name, or a full name / "Nickname Surname" that fits one
+   * player. suggest: a full name or "Nickname Surname" that fits more than one player (they
+   * are the suggestions). unknown: no match. duplicate: the same player twice.
    */
   status: "ok" | "suggest" | "unknown" | "duplicate";
-  /** The official nickname, for ok, suggest and duplicate. */
+  /** The official nickname, for ok and duplicate. */
   nickname: string | null;
   /** Official nicknames it might have been meant to be. */
   suggestions: string[];
   /** Matched through one of the player's other names (e.g. "LA" for "Ian LA"), not the nickname. */
   viaAlias?: boolean;
-  /** Matched as "Nickname Surname" ("Matt Dela Cruz"), the applicants list's format. */
+  /** Matched by full name ("Jeremiah Daniel Regalario") or "Nickname Surname" ("Matt Dela Cruz"). */
   viaSurname?: boolean;
 };
 
@@ -247,29 +248,26 @@ function distance(a: string, b: string): number {
 export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): ResolvedLine[] {
   const byNickname = new Map(players.map((player) => [nameKey(player.nickname), player.nickname]));
   const byAlias = aliasIndex(players.map((player) => ({ aliases: player.aliases, value: player.nickname })));
-  const byFullName = new Map<string, string>();
+  // Full names ("Jeremiah Daniel Regalario") and "Nickname Surname" ("Thea Rello"), each key
+  // with every player it fits: one player is a match, more than one has to be picked by hand.
+  const byName = new Map<string, string[]>();
+  const add = (key: string, nickname: string) => {
+    const current = byName.get(key) ?? [];
+    if (!current.includes(nickname)) byName.set(key, [...current, nickname]);
+  };
   for (const player of players) {
-    if (!player.fullName) continue;
-    for (const key of fullNameKeys(player.fullName)) byFullName.set(key, player.nickname);
-  }
-  // "Nickname Surname"; a key two players share matches nobody.
-  const bySurname = new Map<string, string | null>();
-  for (const player of players) {
-    for (const key of nicknameSurnameKeys(player.nickname, player.fullName)) {
-      const current = bySurname.get(key);
-      bySurname.set(key, current === undefined || current === player.nickname ? player.nickname : null);
-    }
+    if (player.fullName) for (const key of fullNameKeys(player.fullName)) add(key, player.nickname);
+    for (const key of nicknameSurnameKeys(player.nickname, player.fullName)) add(key, player.nickname);
   }
 
   const seen = new Set<string>();
   return lines.map((line) => {
     const key = nameKey(line.name);
     const viaAlias = !byNickname.has(key) && byAlias.has(key);
-    const fromSurname = bySurname.get(key) ?? undefined;
-    // Applicants are listed as "Nickname Surname", so that counts as official on their list.
-    const viaSurname =
-      !byNickname.has(key) && !viaAlias && line.list === "applicants" && Boolean(fromSurname);
-    const official = byNickname.get(key) ?? byAlias.get(key) ?? (viaSurname ? fromSurname : undefined);
+    const named = byNickname.has(key) || viaAlias ? [] : (byName.get(key) ?? []);
+    // A full name or "Nickname Surname" that fits exactly one player is read as their nickname.
+    const viaSurname = named.length === 1;
+    const official = byNickname.get(key) ?? byAlias.get(key) ?? (viaSurname ? named[0] : undefined);
     if (official) {
       if (!line.waitlist && seen.has(official)) {
         return { ...line, status: "duplicate", nickname: official, suggestions: [], viaAlias, viaSurname };
@@ -278,9 +276,8 @@ export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): Reso
       return { ...line, status: "ok", nickname: official, suggestions: [], viaAlias, viaSurname };
     }
 
-    const fromFullName = byFullName.get(key) ?? fromSurname;
-    if (fromFullName) {
-      return { ...line, status: "suggest", nickname: fromFullName, suggestions: [fromFullName] };
+    if (named.length > 1) {
+      return { ...line, status: "suggest", nickname: null, suggestions: [...named].sort() };
     }
 
     const close = players

@@ -86,17 +86,18 @@ describe("resolveSignup across both lists", () => {
 
   it("flags someone on both lists, and the same person twice on one", () => {
     // Matt is first on the members list, so his applicants line is the repeat.
-    expect(find("members", "Matt Dela Cruz")).toMatchObject({ status: "suggest", nickname: "Matt" });
-    expect(find("applicants", "Matt Dela Cruz")).toMatchObject({ status: "ok", nickname: "Matt" });
+    expect(find("members", "Matt Dela Cruz")).toMatchObject({ status: "ok", nickname: "Matt" });
+    expect(find("applicants", "Matt Dela Cruz")).toMatchObject({ status: "duplicate", nickname: "Matt" });
     expect(find("applicants", "Clyde")).toMatchObject({ status: "duplicate", nickname: "Clyde" });
   });
 
-  it("keeps the members list strict: full names and mentions need fixing, other names pass", () => {
-    expect(find("members", "Ian Benedict De Guzman")).toMatchObject({
-      status: "suggest",
-      suggestions: ["Ian"],
+  it("reads full names, mentions and other names on the members list as nicknames", () => {
+    expect(find("members", "Ian Benedict De Guzman")).toMatchObject({ status: "ok", nickname: "Ian" });
+    expect(find("members", "Leidovic Keth Gellang")).toMatchObject({
+      status: "ok",
+      nickname: "Leido",
+      mention: true,
     });
-    expect(find("members", "Leidovic Keth Gellang")).toMatchObject({ status: "suggest", mention: true });
     expect(find("members", "Neo b")).toMatchObject({ status: "ok", nickname: "Neo", viaAlias: true });
     expect(find("members", "Roniel")).toMatchObject({ status: "ok", role: "QM" });
   });
@@ -121,5 +122,22 @@ describe("findNickname", () => {
   it("returns null for a nickname nobody has", () => {
     expect(findNickname("Jaxx", players)).toBeNull();
     expect(findNickname("  ", players)).toBeNull();
+  });
+});
+
+describe("nickname and surname on the members list", () => {
+  it("reads it as the nickname, as on the applicants list", () => {
+    const players = [
+      { nickname: "Thea", fullName: "RELLO, Thea Marie" },
+      { nickname: "Danyel", fullName: "REGALARIO, Jeremiah Daniel" },
+    ];
+    const lines = resolveSignup(
+      parseSignupText("G\n1. Thea Rello\n2. Jeremiah Daniel Regalario", "members").lines,
+      players,
+    );
+    expect(lines.map((line) => [line.status, line.nickname])).toEqual([
+      ["ok", "Thea"],
+      ["ok", "Danyel"],
+    ]);
   });
 });

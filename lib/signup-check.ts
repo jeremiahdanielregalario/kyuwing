@@ -112,8 +112,8 @@ export function notReadyReason(check: SignupCheck): string {
     .map((line) =>
       line.status === "duplicate"
         ? `${line.name} (listed twice)`
-        : line.nickname
-          ? `${line.name} (use "${line.nickname}")`
+        : line.status === "suggest"
+          ? `${line.name} (could be ${line.suggestions.join(" or ")})`
           : `${line.name} (not an official nickname)`,
     )
     .join(", ");

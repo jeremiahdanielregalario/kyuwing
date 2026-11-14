@@ -118,13 +118,18 @@ describe("resolveSignup", () => {
     expect(lower).toMatchObject({ status: "ok", nickname: "Randolf" });
   });
 
-  it("does not accept a full name as an official nickname, but suggests the nickname", () => {
-    expect(byName("Shawn Elizarde")).toMatchObject({
-      status: "suggest",
-      nickname: "Shawn",
-      suggestions: ["Shawn"],
-    });
-    expect(byName("Paolo Adriano")).toMatchObject({ status: "suggest", nickname: "Paolo" });
+  it("reads a full name that fits one player as their nickname, with no fixing", () => {
+    expect(byName("Shawn Elizarde")).toMatchObject({ status: "ok", nickname: "Shawn", viaSurname: true });
+    expect(byName("Paolo Adriano")).toMatchObject({ status: "ok", nickname: "Paolo" });
+  });
+
+  it("asks which player when a full name or nickname and surname fits more than one", () => {
+    const players = [
+      { nickname: "Jo", fullName: "CRUZ, Joanna" },
+      { nickname: "Joey", fullName: "CRUZ, Jo" },
+    ];
+    const [line] = resolveSignup(parseSignupText("G\n1. Jo Cruz").lines, players);
+    expect(line).toMatchObject({ status: "suggest", nickname: null, suggestions: ["Jo", "Joey"] });
   });
 
   it("flags an unknown name and suggests close official nicknames", () => {
@@ -139,7 +144,9 @@ describe("resolveSignup", () => {
   });
 
   it("blocks creation while any confirmed line is not an official nickname", () => {
-    expect(blockingLines(resolved).map((line) => line.name)).toEqual(["Shawn Elizarde", "Paolo Adriano"]);
+    const lines = resolveSignup(parseSignupText("G\n1. Lou\n2. Carlo\n3. lou").lines, PLAYERS);
+    expect(blockingLines(lines).map((line) => line.name)).toEqual(["Carlo", "lou"]);
+    expect(blockingLines(resolved)).toEqual([]);
     const clean = resolveSignup(parseSignupText("G\n1. QM: Jgops\n2. Lou").lines, PLAYERS);
     expect(blockingLines(clean)).toEqual([]);
   });
