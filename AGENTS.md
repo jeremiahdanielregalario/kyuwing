@@ -57,6 +57,8 @@ docs/                     Long-form documentation
 - Guard authenticated actions with the local `guard()` helper (or `isQueueMaster()` for new files). Return `fail(...)` / `ok(...)` from `lib/action-result.ts`; do not throw for expected validation failures.
 - Validate external input with Zod from `lib/validation.ts`.
 - After a mutation that changes the board, call `refreshGameDay(gameDayId)` so polling clients update.
+- `revalidatePath` in an action sends the redrawn current page back in the same response. Do **not** call `router.refresh()` after an action (that is a second full round trip), and on the board do not `await mutate()` after one: `QueueBoard` copies the redrawn `initialData` into SWR.
+- For presses that should feel instant, apply an optimistic update first: `lib/board-optimistic.ts` on the board (via `act(fn, onSuccess, optimistic)`), `useOptimistic` on Sign-ups. Roll back by refetching if the action fails.
 - Server actions are called from client components inside `startTransition`; surface the result with Sonner toasts.
 
 ### Pairing

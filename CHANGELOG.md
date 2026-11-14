@@ -66,6 +66,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Snappier buttons** — Start, Finish, Cancel, Check in, Done and Requeue now update the board and the sign-up list the moment you press them, and put things back if the server says no. A small **Saving…** pill shows while a change is on its way. Each press now takes one trip to the server instead of two or three (no more extra page refresh after saving), and game-day pages load their data once instead of twice. The Fees tab footer now points to the game day's Settings for the court rate.
 - **Times always in 12-hour format** — court block times on the board, the sign-up check, the venue defaults and the public live view now read like "10:00 AM–2:00 PM" instead of 24-hour "10:00–14:00".
 - **MEGA game days start with one more court hour** — choosing **MEGA** as the game-day type (in New game day or Settings) extends the game time by an hour by default, e.g. a KBC 10 AM–2 PM plan becomes 10 AM–3 PM (the last court block grows). Switching back to Regular or Tipid takes the hour away again. The times stay fully editable, and a plan created from a pasted Messenger list keeps the times written in the list.
 - **Clearer re-pair button** — the shuffle icon on a suggested match is now a labelled **Re-pair** button, which swaps in a different set of four from the queue. The edit and cancel icons next to it have hover tooltips.

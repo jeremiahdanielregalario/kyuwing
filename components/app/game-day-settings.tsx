@@ -84,7 +84,6 @@ export function GameDaySettings({
       if (result.ok) {
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
-        router.refresh();
       } else {
         toast.error(result.error);
       }

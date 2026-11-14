@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import useSWR from "swr";
+import {
+  optimisticCancel,
+  optimisticFinish,
+  optimisticStart,
+  optimisticStatus,
+} from "@/lib/board-optimistic";
 import { toast } from "sonner";
 import {
   closestCenter,
@@ -119,6 +125,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
+import { SavingPill } from "@/components/ui/saving-pill";
 import { ConfirmDialog, type ConfirmSpec } from "@/components/ui/confirm-dialog";
 import { haptic } from "@/lib/haptics";
 import type { ActionFailureCode } from "@/lib/action-result";
@@ -329,6 +336,24 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   });
   const data = freshData ?? initialData;
   const now = useNow();
+
+  // A server action that changes the board sends the redrawn page back with its answer, in the
+  // same trip. Use that fresh board instead of asking the server again; polling stays as the
+  // backstop. When the queue master is looking at another block, fetch that block once.
+  const lastInitial = React.useRef(initialData);
+  React.useEffect(() => {
+    if (lastInitial.current === initialData) return;
+    lastInitial.current = initialData;
+    if (initialData.activeSlotIndex === slotIndex) void mutate(initialData, { revalidate: false });
+    else void mutate();
+  }, [initialData, slotIndex, mutate]);
+
+  /** Show the result of a press right away; the server's answer replaces it a moment later. */
+  const showNow = React.useCallback(
+    (update: (current: BoardData) => BoardData) =>
+      void mutate((current) => update(current ?? initialData), { revalidate: false }),
+    [mutate, initialData],
+  );
   const [pending, startTransition] = React.useTransition();
 
   const [tab, setTab] = React.useState<QueueTab>("waiting");
@@ -400,15 +425,21 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     [data.players],
   );
 
-  const act = (fn: () => Promise<AnyResult>, onSuccess?: () => void) => {
+  const act = (
+    fn: () => Promise<AnyResult>,
+    onSuccess?: () => void,
+    optimistic?: (current: BoardData) => BoardData,
+  ) => {
+    if (optimistic) showNow(optimistic);
     startTransition(async () => {
       const result = await fn();
       if (result.ok) {
         haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
-        await mutate();
       } else {
+        // Undo the instant update by reloading what the server really has.
+        if (optimistic) void mutate();
         haptic("warning");
         toast.error(result.error);
         if (result.code === "UNRATED_PLAYERS") setUnratedForced(true);
@@ -443,7 +474,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       else toast.error(result.error);
       creatingDrafts.current.delete(court);
       setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
-      await mutate();
     });
   };
 
@@ -757,8 +787,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // (used shuttle, not counted) before it starts.
   // Starting a game whose player is still on another court is refused; offer to re-pair it instead.
   const startGame = (matchId: string, free: boolean) => {
+    showNow((current) => optimisticStart(current, matchId, free, new Date().toISOString()));
     startTransition(async () => {
       const result = await startMatch(matchId, { free });
+      if (!result.ok) void mutate();
       if (result.ok) {
         haptic("success");
         toast.success(result.message ?? "Started.");
@@ -777,7 +809,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       } else {
         toast.error(result.error);
       }
-      await mutate();
     });
   };
 
@@ -798,9 +829,11 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   // Undo a check-in made by mistake; the toast offers to put them straight back.
   const undoCheckInFor = (sessionPlayerId: string) => {
+    showNow((current) => optimisticStatus(current, sessionPlayerId, "EXPECTED", new Date().toISOString()));
     startTransition(async () => {
       const result = await undoCheckIn(sessionPlayerId);
       if (!result.ok) {
+        void mutate();
         toast.error(result.error);
         return;
       }
@@ -808,7 +841,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         duration: 8000,
         action: { label: "Check in again", onClick: () => act(() => checkInPlayer(sessionPlayerId)) },
       });
-      await mutate();
     });
   };
 
@@ -830,10 +862,13 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   // Ending a game offers Undo for a few seconds, in case it was ended by mistake.
   const endGame = (matchId: string) => {
-    const onCourtBefore = new Set(suggested.map((match) => match.id));
+    promotionWatch.current = new Set(suggested.map((match) => match.id));
+    showNow((current) => optimisticFinish(current, matchId, new Date().toISOString()));
     startTransition(async () => {
       const result = await completeMatch(matchId);
       if (!result.ok) {
+        promotionWatch.current = null;
+        void mutate();
         haptic("warning");
         toast.error(result.error);
         return;
@@ -843,15 +878,22 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         duration: 10000,
         action: { label: "Undo", onClick: () => act(() => restoreMatch(matchId)) },
       });
-      const fresh = await mutate();
-      // A waiting game that took the freed court still has to be started: remind right away.
-      const moved = (fresh?.activeMatches ?? []).filter(
-        (match) =>
-          match.status === "SUGGESTED" && match.courtNumber !== QUEUED_COURT && !onCourtBefore.has(match.id),
-      );
-      if (moved.length > 0) setPromotedIds((prev) => [...prev, ...moved.map((match) => match.id)]);
     });
   };
+
+  // After a game ends, a waiting game that took the freed court still has to be started: remind
+  // as soon as the server's board shows it.
+  const promotionWatch = React.useRef<Set<string> | null>(null);
+  React.useEffect(() => {
+    const before = promotionWatch.current;
+    if (!before) return;
+    const moved = data.activeMatches.filter(
+      (match) => match.status === "SUGGESTED" && match.courtNumber !== QUEUED_COURT && !before.has(match.id),
+    );
+    if (moved.length === 0) return;
+    promotionWatch.current = null;
+    setPromotedIds((prev) => [...prev, ...moved.map((match) => match.id)]);
+  }, [data.activeMatches]);
 
   const confirmRestore = (match: BoardMatch) =>
     setConfirmSpec({
@@ -914,7 +956,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       if (result.ok) {
         toast.success(result.message ?? "Line-up updated.");
         setEditMatch(null);
-        await mutate();
       } else {
         toast.error(result.error);
       }
@@ -1008,7 +1049,14 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             player={player}
             now={now}
             pending={pending}
-            onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
+            onCheckIn={() =>
+              act(
+                () => checkInPlayer(player.sessionPlayerId),
+                undefined,
+                (current) =>
+                  optimisticStatus(current, player.sessionPlayerId, "WAITING", new Date().toISOString()),
+              )
+            }
             onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
             onDone={() =>
               setConfirmSpec({
@@ -1016,10 +1064,23 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                 description: "They leave the board and stop receiving games.",
                 confirmLabel: "Mark done",
                 cancelLabel: "Not yet",
-                onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
+                onConfirm: () =>
+                  act(
+                    () => markPlayerDone(player.sessionPlayerId),
+                    undefined,
+                    (current) =>
+                      optimisticStatus(current, player.sessionPlayerId, "DONE", new Date().toISOString()),
+                  ),
               })
             }
-            onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
+            onRequeue={() =>
+              act(
+                () => requeuePlayer(player.sessionPlayerId),
+                undefined,
+                (current) =>
+                  optimisticStatus(current, player.sessionPlayerId, "WAITING", new Date().toISOString()),
+              )
+            }
             onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
           />
         ))}
@@ -1028,6 +1089,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   return (
     <TapMoveContext value={tapMove}>
+      <SavingPill show={pending} />
       <DndContext
         sensors={sensors}
         collisionDetection={collisionFor}
@@ -1468,7 +1530,12 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                               confirmLabel: "Cancel match",
                               cancelLabel: "Keep match",
                               tone: "danger",
-                              onConfirm: () => act(() => cancelMatch(id)),
+                              onConfirm: () =>
+                                act(
+                                  () => cancelMatch(id),
+                                  undefined,
+                                  (current) => optimisticCancel(current, id),
+                                ),
                             })
                           }
                           onRename={() => {
@@ -1556,7 +1623,12 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                                   confirmLabel: "Remove game",
                                   cancelLabel: "Keep it",
                                   tone: "danger",
-                                  onConfirm: () => act(() => cancelMatch(id)),
+                                  onConfirm: () =>
+                                    act(
+                                      () => cancelMatch(id),
+                                      undefined,
+                                      (current) => optimisticCancel(current, id),
+                                    ),
                                 })
                               }
                               onClearDraft={(slotPosition) =>
@@ -1863,7 +1935,19 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     <Button
                       size="sm"
                       variant="accent"
-                      onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
+                      onClick={() =>
+                        act(
+                          () => checkInPlayer(player.sessionPlayerId),
+                          undefined,
+                          (current) =>
+                            optimisticStatus(
+                              current,
+                              player.sessionPlayerId,
+                              "WAITING",
+                              new Date().toISOString(),
+                            ),
+                        )
+                      }
                       loading={pending}
                     >
                       Check in

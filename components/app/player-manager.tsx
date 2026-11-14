@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import {
   Archive,
   ArrowDown,
@@ -111,7 +110,6 @@ export function PlayerManager({
   /** The public roster: browse, filter and open history or awards; no editing, import or export. */
   readOnly?: boolean;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [query, setQuery] = React.useState("");
@@ -137,7 +135,6 @@ export function PlayerManager({
         haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
-        router.refresh();
       } else {
         haptic("warning");
         toast.error(result.error);
@@ -253,7 +250,6 @@ export function PlayerManager({
         haptic("success");
         toast.success(result.message ?? "Saved.");
         setFormOpen(false);
-        router.refresh();
       } else {
         haptic("warning");
         toast.error(result.error);
@@ -273,7 +269,6 @@ export function PlayerManager({
       if (result.ok) {
         setImportResult(result.data ?? null);
         toast.success(result.message ?? "Import finished.");
-        router.refresh();
       } else {
         toast.error(result.error);
       }

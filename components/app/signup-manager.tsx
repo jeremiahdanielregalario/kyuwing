@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronRight,
@@ -44,6 +43,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { LevelBadge } from "@/components/ui/level-badge";
 import { Modal } from "@/components/ui/modal";
+import { SavingPill } from "@/components/ui/saving-pill";
 import { SignupTextPanel } from "@/components/app/signup-text-panel";
 import { addPlayersFromText } from "@/lib/actions/signup-text";
 import type { SignupCheck } from "@/lib/signup-check";
@@ -61,11 +61,16 @@ type DatabasePlayer = {
 };
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
+type Act = (
+  fn: () => Promise<AnyResult>,
+  onSuccess?: () => void,
+  optimistic?: { sessionPlayerId: string; status: BoardPlayer["status"] },
+) => void;
 
 export function SignupManager({
   gameDayId,
   gameDayName,
-  players,
+  players: serverPlayers,
   database,
 }: {
   gameDayId: string;
@@ -73,7 +78,6 @@ export function SignupManager({
   players: BoardPlayer[];
   database: DatabasePlayer[];
 }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [search, setSearch] = React.useState("");
@@ -85,14 +89,24 @@ export function SignupManager({
   const [quick, setQuick] = React.useState({ nickname: "", level: "C", category: "ACTIVE" });
   const [addQuery, setAddQuery] = React.useState("");
 
-  const act = (fn: () => Promise<AnyResult>, onSuccess?: () => void) => {
+  // The row moves to its new status the moment it is pressed; the page the server sends back
+  // with the action's answer takes over (or puts it back if the server refused).
+  const [players, showStatus] = React.useOptimistic(
+    serverPlayers,
+    (list, change: { sessionPlayerId: string; status: BoardPlayer["status"] }) =>
+      list.map((player) =>
+        player.sessionPlayerId === change.sessionPlayerId ? { ...player, status: change.status } : player,
+      ),
+  );
+
+  const act: Act = (fn, onSuccess, optimistic) => {
     startTransition(async () => {
+      if (optimistic) showStatus(optimistic);
       const result = await fn();
       if (result.ok) {
         haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
-        router.refresh();
       } else {
         haptic("warning");
         toast.error(result.error);
@@ -148,7 +162,6 @@ export function SignupManager({
         toast.success(`${quick.nickname} added and checked in.`);
         setQuickOpen(false);
         setQuick({ nickname: "", level: "C", category: "ACTIVE" });
-        router.refresh();
       } else {
         toast.error(added.error);
       }
@@ -157,6 +170,7 @@ export function SignupManager({
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px]">
+      <SavingPill show={pending} />
       <div className="space-y-4">
         <div className="glass border-line bg-paper/85 sticky top-17 z-20 flex flex-wrap items-center gap-2 rounded-2xl border p-2 sm:p-3 lg:top-2">
           <div className="-mx-1 flex w-full [scrollbar-width:none] gap-1 overflow-x-auto px-1 sm:w-auto">
@@ -469,7 +483,7 @@ function PlayerRow({
   players: BoardPlayer[];
   gameDayId: string;
   pending: boolean;
-  act: (fn: () => Promise<AnyResult>, onSuccess?: () => void) => void;
+  act: Act;
   onRemove: () => void;
 }) {
   const [requestType, setRequestType] = React.useState<"PAIR_WITH" | "PLAY_AGAINST">("PAIR_WITH");
@@ -544,7 +558,12 @@ function PlayerRow({
             <Button
               size="sm"
               variant="accent"
-              onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
+              onClick={() =>
+                act(() => checkInPlayer(player.sessionPlayerId), undefined, {
+                  sessionPlayerId: player.sessionPlayerId,
+                  status: "WAITING",
+                })
+              }
               disabled={pending}
               className="px-3"
             >
@@ -555,7 +574,12 @@ function PlayerRow({
             <Button
               size="sm"
               variant="paper"
-              onClick={() => act(() => markPlayerDone(player.sessionPlayerId))}
+              onClick={() =>
+                act(() => markPlayerDone(player.sessionPlayerId), undefined, {
+                  sessionPlayerId: player.sessionPlayerId,
+                  status: "DONE",
+                })
+              }
               disabled={pending}
               className="px-3"
             >
@@ -566,7 +590,12 @@ function PlayerRow({
             <Button
               size="sm"
               variant="paper"
-              onClick={() => act(() => requeuePlayer(player.sessionPlayerId))}
+              onClick={() =>
+                act(() => requeuePlayer(player.sessionPlayerId), undefined, {
+                  sessionPlayerId: player.sessionPlayerId,
+                  status: "WAITING",
+                })
+              }
               disabled={pending}
               className="px-3"
             >
@@ -600,7 +629,12 @@ function PlayerRow({
             <Button
               size="sm"
               variant="paper"
-              onClick={() => act(() => undoCheckIn(player.sessionPlayerId))}
+              onClick={() =>
+                act(() => undoCheckIn(player.sessionPlayerId), undefined, {
+                  sessionPlayerId: player.sessionPlayerId,
+                  status: "EXPECTED",
+                })
+              }
               disabled={pending}
             >
               <Undo2 className="h-3.5 w-3.5" /> Undo check-in

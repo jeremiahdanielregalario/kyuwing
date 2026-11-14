@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import type { GameDayStatus, MatchStatus, Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import type {
@@ -115,7 +116,7 @@ function toBoardMatch(match: MatchWithPlayers, sessionByPlayer: Map<string, stri
   };
 }
 
-export async function getBoardData(gameDayId: string, slotParam?: number | null): Promise<BoardData | null> {
+async function loadBoardData(gameDayId: string, slotParam: number | null): Promise<BoardData | null> {
   const gameDay = await prisma.gameDay.findUnique({
     where: { id: gameDayId },
     include: gameDayInclude,
@@ -403,7 +404,7 @@ export async function getVenues() {
   return prisma.venue.findMany({ orderBy: { name: "asc" } });
 }
 
-export async function getFeeReport(gameDayId: string): Promise<FeeReport | null> {
+async function loadFeeReport(gameDayId: string): Promise<FeeReport | null> {
   const gameDay = await prisma.gameDay.findUnique({
     where: { id: gameDayId },
     include: {
@@ -488,3 +489,11 @@ export type PlayerRow = Awaited<ReturnType<typeof getPlayers>>[number];
 export type VenueRow = Awaited<ReturnType<typeof getVenues>>[number];
 export type MatchStatusFilter = MatchStatus | GameDayStatus;
 export type CourtPlan = CourtSlot[];
+
+// One load per request: a page and its title (generateMetadata) both ask for the same game day.
+const cachedBoardData = cache(loadBoardData);
+export function getBoardData(gameDayId: string, slotParam?: number | null): Promise<BoardData | null> {
+  return cachedBoardData(gameDayId, slotParam ?? null);
+}
+
+export const getFeeReport = cache(loadFeeReport);

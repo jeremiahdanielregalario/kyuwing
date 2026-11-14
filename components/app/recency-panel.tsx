@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import {
   Activity,
   CalendarDays,
@@ -98,7 +97,6 @@ export function RecencyPanel({
   /** The public roster: lists can be viewed, not logged, edited or removed. */
   readOnly?: boolean;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [open, setOpen] = React.useState(false);
   const [showAllLists, setShowAllLists] = React.useState(false);
@@ -164,7 +162,6 @@ export function RecencyPanel({
         });
       }
       setOpen(false);
-      router.refresh();
     });
   };
 
@@ -258,7 +255,6 @@ export function RecencyPanel({
                               if (result.ok) {
                                 haptic("success");
                                 toast.success(result.message ?? "Removed.");
-                                router.refresh();
                               } else {
                                 toast.error(result.error);
                               }

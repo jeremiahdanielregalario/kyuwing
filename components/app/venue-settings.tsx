@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Building2, Clock3, LayoutGrid, MapPin, Save, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { updateVenue } from "@/lib/actions/venues";
@@ -38,7 +37,6 @@ function detailsFor(venue: VenueRecord | undefined) {
 }
 
 export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [activeId, setActiveId] = React.useState(venues[0]?.id ?? "");
   const [details, setDetails] = React.useState(() => detailsFor(venues[0]));
@@ -57,7 +55,6 @@ export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
       if (result.ok) {
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
-        router.refresh();
       } else {
         toast.error(result.error);
       }

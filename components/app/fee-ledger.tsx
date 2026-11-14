@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Check, CircleDollarSign, Download, FileSpreadsheet, FileText, Search, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { markAllPaid, setPayment, setSettled } from "@/lib/actions/gamedays";
@@ -29,7 +29,6 @@ import { cn } from "@/lib/utils";
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
 export function FeeLedger({ report }: { report: FeeReport }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [filter, setFilter] = React.useState<"all" | "unpaid" | "paid">("all");
@@ -66,7 +65,6 @@ export function FeeLedger({ report }: { report: FeeReport }) {
         haptic("success");
         toast.success(result.message ?? "Saved.");
         onSuccess?.();
-        router.refresh();
       } else {
         haptic("warning");
         toast.error(result.error);
@@ -395,11 +393,15 @@ export function FeeLedger({ report }: { report: FeeReport }) {
       </Card>
 
       <p data-trim-id="fees.footer-note" className="text-muted text-[11px] leading-relaxed">
-        Need to change a rate? Go to{" "}
-        <a href="/app/venues" className="text-forest font-semibold underline">
-          Venues &amp; fees
-        </a>
-        . Rate changes apply to the whole game-day type, not just this session.
+        Different court rate this time? Change <span className="font-semibold">Court rate per hour</span> in
+        this game day&apos;s{" "}
+        <Link
+          href={`/app/gamedays/${report.gameDay.id}/settings`}
+          className="text-forest font-semibold underline"
+        >
+          Settings
+        </Link>
+        .
       </p>
 
       <Modal

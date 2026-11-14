@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Eye, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 import { hideUiElement, resetHiddenUiElements, showUiElement } from "@/lib/actions/ui-config";
@@ -26,7 +25,6 @@ export function UiTrimProvider({
   admin: boolean;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const [hiddenKeys, setHiddenKeys] = React.useState(hidden);
   const [enabled, setEnabled] = React.useState(false);
   const [listOpen, setListOpen] = React.useState(false);
@@ -51,9 +49,8 @@ export function UiTrimProvider({
         return;
       }
       toast.success(`Hidden for everyone: ${trimLabel(id)}`);
-      router.refresh();
     },
-    [busy, router],
+    [busy],
   );
 
   const restore = React.useCallback(
@@ -70,9 +67,8 @@ export function UiTrimProvider({
         return;
       }
       toast.success(`Restored: ${trimLabel(id)}`);
-      router.refresh();
     },
-    [busy, router],
+    [busy],
   );
 
   const resetAll = React.useCallback(async () => {
@@ -87,8 +83,7 @@ export function UiTrimProvider({
     }
     setHiddenKeys([]);
     toast.success("Every optional element is back.");
-    router.refresh();
-  }, [busy, router]);
+  }, [busy]);
 
   // Outline the approved targets and float a ✕ over each one while editing.
   React.useEffect(() => {

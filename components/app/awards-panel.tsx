@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Eye, Medal, Pencil, Plus, Trash2, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { deleteTournament, saveTournamentAwards } from "@/lib/actions/awards";
@@ -54,7 +53,6 @@ export function AwardsPanel({
   /** The public roster: podiums can be viewed, not added, edited or removed. */
   readOnly?: boolean;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [open, setOpen] = React.useState(false);
   const [viewing, setViewing] = React.useState<TournamentDto | null>(null);
@@ -90,7 +88,6 @@ export function AwardsPanel({
       haptic("success");
       toast.success(result.message ?? "Awards saved.");
       setOpen(false);
-      router.refresh();
     });
   };
 
@@ -108,7 +105,6 @@ export function AwardsPanel({
             haptic("success");
             toast.success(result.message ?? "Removed.");
             setViewing(null);
-            router.refresh();
           } else {
             toast.error(result.error);
           }
