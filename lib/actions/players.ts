@@ -6,7 +6,7 @@ import { fail, ok } from "@/lib/action-result";
 import type { ActionResult } from "@/lib/action-result";
 import { isQueueMaster } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { aliasConflict, cleanAliases } from "@/lib/aliases";
+import { aliasConflict, cleanAliases, learnedAliases } from "@/lib/aliases";
 import { parseLevel } from "@/lib/levels";
 import { parseCategory, playerSchema, type PlayerInput } from "@/lib/validation";
 
@@ -259,4 +259,44 @@ export async function importPlayers(formData: FormData): Promise<ActionResult<Im
     total: rows.length,
     errors: errors.slice(0, 8),
   });
+}
+
+/**
+ * Remembers the names a Messenger list used for players, after the queue master pressed
+ * "Use <nickname>" on them: each name is saved as one of the player's other names, so the
+ * next list with it needs no fixing. Names that would be ambiguous are not saved.
+ */
+export async function rememberListNames(
+  picks: Array<{ name: string; nickname: string }>,
+): Promise<ActionResult<{ saved: number }>> {
+  const authError = await guard();
+  if (authError) return authError;
+  if (!Array.isArray(picks) || picks.length === 0 || picks.length > 100) return ok(undefined, { saved: 0 });
+  const clean = picks
+    .filter((pick) => typeof pick?.name === "string" && typeof pick?.nickname === "string")
+    .map((pick) => ({ name: pick.name.slice(0, 200), nickname: pick.nickname }));
+
+  const players = await prisma.player.findMany({ select: { nickname: true, aliases: true } });
+  const { updates, saved, skipped } = learnedAliases(clean, players);
+  if (updates.size > 0) {
+    try {
+      await prisma.$transaction(
+        [...updates].map(([nickname, aliases]) =>
+          prisma.player.update({ where: { nickname }, data: { aliases } }),
+        ),
+      );
+    } catch {
+      return fail("Could not remember those names. The list is still fixed.");
+    }
+    revalidatePath("/app/players");
+  }
+
+  const note = skipped.length
+    ? ` Not remembered: ${skipped.map((pick) => `${pick.name} (${pick.reason})`).join(", ")}.`
+    : "";
+  if (saved.length === 0) return ok(note.trim() || undefined, { saved: 0 });
+  return ok(
+    `Remembered ${saved.map((pick) => `"${pick.name}" as ${pick.nickname}`).join(", ")}. Next time it's recognised automatically.${note}`,
+    { saved: saved.length },
+  );
 }

@@ -3,7 +3,9 @@
 import { formatTimeRange, time12 } from "@/lib/datetime";
 import * as React from "react";
 import { AlertCircle, Check, ClipboardPaste, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { checkSignupText } from "@/lib/actions/signup-text";
+import { rememberListNames } from "@/lib/actions/players";
 import type { SignupCheck, SignupTexts } from "@/lib/signup-check";
 import { removeLine, rewriteLine, type ResolvedLine, type SignupList } from "@/lib/signup-text";
 import { Button } from "@/components/ui/button";
@@ -94,6 +96,18 @@ export function SignupTextPanel({
   const memberCount = confirmed.filter((line) => line.list === "members").length;
   const applicantCount = confirmed.length - memberCount;
 
+  // A name the queue master matched to a player is saved as one of their other names, so the
+  // next list that uses it is recognised without asking again.
+  const [, startRemember] = React.useTransition();
+  const remember = (picks: Array<{ name: string; nickname: string }>) => {
+    if (picks.length === 0) return;
+    startRemember(async () => {
+      const result = await rememberListNames(picks);
+      if (!result.ok) toast.error(result.error);
+      else if (result.message) toast.success(result.message);
+    });
+  };
+
   const fixAll = () => {
     // Rewriting keeps line numbers, so the fixes can be applied one after another.
     const fix = (list: SignupList) =>
@@ -101,6 +115,7 @@ export function SignupTextPanel({
         .filter((line) => line.list === list)
         .reduce((current, line) => rewriteLine(current, line, line.nickname!), texts[list]);
     onTextsChange({ members: fix("members"), applicants: fix("applicants") });
+    remember(fullNameFixes.map((line) => ({ name: line.name, nickname: line.nickname! })));
   };
 
   return (
@@ -219,7 +234,12 @@ export function SignupTextPanel({
       {check && problems.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[11px] font-bold tracking-[0.14em] uppercase">To fix</h3>
+            <div>
+              <h3 className="text-[11px] font-bold tracking-[0.14em] uppercase">To fix</h3>
+              <p className="text-muted text-[11px]">
+                Pressing Use also remembers the name for that player, so next time it needs no fixing.
+              </p>
+            </div>
             {fullNameFixes.length > 1 && (
               <Button size="sm" variant="paper" onClick={fixAll}>
                 Use nicknames for all {fullNameFixes.length} full names
@@ -231,7 +251,10 @@ export function SignupTextPanel({
               <ProblemRow
                 key={`${line.list}-${line.lineIndex}-${line.name}`}
                 line={line}
-                onUse={(nickname) => setList(line.list, rewriteLine(texts[line.list], line, nickname))}
+                onUse={(nickname) => {
+                  setList(line.list, rewriteLine(texts[line.list], line, nickname));
+                  remember([{ name: line.name, nickname }]);
+                }}
                 onRemove={() => setList(line.list, removeLine(texts[line.list], line))}
               />
             ))}

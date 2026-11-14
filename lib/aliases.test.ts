@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aliasConflict, aliasIndex, cleanAliases, parseAliases } from "./aliases";
+import { aliasConflict, aliasIndex, cleanAliases, learnedAliases, parseAliases } from "./aliases";
 import { isQueueMasterOnDuty } from "./fees";
 import { parseSignupText, resolveSignup } from "./signup-text";
 
@@ -68,5 +68,53 @@ describe("isQueueMasterOnDuty with other names", () => {
   it("matches a queue master stored under one of their other names", () => {
     expect(isQueueMasterOnDuty("Jgops", "Roniel & J", ["J"])).toBe(true);
     expect(isQueueMasterOnDuty("Jgops", "Roniel & J")).toBe(false);
+  });
+});
+
+describe("learnedAliases", () => {
+  const players = [
+    { nickname: "Ian", aliases: ["Ian qt"] },
+    { nickname: "Leido", aliases: [] },
+    { nickname: "XB", aliases: ["Chris"] },
+  ];
+
+  it("saves the written name as the picked player's other name", () => {
+    const { updates, saved, skipped } = learnedAliases(
+      [
+        { name: "Ian Benedict De Guzman", nickname: "Ian" },
+        { name: "@Leidovic  Keth Gellang", nickname: "Leido" },
+      ],
+      players,
+    );
+    expect(updates.get("Ian")).toEqual(["Ian qt", "Ian Benedict De Guzman"]);
+    expect(updates.get("Leido")).toEqual(["Leidovic Keth Gellang"]);
+    expect(saved).toHaveLength(2);
+    expect(skipped).toEqual([]);
+  });
+
+  it("skips names it already knows and names that belong to someone else", () => {
+    const { updates, skipped } = learnedAliases(
+      [
+        { name: "ian QT", nickname: "Ian" },
+        { name: "Chris", nickname: "Leido" },
+        { name: "XB", nickname: "Ian" },
+      ],
+      players,
+    );
+    expect(updates.size).toBe(0);
+    expect(skipped.map((pick) => pick.reason)).toEqual(["already used by XB", "already used by XB"]);
+  });
+
+  it("does not let one batch give the same name to two players", () => {
+    const { updates, skipped } = learnedAliases(
+      [
+        { name: "Kuya", nickname: "Ian" },
+        { name: "Kuya", nickname: "Leido" },
+      ],
+      players,
+    );
+    expect(updates.get("Ian")).toEqual(["Ian qt", "Kuya"]);
+    expect(updates.has("Leido")).toBe(false);
+    expect(skipped[0].reason).toBe("already used by Ian");
   });
 });

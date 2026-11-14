@@ -34,7 +34,7 @@ export const playerSchema = z.object({
   fullName: z.string().trim().max(80).optional().nullable(),
   /** Other names they sign up with in the chat. */
   aliases: z
-    .array(z.string().trim().min(1).max(30, "Keep each other name under 30 characters"))
+    .array(z.string().trim().min(1).max(60, "Keep each other name under 60 characters"))
     .max(10, "Up to 10 other names")
     .optional(),
   level: z.enum(SKILL_LEVEL_KEYS),

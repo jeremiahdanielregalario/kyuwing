@@ -6,7 +6,7 @@ import { nameKey } from "./attendance";
  * them needs no fixing. Pure, so it is unit-tested.
  */
 
-export const ALIAS_MAX_LENGTH = 30;
+export const ALIAS_MAX_LENGTH = 60;
 export const ALIASES_MAX = 10;
 
 /** "LA, Ian L.A." → ["LA", "Ian L.A."]: split on commas or new lines, trimmed. */
@@ -51,6 +51,58 @@ export function aliasConflict(
     if (found) return { alias, ...found };
   }
   return null;
+}
+
+/**
+ * The other names to save when the queue master picks a nickname for a name written in a
+ * Messenger list, so the same name is recognised next time. A name that is already that
+ * player's nickname or other name is left out, and so is one that belongs to someone else
+ * (it would make the name ambiguous), one that is too long, or one past the limit.
+ * Returns, per nickname, the full new list of other names.
+ */
+export function learnedAliases(
+  picks: Array<{ name: string; nickname: string }>,
+  players: Array<{ nickname: string; aliases: string[] }>,
+): {
+  updates: Map<string, string[]>;
+  saved: Array<{ name: string; nickname: string }>;
+  skipped: Array<{ name: string; nickname: string; reason: string }>;
+} {
+  const updates = new Map<string, string[]>();
+  const saved: Array<{ name: string; nickname: string }> = [];
+  const skipped: Array<{ name: string; nickname: string; reason: string }> = [];
+  const current = (nickname: string) =>
+    updates.get(nickname) ?? players.find((player) => player.nickname === nickname)?.aliases ?? [];
+  for (const pick of picks) {
+    const name = pick.name
+      .trim()
+      .replace(/^@+\s*/, "")
+      .replace(/\s+/g, " ");
+    const owner = players.find((player) => player.nickname === pick.nickname);
+    if (!owner || !name) continue;
+    const mine = current(owner.nickname);
+    if (nameKey(name) === nameKey(owner.nickname) || mine.some((alias) => nameKey(alias) === nameKey(name)))
+      continue;
+    if (name.length > ALIAS_MAX_LENGTH) {
+      skipped.push({ ...pick, reason: "too long" });
+      continue;
+    }
+    if (mine.length >= ALIASES_MAX) {
+      skipped.push({ ...pick, reason: `already has ${ALIASES_MAX} other names` });
+      continue;
+    }
+    const others = players
+      .filter((player) => player.nickname !== owner.nickname)
+      .map((player) => ({ nickname: player.nickname, aliases: current(player.nickname) }));
+    const conflict = aliasConflict([name], others);
+    if (conflict) {
+      skipped.push({ ...pick, reason: `already used by ${conflict.owner}` });
+      continue;
+    }
+    updates.set(owner.nickname, [...mine, name]);
+    saved.push({ name, nickname: owner.nickname });
+  }
+  return { updates, saved, skipped };
 }
 
 /**
