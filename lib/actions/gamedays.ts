@@ -78,7 +78,38 @@ async function courtNamer(gameDayId: string): Promise<(court: number) => string>
 }
 
 /**
- * Move queued games onto open courts in the current block, oldest first.
+ * Next up games whose four players are all off court, oldest first: the ones the queue
+ * master can transfer onto a free court now. A planned game can include players still
+ * playing; it waits until they finish.
+ */
+async function readyQueuedGames(tx: Prisma.TransactionClient, gameDayId: string) {
+  const waitingLine = await tx.match.findMany({
+    where: { gameDayId, status: "SUGGESTED", courtNumber: QUEUED_COURT },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, players: { select: { playerId: true } } },
+  });
+  if (waitingLine.length === 0) return [];
+  const playing = await tx.matchPlayer.findMany({
+    where: { match: { gameDayId, status: "LIVE" } },
+    select: { playerId: true },
+  });
+  const playingIds = new Set(playing.map((row) => row.playerId));
+  return waitingLine.filter((game) => !game.players.some((row) => playingIds.has(row.playerId)));
+}
+
+/**
+ * The note added to a message when a court just came free: a Next up game is ready, so the
+ * queue master presses Transfer to Court. Games never move onto a court by themselves.
+ */
+async function transferHint(gameDayId: string): Promise<string> {
+  const ready = await readyQueuedGames(prisma, gameDayId);
+  return ready.length > 0 ? " A Next up game is ready: press Transfer to Court on it." : "";
+}
+
+/**
+ * Move queued games onto open courts in the current block, oldest first. Only Auto-pair
+ * does this (the queue master asked for games); everywhere else the queue master
+ * presses Transfer to Court on the waiting game.
  * `preferCourt` (a court that just freed up) is filled before the others.
  * Returns the courts that received a game.
  */
@@ -88,21 +119,7 @@ async function promoteQueuedGames(
   preferCourt?: number,
   slotIndex?: number,
 ): Promise<number[]> {
-  const waitingLine = await tx.match.findMany({
-    where: { gameDayId, status: "SUGGESTED", courtNumber: QUEUED_COURT },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, players: { select: { playerId: true } } },
-  });
-  if (waitingLine.length === 0) return [];
-
-  // A planned game can include players still on court. Only games whose four are
-  // all free move onto a court; the rest keep waiting for their turn.
-  const playing = await tx.matchPlayer.findMany({
-    where: { match: { gameDayId, status: "LIVE" } },
-    select: { playerId: true },
-  });
-  const playingIds = new Set(playing.map((row) => row.playerId));
-  const queued = waitingLine.filter((game) => !game.players.some((row) => playingIds.has(row.playerId)));
+  const queued = await readyQueuedGames(tx, gameDayId);
   if (queued.length === 0) return [];
 
   const gameDay = await tx.gameDay.findUnique({ where: { id: gameDayId }, select: { courtPlan: true } });
@@ -299,17 +316,16 @@ export async function startGameDay(id: string, setup: CourtSetup[]): Promise<Act
       where: { gameDayId: id, status: "SUGGESTED", courtNumber: { gt: courtsNow } },
       data: { courtNumber: QUEUED_COURT },
     });
-    await promoteQueuedGames(tx, id, undefined, slotIndex);
   });
 
   refreshGameDay(id);
-  return ok("Game day is live.");
+  return ok(`Game day is live.${await transferHint(id)}`);
 }
 
 /**
  * Extend a live game day past its reservation: adds a block from the current
  * end until `until` with `courts` courts. Suggested games on courts the
- * extension drops go to the waiting courts; waiting games fill added courts.
+ * extension drops go to the waiting courts.
  */
 export async function extendGameDay(gameDayId: string, until: string, courts: number): Promise<ActionResult> {
   const authError = await guard();
@@ -331,7 +347,6 @@ export async function extendGameDay(gameDayId: string, until: string, courts: nu
       where: { gameDayId, status: "SUGGESTED", courtNumber: { gt: courts } },
       data: { courtNumber: QUEUED_COURT },
     });
-    await promoteQueuedGames(tx, gameDayId, undefined, result.index);
   });
 
   refreshGameDay(gameDayId);
@@ -1173,8 +1188,8 @@ export async function generateMatches(
     const inLine = active.filter((match) => match.courtNumber === QUEUED_COURT).length + 1;
     return ok(
       options.queue
-        ? `Game set in the waiting court as #${inLine} — it takes the next free court.`
-        : `All courts are busy. Game queued as #${inLine} in Next up — it takes the next free court.`,
+        ? `Game set in the waiting court as #${inLine}. Transfer it to a court when one is free.`
+        : `All courts are busy. Game queued as #${inLine} in Next up. Transfer it to a court when one is free.`,
       {
         matches: 1,
       },
@@ -1455,7 +1470,7 @@ export async function completeMatch(matchId: string): Promise<ActionResult> {
   if (match.status !== "LIVE") return fail("Start the match before finishing it.");
 
   const now = new Date();
-  const filled = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     await tx.match.update({
       where: { id: matchId },
       data: { status: "COMPLETED", endedAt: now },
@@ -1470,14 +1485,11 @@ export async function completeMatch(matchId: string): Promise<ActionResult> {
         queuedAt: now,
       },
     });
-    return promoteQueuedGames(tx, match.gameDayId, match.courtNumber);
   });
 
   refreshGameDay(match.gameDayId);
   return ok(
-    filled.length > 0
-      ? `${name(match.courtNumber)} finished. Next up game moved onto ${name(filled[0])} — start it when they're ready.`
-      : `${name(match.courtNumber)} finished${match.free ? " (free game, not counted)" : ""}. Players are back in the queue.`,
+    `${name(match.courtNumber)} finished${match.free ? " (free game, not counted)" : ""}. Players are back in the queue.${await transferHint(match.gameDayId)}`,
   );
 }
 
@@ -1574,11 +1586,10 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
 
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { players: true } });
   if (!match) return fail("Match not found.");
-  const name = await courtNamer(match.gameDayId);
   if (match.status === "COMPLETED") return fail("Completed matches cannot be cancelled.");
 
   const now = new Date();
-  const filled = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     await tx.match.update({ where: { id: matchId }, data: { status: "CANCELLED", endedAt: now } });
     if (match.status === "LIVE") {
       await tx.sessionPlayer.updateMany({
@@ -1586,17 +1597,11 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
         data: { status: "WAITING", queuedAt: now },
       });
     }
-    return match.courtNumber === QUEUED_COURT
-      ? []
-      : promoteQueuedGames(tx, match.gameDayId, match.courtNumber);
   });
 
   refreshGameDay(match.gameDayId);
-  return ok(
-    filled.length > 0
-      ? `Match cancelled. Next up game moved onto ${name(filled[0])}.`
-      : "Match cancelled. Players stay in the queue.",
-  );
+  const hint = match.courtNumber === QUEUED_COURT ? "" : await transferHint(match.gameDayId);
+  return ok(`Match cancelled. Players stay in the queue.${hint}`);
 }
 
 export async function updateMatchPlayers(
@@ -1716,8 +1721,8 @@ export async function updateMatchCourt(matchId: string, courtNumber: number): Pr
  * Add one court mid-session for the time it is used: from `from` until `until`
  * (or the end of the reservation when `until` is null). The court plan is split
  * around that time, so the rent, and each player's share, counts the court only
- * for those hours. A game waiting in Next up moves straight onto the court when
- * it is in play now. `slotIndex` is the block the queue master is looking at;
+ * for those hours. A game waiting in Next up is not moved onto it; the queue
+ * master presses Transfer to Court. `slotIndex` is the block the queue master is looking at;
  * the answer says which block to show after the plan is split.
  */
 export async function addCourt(
@@ -1754,14 +1759,11 @@ export async function addCourt(
   );
   if ("error" in result) return fail(result.error);
 
-  // Games sit on court positions of the block in play, so a waiting game only moves onto the
-  // new court when the court is in play right now.
+  // Games sit on court positions of the block in play, so a waiting game can only be
+  // transferred onto the new court when the court is in play right now.
   const nowIndex = currentSlotIndex(result.plan);
   const inPlay = result.added[nowIndex];
-  const filled = await prisma.$transaction(async (tx) => {
-    await tx.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: result.plan } });
-    return inPlay ? promoteQueuedGames(tx, gameDayId, result.plan[nowIndex].courts, nowIndex) : [];
-  });
+  await prisma.gameDay.update({ where: { id: gameDayId }, data: { courtPlan: result.plan } });
 
   refreshGameDay(gameDayId);
   const withCourt = result.plan.filter((_, index) => result.added[index]);
@@ -1779,11 +1781,9 @@ export async function addCourt(
           result.plan.findIndex((_, index) => fromSame(index)),
         );
   return ok(
-    filled.length > 0
-      ? `${name} added for ${when}. The first Next up game moved onto it.`
-      : inPlay
-        ? `${name} added for ${when}.`
-        : `${name} added for ${when}. It shows on the board in that court block.`,
+    inPlay
+      ? `${name} added for ${when}.${await transferHint(gameDayId)}`
+      : `${name} added for ${when}. It shows on the board in that court block.`,
     { slotIndex: view },
   );
 }
@@ -2171,7 +2171,7 @@ export async function createManualMatch(
     const inLine =
       gameDay.matches.filter((row) => row.courtNumber === QUEUED_COURT && row.status === "SUGGESTED").length +
       1;
-    return ok(`Game set in the waiting court as #${inLine} — it takes the next free court.`, {
+    return ok(`Game set in the waiting court as #${inLine} — transfer it to a court when one is free.`, {
       matchId: match.id,
     });
   }
@@ -2180,7 +2180,8 @@ export async function createManualMatch(
 
 /**
  * Move a match to another court. If that court is already taken by another
- * active match, the two matches swap courts.
+ * active match, the two matches swap courts. From Next up this is the Transfer
+ * to Court button: the court must be free and none of the four still playing.
  */
 export async function moveMatchToCourt(matchId: string, courtNumber: number): Promise<ActionResult> {
   const authError = await guard();
@@ -2189,7 +2190,7 @@ export async function moveMatchToCourt(matchId: string, courtNumber: number): Pr
   if (!Number.isInteger(courtNumber) || courtNumber < 1 || courtNumber > 20)
     return fail("Pick a valid court.");
 
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  const match = await prisma.match.findUnique({ where: { id: matchId }, include: { players: true } });
   if (!match) return fail("Match not found.");
   const name = await courtNamer(match.gameDayId);
   if (match.status === "COMPLETED" || match.status === "CANCELLED")
@@ -2209,6 +2210,21 @@ export async function moveMatchToCourt(matchId: string, courtNumber: number): Pr
     return fail(`${name(courtNumber)} is in use. Finish or cancel that game first.`);
   }
 
+  // A Next up game can include players still finishing on another court.
+  if (match.courtNumber === QUEUED_COURT) {
+    const stillPlaying = await prisma.matchPlayer.findMany({
+      where: {
+        playerId: { in: match.players.map((row) => row.playerId) },
+        match: { gameDayId: match.gameDayId, status: "LIVE" },
+      },
+      include: { player: { select: { nickname: true } }, match: { select: { courtNumber: true } } },
+    });
+    if (stillPlaying.length > 0) {
+      const names = stillPlaying.map((row) => `${row.player.nickname} (${name(row.match.courtNumber)})`);
+      return fail(`Still playing: ${names.join(", ")}. Transfer this game once they finish.`);
+    }
+  }
+
   if (occupant) {
     await prisma.$transaction([
       prisma.match.update({ where: { id: matchId }, data: { courtNumber } }),
@@ -2218,15 +2234,12 @@ export async function moveMatchToCourt(matchId: string, courtNumber: number): Pr
     return ok(`Swapped ${name(match.courtNumber)} and ${name(courtNumber)}.`);
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.match.update({ where: { id: matchId }, data: { courtNumber } });
-    if (match.courtNumber !== QUEUED_COURT) await promoteQueuedGames(tx, match.gameDayId, match.courtNumber);
-  });
+  await prisma.match.update({ where: { id: matchId }, data: { courtNumber } });
   refreshGameDay(match.gameDayId);
   return ok(
     match.courtNumber === QUEUED_COURT
-      ? `Next up game sent to ${name(courtNumber)}.`
-      : `Moved to ${name(courtNumber)}.`,
+      ? `Next up game transferred to ${name(courtNumber)}. Start it when they're on court.`
+      : `Moved to ${name(courtNumber)}.${await transferHint(match.gameDayId)}`,
   );
 }
 

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { BoardData, BoardMatch, BoardPlayer } from "./board-types";
-import { optimisticCancel, optimisticFinish, optimisticStart, optimisticStatus } from "./board-optimistic";
+import {
+  optimisticCancel,
+  optimisticFinish,
+  optimisticStart,
+  optimisticStatus,
+  optimisticTransfer,
+  transferTargets,
+} from "./board-optimistic";
 
 const NOW = "2026-11-14T03:00:00.000Z";
 
@@ -130,5 +137,33 @@ describe("optimistic board updates", () => {
     expect(optimisticStart(data, "x", false, NOW)).toBe(data);
     expect(optimisticFinish(data, "x", NOW)).toBe(data);
     expect(optimisticCancel(data, "x")).toBe(data);
+  });
+});
+
+describe("Transfer to Court", () => {
+  const on = (row: BoardMatch, court: number): BoardMatch => ({ ...row, courtNumber: court });
+  const QUEUED = 0;
+
+  it("offers the free courts to waiting games whose players are all off court, oldest first", () => {
+    const data = board(
+      [],
+      [
+        on(match("live", "LIVE", ["a", "b", "c", "d"]), 1),
+        on(match("w1", "SUGGESTED", ["a", "e", "f", "g"]), QUEUED), // a is still playing on court 1
+        on(match("w2", "SUGGESTED", ["h", "i", "j", "k"]), QUEUED),
+        on(match("w3", "SUGGESTED", ["l", "m", "n", "o"]), QUEUED),
+      ],
+    );
+    expect([...transferTargets(data, [1, 2, 3], QUEUED)]).toEqual([
+      ["w2", 2],
+      ["w3", 3],
+    ]);
+    expect(transferTargets(data, [1], QUEUED).size).toBe(0);
+  });
+
+  it("moves the game onto the court without starting it", () => {
+    const data = board([], [on(match("w1", "SUGGESTED", four), QUEUED)]);
+    const next = optimisticTransfer(data, "w1", 2).activeMatches[0];
+    expect(next).toMatchObject({ courtNumber: 2, status: "SUGGESTED" });
   });
 });

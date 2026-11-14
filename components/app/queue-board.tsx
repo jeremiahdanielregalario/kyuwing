@@ -10,6 +10,8 @@ import {
   optimisticFinish,
   optimisticStart,
   optimisticStatus,
+  optimisticTransfer,
+  transferTargets,
 } from "@/lib/board-optimistic";
 import { toast } from "sonner";
 import {
@@ -71,6 +73,7 @@ import {
   Wand2,
   XCircle,
   Zap,
+  ArrowRightToLine,
 } from "lucide-react";
 import {
   addCourt,
@@ -807,6 +810,18 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     1,
   );
   const courtNumbers = Array.from({ length: courtCount }, (_, index) => index + 1);
+  // Free courts a waiting game can be transferred onto (a court being filled by hand is left alone).
+  const transfers = transferTargets(
+    data,
+    courtNumbers.filter((court) => !(drafts[court] ?? EMPTY_DRAFT).some(Boolean)),
+    QUEUED_COURT,
+  );
+  const transferGame = (matchId: string, court: number) =>
+    act(
+      () => moveMatchToCourt(matchId, court),
+      undefined,
+      (current) => optimisticTransfer(current, matchId, court),
+    );
   const isDraft = data.gameDay.status === "DRAFT";
   const isCompleted = data.gameDay.status === "COMPLETED";
   const split = narrow && splitPreferred && !isCompleted;
@@ -1790,9 +1805,10 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                           )}
                         </h3>
                         <span data-trim-id="board.waiting-hint" className="text-muted text-[11px]">
-                          Plan ahead, even with players still on court. Each game takes the next court that
-                          frees up, in order. Add as many as you like, beyond the reserved courts. A player
-                          can sit in several planned games but can&apos;t be on two playing courts at once.
+                          Plan ahead, even with players still on court. When a court frees up, press Transfer
+                          to Court on the next game. Add as many as you like, beyond the reserved courts. A
+                          player can sit in several planned games but can&apos;t be on two playing courts at
+                          once.
                         </span>
                       </div>
                       <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
@@ -1804,6 +1820,16 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                               match={match}
                               queuePosition={match ? index + 1 : undefined}
                               canStart={!courtsFull}
+                              transferTo={
+                                match && transfers.has(match.id)
+                                  ? courtName(slot, transfers.get(match.id)!)
+                                  : undefined
+                              }
+                              onTransfer={
+                                match && transfers.has(match.id)
+                                  ? () => transferGame(match.id, transfers.get(match.id)!)
+                                  : undefined
+                              }
                               draft={drafts[QUEUED_COURT] ?? EMPTY_DRAFT}
                               playerById={playerById}
                               now={now}
@@ -2567,8 +2593,8 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                 </p>
               ))}
             <p className="text-muted mt-3 text-[11px]">
-              The first game in Next up moves onto the new court when it is in use now. Remove courts in
-              Settings.
+              When the new court is in use now, press Transfer to Court on the next waiting game to put it
+              there. Remove courts in Settings.
             </p>
           </Modal>
 
@@ -2866,6 +2892,8 @@ function CourtCard({
   onClearDraft,
   queuePosition,
   canStart = true,
+  transferTo,
+  onTransfer,
   onRemove,
   onRename,
 }: {
@@ -2892,6 +2920,9 @@ function CourtCard({
   queuePosition?: number;
   /** False when a waiting court's game has no free court to start on. */
   canStart?: boolean;
+  /** Waiting games only: the free court this game can be transferred onto now. */
+  transferTo?: string;
+  onTransfer?: () => void;
   /** Removes this court from the block (real courts only). */
   onRemove?: () => void;
   /** Opens the rename dialog (real courts only). */
@@ -3094,6 +3125,30 @@ function CourtCard({
           </div>
         </div>
 
+        {waiting && transferTo && onTransfer && !isCompleted && (
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+            <p
+              role="status"
+              className="bg-gold/85 text-ink animate-pop-in relative rounded-full px-2.5 py-1 text-[11px] leading-tight font-bold"
+            >
+              {transferTo} is empty
+              <span
+                aria-hidden
+                className="bg-gold/85 absolute top-1/2 -right-1 h-2 w-2 -translate-y-1/2 rotate-45"
+              />
+            </p>
+            <Button
+              size="sm"
+              onClick={onTransfer}
+              disabled={pending}
+              title={`Move these four onto ${transferTo}`}
+              className={cn("h-9 px-3.5", WAITING_BUTTON)}
+            >
+              <ArrowRightToLine className="h-3.5 w-3.5" /> Transfer to Court
+            </Button>
+          </div>
+        )}
+
         <div className="mt-2.5 grid grid-cols-2 gap-x-8">
           <div className="space-y-1.5">
             {match.team1.map((player) => (
@@ -3162,9 +3217,7 @@ function CourtCard({
               size="sm"
               onClick={() => onStart(match.id)}
               disabled={pending || isCompleted || !canStart}
-              title={
-                canStart ? undefined : "Every court is in use — this game takes the next one that frees up"
-              }
+              title={canStart ? undefined : "Every court is in use. Transfer this game when one frees up"}
               className={cn(
                 "h-8 flex-1",
                 waiting
