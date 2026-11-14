@@ -2866,9 +2866,9 @@ function CourtCard({
             disabled={pending}
             aria-label="Cancel match"
             title="Cancel this match"
-            className="border-cream/15 text-cream/50 hover:text-coral grid h-8 w-8 place-items-center rounded-full border border-transparent transition disabled:opacity-40"
+            className="border-coral/50 bg-coral/15 text-coral hover:bg-coral/25 press grid h-9 w-9 shrink-0 place-items-center rounded-full border transition disabled:opacity-40"
           >
-            <XCircle className="h-3.5 w-3.5" />
+            <XCircle className="h-5 w-5" />
           </button>
         </div>
       </div>

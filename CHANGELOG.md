@@ -66,6 +66,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Bigger cancel button on matches** — the ⊗ that cancels a match is larger and tinted red so it stands out on the court card.
 - **Edit from the start review** — the review pop-up now has **Edit details** (opens the game day's Settings) and **Edit sign-ups** (opens Sign-ups). Going to edit doesn't dismiss the automatic review: when you come back to the board it opens again so you can start.
 - **Start review at the start time** — when the clock reaches a draft game day's first court time, the board opens a review pop-up by itself (once per device). It lists every detail: name, date, game time, venue, type, court rent, queue master and finance member, every signed-up player (checked in and not here yet, flagging anyone without a level), and the courts reserved per block with their names, which you can still fix. Press **Everything's right, start** to start the game day. **Start game day** opens the same review any time.
 - **Snappier buttons** — Start, Finish, Cancel, Check in, Done and Requeue now update the board and the sign-up list the moment you press them, and put things back if the server says no. A small **Saving…** pill shows while a change is on its way. Each press now takes one trip to the server instead of two or three (no more extra page refresh after saving), and game-day pages load their data once instead of twice. The Fees tab footer now points to the game day's Settings for the court rate.
