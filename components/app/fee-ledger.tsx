@@ -45,7 +45,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
   const [query, setQuery] = React.useState("");
   const [selected, setSelected] = React.useState<FeeRow | null>(null);
   const [amount, setAmount] = React.useState("");
-  const [method, setMethod] = React.useState<"CASH" | "GCASH" | "BANK" | "OTHER">("CASH");
+  const [method, setMethod] = React.useState<keyof typeof PAYMENT_METHOD_LABELS>("CASH");
   const [grips, setGrips] = React.useState("0");
   const [otherCharge, setOtherCharge] = React.useState("");
   const [otherNote, setOtherNote] = React.useState("");

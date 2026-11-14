@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FeeRow } from "./board-types";
-import { trackerRemarks, trackerRows, trackerSheetName } from "./finance-tracker";
+import { TRACKER_PAYMENT, trackerRemarks, trackerRows, trackerSheetName } from "./finance-tracker";
+import { PAYMENT_METHOD_LABELS } from "./fees";
+import { PAYMENT_METHOD_KEYS } from "./validation";
 
 function row(overrides: Partial<FeeRow>): FeeRow {
   return {
@@ -95,5 +97,16 @@ describe("trackerRemarks", () => {
 describe("trackerSheetName", () => {
   it("names the sheet after the game date like the template", () => {
     expect(trackerSheetName("2026-11-18T00:00:00.000Z")).toBe("November 18, 2026");
+  });
+});
+
+describe("payment methods", () => {
+  it("knows Maya and GoTyme everywhere a method is listed", () => {
+    for (const method of PAYMENT_METHOD_KEYS) {
+      expect(PAYMENT_METHOD_LABELS[method]).toBeTruthy();
+      expect(TRACKER_PAYMENT[method]).toBe(method);
+    }
+    expect(PAYMENT_METHOD_LABELS.MAYA).toBe("Maya");
+    expect(PAYMENT_METHOD_LABELS.GOTYME).toBe("GoTyme");
   });
 });

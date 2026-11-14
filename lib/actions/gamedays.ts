@@ -47,6 +47,7 @@ import {
   courtSetupSchema,
   gameDayCreateSchema,
   gameDayUpdateSchema,
+  PAYMENT_METHOD_KEYS,
   parseCategory,
   type PlayerInput,
 } from "@/lib/validation";
@@ -1918,7 +1919,7 @@ export async function setCourtHours(gameDayId: string, hours: number | null): Pr
 type PaymentInput = {
   paid: boolean;
   amountPaid?: number;
-  method?: "CASH" | "GCASH" | "BANK" | "OTHER" | null;
+  method?: "CASH" | "GCASH" | "MAYA" | "GOTYME" | "BANK" | "OTHER" | null;
   /** Grips and any other charge for this player; omitted leaves them as they are. */
   charges?: { gripCount: number; otherCharge: number; otherNote?: string | null; voucher?: number };
 };
@@ -1926,6 +1927,9 @@ type PaymentInput = {
 export async function setPayment(sessionPlayerId: string, input: PaymentInput): Promise<ActionResult> {
   const authError = await guard();
   if (authError) return authError;
+  if (input.method && !(PAYMENT_METHOD_KEYS as readonly string[]).includes(input.method)) {
+    return fail("Pick how they paid.");
+  }
 
   const row = await prisma.sessionPlayer.findUnique({
     where: { id: sessionPlayerId },

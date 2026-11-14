@@ -94,6 +94,8 @@ enum LeaveRequestStatus {
 enum PaymentMethod {
   CASH
   GCASH
+  MAYA
+  GOTYME
   BANK
   OTHER
 }

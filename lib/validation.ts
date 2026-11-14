@@ -27,7 +27,7 @@ export const SKILL_LEVEL_KEYS = [
 
 export const CATEGORY_KEYS = ["ACTIVE", "INACTIVE", "ALUMNI", "APPLICANT", "NON_AFFILIATE"] as const;
 export const GAMEDAY_TYPE_KEYS = ["REGULAR", "TIPID", "MEGA"] as const;
-export const PAYMENT_METHOD_KEYS = ["CASH", "GCASH", "BANK", "OTHER"] as const;
+export const PAYMENT_METHOD_KEYS = ["CASH", "GCASH", "MAYA", "GOTYME", "BANK", "OTHER"] as const;
 
 export const playerSchema = z.object({
   nickname: z.string().trim().min(1, "Nickname is required").max(30, "Keep nicknames under 30 characters"),

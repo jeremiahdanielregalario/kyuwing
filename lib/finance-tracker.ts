@@ -21,6 +21,8 @@ export const TRACKER_STATUS: Record<FeeRow["category"], string> = {
 export const TRACKER_PAYMENT: Record<string, string> = {
   CASH: "CASH",
   GCASH: "GCASH",
+  MAYA: "MAYA",
+  GOTYME: "GOTYME",
   BANK: "BANK",
   OTHER: "OTHER",
 };

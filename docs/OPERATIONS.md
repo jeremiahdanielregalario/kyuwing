@@ -134,7 +134,7 @@ When the reservation runs out (the end of the last block, on the game day itself
 
 - [ ] Finish or cancel every live and suggested match.
 - [ ] Mark anyone who left early as **Done**.
-- [ ] Open **Fees**, record payments, and reconcile cash vs GCash.
+- [ ] Open **Fees**, record payments (Cash, GCash, Maya, GoTyme, Bank transfer or Other), and reconcile each method.
 - [ ] Download the **Excel** and **PDF** reports.
 - [ ] Check the **Player leaderboard** on the **Reports** page, which ranks players by games and shows each one's total time on court, from the start to the finish of every game they played (free games included). It is for your eyes only and is not in the Excel or PDF. If one player's time looks far too long, a game was probably left running; check Match history.
 - [ ] Add a short note to the game day if anything unusual happened (late courts, guests, corrections).

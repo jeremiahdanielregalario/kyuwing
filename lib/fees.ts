@@ -26,6 +26,8 @@ export const GAMEDAY_TYPE_LABELS: Record<GameDayType, string> = {
 export const PAYMENT_METHOD_LABELS = {
   CASH: "Cash",
   GCASH: "GCash",
+  MAYA: "Maya",
+  GOTYME: "GoTyme",
   BANK: "Bank transfer",
   OTHER: "Other",
 } as const;
