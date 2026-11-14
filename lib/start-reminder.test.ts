@@ -20,7 +20,7 @@ const game = (id: string, overrides: Partial<BoardMatch> = {}): BoardMatch => ({
   ...overrides,
 });
 
-const none = { movedIds: [] as string[], laterIds: new Set<string>() };
+const none = { laterIds: new Set<string>() };
 
 describe("gamesToStart", () => {
   it("waits before reminding about a game that was just paired", () => {
@@ -32,13 +32,14 @@ describe("gamesToStart", () => {
     expect(ids).toEqual(["a"]);
   });
 
-  it("reminds right away about a game that moved onto a court when another ended", () => {
-    const ids = gamesToStart([game("a"), game("b", { courtNumber: 2 })], {
-      ...none,
-      now: PAIRED_AT + 1000,
-      movedIds: ["b"],
-    }).map((m) => m.id);
-    expect(ids).toEqual(["b"]);
+  it("gives a game that just moved onto a court the same minute before reminding", () => {
+    const moved = game("b", { courtNumber: 2, changedAt: new Date(PAIRED_AT + 30_000).toISOString() });
+    expect(gamesToStart([moved], { ...none, now: PAIRED_AT + START_NUDGE_MS })).toEqual([]);
+    expect(gamesToStart([moved], { ...none, now: PAIRED_AT + 30_000 + START_NUDGE_MS })).toEqual([moved]);
+  });
+
+  it("waits one minute", () => {
+    expect(START_NUDGE_MS).toBe(60_000);
   });
 
   it("skips live games, waiting-court games and games answered Not yet", () => {
@@ -51,7 +52,6 @@ describe("gamesToStart", () => {
     ];
     const ids = gamesToStart(games, {
       now: later,
-      movedIds: ["waiting"],
       laterIds: new Set(["later"]),
     }).map((m) => m.id);
     expect(ids).toEqual(["due"]);

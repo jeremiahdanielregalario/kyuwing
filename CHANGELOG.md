@@ -73,6 +73,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Start reminder waits a minute** — the "Start the game on Court X?" pop-up now only appears when a game on a court still has not started 1 minute after it was paired or moved there. It no longer pops up the moment a game moves onto a free court (it used to wait 2 minutes for other paired games).
 - **Messenger list box open by default** — on New game day, **Start from the Messenger list** now starts expanded, and the long explanation under the two boxes is gone.
 - **Full names on the Messenger list are read automatically** — a full name ("Jeremiah Daniel Regalario", "@Leidovic Keth Gellang") or a nickname and surname ("Thea Rello") that fits exactly one player is now read as their nickname on either list, with no **Use "…"** to press; the box lists them under "Read as nicknames". Only a name that fits more than one player still asks which one. The **Use nicknames for all** button is gone, as there is nothing left for it to do.
 - **Any start time** — the game time and court block pickers now offer the whole day from 12:00 AM, not just from 5:00 AM.

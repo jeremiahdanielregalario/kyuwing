@@ -878,9 +878,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   // Start reminder: a game on a court that hasn't started, either because it just moved up when
   // another game ended, or because it was paired a while ago and left. Queue masters often pair,
   // check the line-up, and forget to press Start.
-  const startReminder = isCompleted
-    ? []
-    : gamesToStart(suggested, { now, movedIds: promotedIds, laterIds: startLaterIds });
+  const startReminder = isCompleted ? [] : gamesToStart(suggested, { now, laterIds: startLaterIds });
   // Once the game day is live, remind the queue master to post the live link in the group chat
   // (until it has been copied, shared or downloaded on this device). Waits for other prompts.
   const [liveLinkShared, markLiveLinkShared] = useLiveLinkShared(data.gameDay.id);
