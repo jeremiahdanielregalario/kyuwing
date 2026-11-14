@@ -3085,18 +3085,21 @@ function CourtCard({
           <span className="text-cream/40 font-mono text-[9px]">R{match.round}</span>
         </div>
 
-        {!live && !waiting && !isCompleted && (
-          <p
-            data-trim-id="board.start-reminder"
-            className="bg-gold text-ink relative mt-2 rounded-lg px-2.5 py-1.5 text-[11px] leading-snug font-semibold"
-          >
-            Not started yet. Press Start once all four are on court
-            {unstartedMinutes >= 1 ? ` · paired ${formatWaited(unstartedMinutes)} ago` : ""}.
-            <span aria-hidden className="bg-gold absolute -bottom-1 left-8 h-2 w-2 rotate-45" />
-          </p>
-        )}
-
-        <div className="mt-1.5 flex items-center gap-1.5">
+        <div className="relative mt-1.5 flex items-center gap-1.5">
+          {/* Floats over the court above Start, so it takes no room in the card. */}
+          {!live && !waiting && !isCompleted && (
+            <p
+              data-trim-id="board.start-reminder"
+              role="status"
+              className="bg-gold/85 text-ink shadow-float animate-pop-in pointer-events-none absolute bottom-full left-2 z-10 mb-2 rounded-full px-2.5 py-1 text-[11px] leading-none font-bold whitespace-nowrap backdrop-blur-sm"
+            >
+              Start game
+              {unstartedMinutes >= 1 && (
+                <span className="font-semibold opacity-70"> · {formatWaited(unstartedMinutes)} ago</span>
+              )}
+              <span aria-hidden className="bg-gold/85 absolute -bottom-1 left-6 h-2 w-2 rotate-45" />
+            </p>
+          )}
           {live ? (
             <Button
               variant="accent"

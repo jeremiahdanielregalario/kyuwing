@@ -67,6 +67,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Lighter start reminder on court cards** — the gold "Not started yet. Press Start once all four are on court" note is now a short, slightly see-through "Start game · 1 min ago" tag that floats over the court above **Start**, so the card no longer grows to make room for it.
 - **Clearer Remove court button** — the **−** in a court's header is now a solid red circle with a bold white minus, larger and easier to spot. It is dimmed while a game is in progress on that court.
 - **A court added mid-day is charged only for the time it is used** — **Add court** now asks when the court is used: **Used from** (the half hour in progress by default) and **For how long** (until the end of the reserved time, or 30 min, 1, 1½, 2 or 3 hours only), and shows what that adds to the court rent. The court plan is split around that time, so the rent and every player's share count the extra court only for those hours. Before, an added court was charged for the whole block it was added to.
 - **Drag a player back to the queue** — a player on a court can be returned by dragging their block onto the queue, which lights up while you drag (or tap the block, then **To queue**). It works for hand-placed players and for a paired game that hasn't started: the game is taken apart, that player returns to the queue, and the other three stay on the court in their places so you can press **Fill the rest** or drop someone else in. Games that have started still need Finish or Cancel.
