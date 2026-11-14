@@ -1,7 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, Clock3, MapPin, Minus, Play, Plus, TriangleAlert, Users, Wallet } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  MapPin,
+  Minus,
+  Pencil,
+  Play,
+  Plus,
+  TriangleAlert,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { formatTime12, planWindow } from "@/lib/court-plan";
 import { courtNamesText, courtSetupProblem, resizedCourtNames, type CourtSetup } from "@/lib/court-setup";
 import type { BoardGameDay, BoardPlayer } from "@/lib/board-types";
@@ -31,6 +42,8 @@ export function StartGameDayDialog({
   players,
   pending,
   onClose,
+  onEditDetails,
+  onEditPlayers,
   onStart,
 }: {
   plan: CourtSlot[];
@@ -38,6 +51,10 @@ export function StartGameDayDialog({
   players: BoardPlayer[];
   pending: boolean;
   onClose: () => void;
+  /** Leave the review to change the name, date, venue, type, times, rate or people (Settings). */
+  onEditDetails: () => void;
+  /** Leave the review to manage sign-ups and check-ins. */
+  onEditPlayers: () => void;
   onStart: (setup: CourtSetup[]) => void;
 }) {
   const [rows, setRows] = React.useState<CourtSetup[]>(() =>
@@ -78,7 +95,7 @@ export function StartGameDayDialog({
       open
       onClose={onClose}
       title="Review the game day before you start"
-      description="Check every detail below. Fix the courts here; change anything else in Settings."
+      description="Check every detail below. Fix the courts right here; use Edit for anything else."
       size="md"
       footer={
         <>
@@ -93,7 +110,10 @@ export function StartGameDayDialog({
     >
       <div className="space-y-3">
         <section className="border-line bg-paper rounded-2xl border p-3.5">
-          <p className="font-display text-[15px] leading-tight font-bold">{gameDay.name}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-display pt-1.5 text-[15px] leading-tight font-bold">{gameDay.name}</p>
+            <EditButton onClick={onEditDetails} label="Edit details" />
+          </div>
           <dl className="mt-2.5 grid gap-x-4 gap-y-2 text-[12px] sm:grid-cols-2">
             <ReviewRow icon={CalendarDays} label="Date">
               {formatGameDate(gameDay.date, { weekday: true })}
@@ -122,11 +142,14 @@ export function StartGameDayDialog({
         </section>
 
         <section className="border-line bg-paper rounded-2xl border p-3.5">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-[13px] font-semibold">Players</p>
-            <p className="text-muted text-[11px]">
-              {players.length} signed up · {checkedIn.length} checked in · {expected.length} not here yet
-            </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="pt-1">
+              <p className="text-[13px] font-semibold">Players</p>
+              <p className="text-muted text-[11px]">
+                {players.length} signed up · {checkedIn.length} checked in · {expected.length} not here yet
+              </p>
+            </div>
+            <EditButton onClick={onEditPlayers} label="Edit sign-ups" />
           </div>
           {players.length === 0 ? (
             <p className="text-muted mt-1.5 text-[12px]">
@@ -310,5 +333,17 @@ function PlayerChips({
         ))}
       </div>
     </div>
+  );
+}
+
+function EditButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="press border-line text-forest hover:bg-cream-deep inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border bg-white px-3 text-[12px] font-semibold"
+    >
+      <Pencil className="h-3.5 w-3.5" /> {label}
+    </button>
   );
 }

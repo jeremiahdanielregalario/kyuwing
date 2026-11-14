@@ -452,6 +452,12 @@ export function GameDaySettings({
           players={players}
           pending={pending}
           onClose={() => setStartOpen(false)}
+          // Already in Settings: close the review and go back to the form at the top.
+          onEditDetails={() => {
+            setStartOpen(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onEditPlayers={() => router.push(`/app/gamedays/${gameDay.id}/signups`)}
           onStart={(setup) =>
             act(
               () => startGameDay(gameDay.id, setup),

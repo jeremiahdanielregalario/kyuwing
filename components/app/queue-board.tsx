@@ -2206,6 +2206,9 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               players={data.players}
               pending={pending}
               onClose={closeStartReview}
+              // Going to edit doesn't count as closing: back on the board, the review opens again.
+              onEditDetails={() => router.push(`/app/gamedays/${data.gameDay.id}/settings`)}
+              onEditPlayers={() => router.push(`/app/gamedays/${data.gameDay.id}/signups`)}
               onStart={(setup) => act(() => startGameDay(data.gameDay.id, setup), closeStartReview)}
             />
           )}
