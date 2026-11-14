@@ -2967,7 +2967,7 @@ function CourtCard({
       <div
         ref={setCourtRef}
         className={cn(
-          "court-surface relative overflow-hidden rounded-2xl border-2 border-dashed transition",
+          "court-surface relative overflow-hidden rounded-2xl border border-dashed transition",
           waiting && "court-surface-waiting",
           isCompleted ? "opacity-60" : waiting ? "border-cream/30" : "border-cream/20",
           (courtOver || tapOverlay) && "border-lime ring-lime/40 ring-2",
@@ -2976,7 +2976,7 @@ function CourtCard({
         {tapOverlay}
         <CourtLines tone={waiting ? "waiting" : "open"} />
         <div className="relative p-3">
-          <div className="flex items-center justify-between">
+          <div className="flex min-h-6 items-center justify-between">
             <span className="text-cream/70 inline-flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.16em] uppercase">
               <span className="bg-cream/40 h-1.5 w-1.5 rounded-full" />
               <CourtNameButton name={name} onRename={isCompleted ? undefined : onRename} />
@@ -2990,7 +2990,7 @@ function CourtCard({
               )}
             </span>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-x-8">
+          <div className="mt-2.5 grid grid-cols-2 gap-x-8">
             {[
               [0, 1],
               [2, 3],
@@ -3009,23 +3009,46 @@ function CourtCard({
               </div>
             ))}
           </div>
-          <div className="mt-2.5 flex items-center justify-between gap-2">
-            <span className="text-cream/40 text-[10px]">
+          {/* The same rows as a paired court, so every card is the same size. */}
+          <div className="border-cream/15 mt-2 flex items-center justify-between gap-2 border-t pt-1.5">
+            <span className="text-cream/45 truncate text-[9px] font-semibold tracking-[0.1em] uppercase">
               {draft.some(Boolean)
                 ? `Pair fills the other ${draft.filter((id) => !id).length}`
                 : waiting
-                  ? "Tap or drag players in, or Pair for all four"
-                  : "Tap or drag waiting players in, or Pair for all four"}
+                  ? "Tap or drag players in"
+                  : "Tap or drag waiting players in"}
             </span>
+            <span className="text-cream/40 font-mono text-[9px]">&nbsp;</span>
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5">
             <Button
               variant="accent"
               size="sm"
               onClick={onPair}
               disabled={pending || isCompleted}
-              className={cn("h-8", waiting && WAITING_BUTTON)}
+              className={cn("h-8 flex-1", waiting && WAITING_BUTTON)}
             >
               <Wand2 className="h-3.5 w-3.5" /> {draft.some(Boolean) ? "Fill the rest" : "Pair"}
             </Button>
+            {/* Not usable until there is a game; shown so the card matches the others. */}
+            <span
+              aria-hidden
+              className="border-cream/20 bg-cream/10 text-cream/90 inline-flex h-8 shrink-0 items-center gap-1 rounded-full border px-3 text-[12px] font-semibold opacity-40"
+            >
+              <Shuffle className="h-3.5 w-3.5" /> Re-pair
+            </span>
+            <span
+              aria-hidden
+              className="border-cream/20 bg-cream/10 text-cream/80 grid h-8 w-8 place-items-center rounded-full border opacity-40"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </span>
+            <span
+              aria-hidden
+              className="border-coral/50 bg-coral/15 text-coral grid h-9 w-9 shrink-0 place-items-center rounded-full border opacity-40"
+            >
+              <XCircle className="h-5 w-5" />
+            </span>
           </div>
         </div>
       </div>
