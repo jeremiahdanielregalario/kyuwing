@@ -2721,11 +2721,10 @@ function CourtCard({
               type="button"
               onClick={() => onRegenerate(match.id)}
               disabled={pending || isCompleted}
-              aria-label="Regenerate this pairing"
-              title="Different pairing"
-              className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 press grid h-8 w-8 place-items-center rounded-full border disabled:opacity-40"
+              title="Swap in a different set of four from the queue"
+              className="border-cream/20 bg-cream/10 text-cream/90 hover:bg-cream/20 press inline-flex h-8 shrink-0 items-center gap-1 rounded-full border px-3 text-[12px] font-semibold disabled:opacity-40"
             >
-              <Shuffle className="h-3.5 w-3.5" />
+              <Shuffle className="h-3.5 w-3.5" /> Re-pair
             </button>
           )}
           <button
@@ -2733,6 +2732,7 @@ function CourtCard({
             onClick={() => onEdit(match)}
             disabled={pending}
             aria-label="Edit match"
+            title="Edit players and teams"
             className="border-cream/20 bg-cream/10 text-cream/80 hover:bg-cream/20 press grid h-8 w-8 place-items-center rounded-full border disabled:opacity-40"
           >
             <Pencil className="h-3.5 w-3.5" />
@@ -2742,6 +2742,7 @@ function CourtCard({
             onClick={() => onCancel(match.id)}
             disabled={pending}
             aria-label="Cancel match"
+            title="Cancel this match"
             className="border-cream/15 text-cream/50 hover:text-coral grid h-8 w-8 place-items-center rounded-full border border-transparent transition disabled:opacity-40"
           >
             <XCircle className="h-3.5 w-3.5" />
