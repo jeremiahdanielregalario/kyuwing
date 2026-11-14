@@ -10,7 +10,7 @@ export type PlanBlock = { id: string; label: string; start: string; end: string;
 
 /** Times are picked in 30-minute steps. */
 export const TIME_STEP_MINUTES = 30;
-const EARLIEST = 5 * 60;
+const EARLIEST = 0;
 const LATEST = 23 * 60 + 30;
 
 export function minutesToTime(minutes: number): string {

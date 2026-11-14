@@ -49,6 +49,14 @@ describe("timeChoices", () => {
     expect(timeChoices({ after: "13:00", before: "15:00" })).toEqual(["13:30", "14:00", "14:30"]);
   });
 
+  it("offers the whole day, from 12:00 AM, with no lower bound", () => {
+    const all = timeChoices();
+    expect(all[0]).toBe("00:00");
+    expect(all).toContain("04:30");
+    expect(all.at(-1)).toBe("23:30");
+    expect(all).toHaveLength(48);
+  });
+
   it("keeps an off-grid time that is already set", () => {
     expect(timeChoices({ after: "13:00", before: "15:00", keep: "13:45" })).toEqual([
       "13:30",
