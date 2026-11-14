@@ -66,6 +66,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **New app logo** — the app now uses the official UP BadAss emblem (the black, gold and grey feather, without the lettering) as its logo: the browser tab icon, the home-screen and installed-app icons, the logo beside "kyuwing." across the app, and the centre of the live-link QR code. PDF and Excel reports keep the full UP BadAss wordmark. An app that is already installed may show the old icon until it is removed and installed again.
 - **Show archived on the public roster** — `/roster` now has a **Show archived** button that lists archived players (nickname, full name, level, player type, attendance history and awards, marked Archived). They stay hidden by default and are not counted in the stats or bracket chart. Contacts and notes are still never shown.
 - **No more surprise zoom on phones** — the board no longer gets stuck zoomed in. Text boxes and menus are 16px on touch screens, so iPhones stop zooming in when you type in them. Quick taps on buttons no longer count as a double-tap zoom, and rotating the phone no longer enlarges the text. Pinch-to-zoom still works.
 - **Bigger cancel button on matches** — the ⊗ that cancels a match is larger and tinted red so it stands out on the court card.

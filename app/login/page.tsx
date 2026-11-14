@@ -156,7 +156,7 @@ export default async function LoginPage({
           </div>
 
           <div className="border-cream/12 bg-cream/[0.04] mt-10 flex items-center gap-3 rounded-2xl border p-4">
-            <BrandMark className="h-11 w-[4.8rem] shrink-0 px-1.5" />
+            <BrandMark className="h-11 w-11 shrink-0" />
             <div>
               <p className="font-display text-sm font-bold">UP BadAss</p>
               <p className="text-cream/45 text-[10px]">UP Badminton Association in Diliman · Est. 2015</p>

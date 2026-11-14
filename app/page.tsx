@@ -841,7 +841,7 @@ export default function HomePage() {
           <div>
             <p className="text-cream/40 text-[10px] font-bold tracking-[0.16em] uppercase">Made for</p>
             <div className="border-cream/10 bg-cream/[0.04] mt-4 flex items-center gap-3 rounded-2xl border p-3">
-              <BrandMark className="h-10 w-16 shrink-0 px-1" />
+              <BrandMark className="h-10 w-10 shrink-0" />
               <div>
                 <p className="font-display text-cream text-sm font-bold">UP BadAss</p>
                 <p className="text-cream/50 text-[10px]">UP Badminton Association in Diliman</p>

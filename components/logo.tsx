@@ -2,9 +2,9 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * The official UP BadAss wordmark is a black/gold PNG with transparency, so it
- * is always placed on a white "sticker" chip. That keeps it legible on the bone
- * page background and on the black app sidebar.
+ * The app's logo: the UP BadAss emblem (the feather from the official logo, without the
+ * lettering). It is black, gold and grey on transparency, so it is always placed on a white
+ * "sticker" chip. That keeps it legible on the bone page background and on the black app sidebar.
  */
 export function BrandMark({ className }: { className?: string }) {
   return (
@@ -15,9 +15,9 @@ export function BrandMark({ className }: { className?: string }) {
       )}
     >
       <img
-        src="/brand/upbadass-wordmark.png"
+        src="/brand/upbadass-emblem.svg"
         alt="UP BadAss"
-        className="h-[70%] w-auto max-w-[86%] object-contain"
+        className="h-[78%] w-auto max-w-[86%] object-contain"
       />
     </span>
   );
@@ -38,7 +38,7 @@ export function Logo({
       className={cn("group inline-flex items-center gap-2.5", className)}
       aria-label="Kyuwing home"
     >
-      <BrandMark className="h-10 w-[4.4rem] px-1.5 transition-transform duration-300 group-hover:-rotate-2" />
+      <BrandMark className="h-10 w-10 transition-transform duration-300 group-hover:-rotate-2" />
       {!compact && (
         <span
           className={cn(
