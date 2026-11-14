@@ -114,6 +114,8 @@ If a player hands over more than they owe (usually cash with no coins), type the
 
 The Fees tab shows the breakdown (`court-hours × rate = rent ÷ players = share`). The rule lives in `buildFeeSchedule` in `lib/fees.ts`.
 
+**Overriding the court-hours.** When the venue bills a different total than the court plan works out (a court given back early, a free half hour), press **Edit court-hours** on the Split court cost card and type the total court-hours (courts × hours, in whole, half or quarter hours). That number supersedes the plan's for the fee split, the Excel and PDF reports and the payment list; the card shows "(set by the queue master; the plan has 12)". **Use the plan's …** goes back to the calculated hours. It is stored per game day in `GameDay.courtHoursOverride`.
+
 ## Tests
 
 `lib/fees.test.ts` covers the fee math (zero games, flat + per-game, negatives clamped), peso formatting and label coverage for every enum value.

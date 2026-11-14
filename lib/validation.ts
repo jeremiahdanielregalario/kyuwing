@@ -108,6 +108,14 @@ export const gameDayCreateSchema = z.object({
   courtRatePerHour: z.coerce.number().int().min(1).max(100000).optional().nullable(),
 });
 
+/** Court-hours a queue master types in for the fee split, in steps as fine as a quarter hour. */
+export const courtHoursSchema = z
+  .number({ message: "Enter the court-hours as a number." })
+  .positive("Court-hours must be more than 0.")
+  .max(500, "That is more court-hours than a game day can have.")
+  .refine((value) => Number.isInteger(value * 4), "Use whole, half or quarter hours, e.g. 7.5.")
+  .nullable();
+
 export const gameDayUpdateSchema = gameDayCreateSchema.partial().extend({
   id: z.string().min(1),
   status: z.enum(["DRAFT", "LIVE", "COMPLETED"]).optional(),

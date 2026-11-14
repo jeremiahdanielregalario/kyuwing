@@ -43,6 +43,7 @@ import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingP
 import {
   addCourtSchema,
   chargesSchema,
+  courtHoursSchema,
   courtSetupSchema,
   gameDayCreateSchema,
   gameDayUpdateSchema,
@@ -1881,15 +1882,37 @@ export async function renameCourt(
 function feeScheduleFor(gameDay: {
   courtPlan: unknown;
   courtRatePerHour: number | null;
+  courtHoursOverride: number | null;
   players: Array<{ status: string }>;
   venue: { shortName: string };
 }) {
   return buildFeeSchedule({
     courtPlan: parseCourtPlan(gameDay.courtPlan),
     ratePerCourtHour: gameDay.courtRatePerHour,
+    courtHoursOverride: gameDay.courtHoursOverride,
     venueShortName: gameDay.venue.shortName,
     attendees: gameDay.players.filter((player) => player.status !== "EXPECTED").length,
   });
+}
+
+/**
+ * Sets the court-hours the fee split uses, superseding the hours worked out from the court
+ * plan (e.g. when the venue billed a different total). `null` goes back to the plan's hours.
+ */
+export async function setCourtHours(gameDayId: string, hours: number | null): Promise<ActionResult> {
+  const authError = await guard();
+  if (authError) return authError;
+  const parsed = courtHoursSchema.safeParse(hours);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Enter the court-hours.");
+  const found = await prisma.gameDay.findUnique({ where: { id: gameDayId }, select: { id: true } });
+  if (!found) return fail("Game day not found.");
+  await prisma.gameDay.update({ where: { id: gameDayId }, data: { courtHoursOverride: parsed.data } });
+  refreshGameDay(gameDayId);
+  return ok(
+    parsed.data === null
+      ? "Court-hours follow the court plan again."
+      : `Court-hours set to ${parsed.data}. Fees are worked out from that now.`,
+  );
 }
 
 type PaymentInput = {

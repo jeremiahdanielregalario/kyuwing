@@ -2,9 +2,18 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Check, CircleDollarSign, Download, FileSpreadsheet, FileText, Search, Wallet } from "lucide-react";
+import {
+  Check,
+  CircleDollarSign,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Pencil,
+  Search,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
-import { markAllPaid, setPayment, setSettled } from "@/lib/actions/gamedays";
+import { markAllPaid, setCourtHours, setPayment, setSettled } from "@/lib/actions/gamedays";
 import type { FeeReport, FeeRow } from "@/lib/board-types";
 import {
   CATEGORY_SHORT,
@@ -41,6 +50,8 @@ export function FeeLedger({ report }: { report: FeeReport }) {
   const [otherCharge, setOtherCharge] = React.useState("");
   const [otherNote, setOtherNote] = React.useState("");
   const [voucher, setVoucher] = React.useState("");
+  /** The court-hours box on the split card: null while closed. */
+  const [hoursDraft, setHoursDraft] = React.useState<string | null>(null);
   /** Until the finance member types an amount received, it follows the total. */
   const [amountTouched, setAmountTouched] = React.useState(false);
 
@@ -82,6 +93,15 @@ export function FeeLedger({ report }: { report: FeeReport }) {
       }
     });
   };
+
+  const split = report.scheme.split;
+  const saveHours = (hours: number | null) =>
+    act(
+      () => setCourtHours(report.gameDay.id, hours),
+      () => setHoursDraft(null),
+    );
+  const typedHours = hoursDraft === null ? NaN : Number(hoursDraft);
+  const hoursValid = Number.isFinite(typedHours) && typedHours > 0 && Number.isInteger(typedHours * 4);
 
   const rows = report.rows
     .filter((row) => {
@@ -129,9 +149,82 @@ export function FeeLedger({ report }: { report: FeeReport }) {
   return (
     <div className="space-y-5">
       <div className="border-line bg-paper rounded-2xl border px-4 py-3 text-[13px] leading-relaxed">
-        <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Split court cost</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Split court cost</p>
+          {hoursDraft === null && (
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => setHoursDraft(String(split.courtHours))}
+              disabled={pending}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit court-hours
+            </Button>
+          )}
+        </div>
+        {hoursDraft !== null && (
+          <form
+            className="border-line mt-2 flex flex-wrap items-end gap-2 rounded-xl border bg-white p-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (hoursValid) saveHours(typedHours);
+            }}
+          >
+            <label className="min-w-0 flex-1 basis-40">
+              <span className="block text-[12px] font-semibold">Total court-hours</span>
+              <Input
+                autoFocus
+                value={hoursDraft}
+                onChange={(event) => setHoursDraft(event.target.value.replace(/[^\d.]/g, ""))}
+                inputMode="decimal"
+                placeholder={String(split.plannedCourtHours)}
+                className="mt-1"
+              />
+              <span className="text-muted mt-1 block text-[11px]">
+                Courts × hours, e.g. 3 courts for 4 hours is 12. The court plan works out{" "}
+                {split.plannedCourtHours}.
+              </span>
+            </label>
+            <Button type="submit" size="sm" disabled={pending || !hoursValid} className="h-11">
+              Save
+            </Button>
+            {split.courtHoursOverridden && (
+              <Button
+                type="button"
+                size="sm"
+                variant="paper"
+                disabled={pending}
+                onClick={() => saveHours(null)}
+                className="h-11"
+              >
+                Use the plan&apos;s {split.plannedCourtHours}
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setHoursDraft(null)}
+              className="h-11"
+            >
+              Cancel
+            </Button>
+            {hoursDraft.trim() !== "" && !hoursValid && (
+              <p className="text-coral w-full text-[11px] font-semibold">
+                Use whole, half or quarter hours, e.g. 7.5.
+              </p>
+            )}
+          </form>
+        )}
         <p className="mt-1">
-          {report.scheme.split.courtHours} court-hours × {formatPeso(report.scheme.split.ratePerCourtHour)} ={" "}
+          {report.scheme.split.courtHours} court-hours
+          {split.courtHoursOverridden && (
+            <span className="text-muted">
+              {" "}
+              (set by the queue master; the plan has {split.plannedCourtHours})
+            </span>
+          )}{" "}
+          × {formatPeso(report.scheme.split.ratePerCourtHour)} ={" "}
           <span className="font-semibold">{formatPeso(report.scheme.split.courtCost)}</span> ÷{" "}
           {report.scheme.split.players} players ={" "}
           <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} base price</span> (rounded

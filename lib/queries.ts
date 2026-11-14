@@ -422,6 +422,7 @@ async function loadFeeReport(gameDayId: string): Promise<FeeReport | null> {
   const schedule = buildFeeSchedule({
     courtPlan: parseCourtPlan(gameDay.courtPlan),
     ratePerCourtHour: gameDay.courtRatePerHour,
+    courtHoursOverride: gameDay.courtHoursOverride,
     venueShortName: gameDay.venue.shortName,
     attendees: gameDay.players.filter((row) => row.status !== "EXPECTED").length,
   });

@@ -128,7 +128,12 @@ export function courtCost(
 
 export type FeeSplit = {
   ratePerCourtHour: number;
+  /** The hours the cost is worked out from: the queue master's if set, otherwise the plan's. */
   courtHours: number;
+  /** Court-hours worked out from the court plan. */
+  plannedCourtHours: number;
+  /** Set when a queue master typed the court-hours in, overriding the plan. */
+  courtHoursOverridden: boolean;
   courtCost: number;
   /** Players the cost is divided among (everyone who checked in). */
   players: number;
@@ -185,7 +190,8 @@ export function effectiveCourtRate(
  *
  *   total = base price + games × shuttle rate + ₱10 (applicants and Plus 1s) − voucher
  *
- * The base price is the court cost (rate × hours × courts, summed over blocks) divided among
+ * The base price is the court cost (rate × hours × courts, summed over blocks, or rate × the
+ * court-hours a queue master typed in, which supersede the plan's) divided among
  * everyone who checked in, rounded up to the next ₱5. A queue master on duty pays no base
  * price and ₱20 per game. Shuttle rates are by category (`SPLIT_SHUTTLE_RATES`). The rate is
  * the game day's own, or the venue's default (DASC ₱300, KBC ₱250 per court per hour).
@@ -194,16 +200,23 @@ export function buildFeeSchedule(input: {
   courtPlan: Array<Pick<CourtSlot, "start" | "end" | "courts">>;
   /** The game day's own rate; leave empty to use the venue's default. */
   ratePerCourtHour: number | null | undefined;
+  /** Court-hours a queue master typed in; replaces the plan's hours when set. */
+  courtHoursOverride?: number | null;
   venueShortName: string | null | undefined;
   attendees: number;
 }): FeeSchedule {
   const rate = effectiveCourtRate(input.ratePerCourtHour, input.venueShortName);
-  const cost = courtCost(input.courtPlan, rate);
+  const planned = courtHours(input.courtPlan);
+  const overridden = input.courtHoursOverride != null && input.courtHoursOverride > 0;
+  const hours = overridden ? input.courtHoursOverride! : planned;
+  const cost = Math.round(hours * rate);
   const flatFee =
     input.attendees > 0 ? Math.ceil(cost / input.attendees / BASE_PRICE_STEP) * BASE_PRICE_STEP : 0;
   const split: FeeSplit = {
     ratePerCourtHour: rate,
-    courtHours: courtHours(input.courtPlan),
+    courtHours: hours,
+    plannedCourtHours: planned,
+    courtHoursOverridden: overridden,
     courtCost: cost,
     players: input.attendees,
     flatFee,

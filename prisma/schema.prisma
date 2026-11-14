@@ -235,23 +235,25 @@ model TournamentAwardPlayer {
 }
 
 model GameDay {
-  id                String        @id @default(cuid())
-  name              String
-  venueId           String
-  date              DateTime      @db.Date
-  type              GameDayType   @default(REGULAR)
-  status            GameDayStatus @default(DRAFT)
-  courtPlan         Json          @default("[]")
-  notes             String?
+  id                 String        @id @default(cuid())
+  name               String
+  venueId            String
+  date               DateTime      @db.Date
+  type               GameDayType   @default(REGULAR)
+  status             GameDayStatus @default(DRAFT)
+  courtPlan          Json          @default("[]")
+  notes              String?
   /// Court rate per hour per court. When set, the court cost is split among players as the flat fee, instead of using the venue's fee rules.
-  courtRatePerHour  Int?
+  courtRatePerHour   Int?
+  /// Court-hours typed in by a queue master (e.g. what the venue actually billed). When set, the fee split uses it instead of the hours worked out from the court plan.
+  courtHoursOverride Float?
   /// Officers on duty, shown on the session report.
-  queueMasterName   String?
-  financeMemberName String?
-  startedAt         DateTime?
-  completedAt       DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  queueMasterName    String?
+  financeMemberName  String?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   venue         Venue            @relation(fields: [venueId], references: [id])
   players       SessionPlayer[]

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { computeFee, formatPeso, formatPesoPdf, GAMEDAY_TYPE_LABELS, CATEGORY_LABELS } from "./fees";
+import {
+  buildFeeSchedule,
+  computeFee,
+  formatPeso,
+  formatPesoPdf,
+  GAMEDAY_TYPE_LABELS,
+  CATEGORY_LABELS,
+} from "./fees";
+import { courtHoursSchema } from "./validation";
 
 describe("computeFee", () => {
   it("returns zero when there is no rule for the player's category and day type", () => {
@@ -67,5 +75,46 @@ describe("labels", () => {
     expect(CATEGORY_LABELS.ALUMNI).toBe("Alumni");
     expect(CATEGORY_LABELS.APPLICANT).toBe("Applicant");
     expect(CATEGORY_LABELS.NON_AFFILIATE).toBe("Non-affiliate");
+  });
+});
+
+describe("buildFeeSchedule court-hours override", () => {
+  const plan = [{ start: "11:00", end: "15:00", courts: 3 }];
+  const base = { courtPlan: plan, ratePerCourtHour: 300, venueShortName: "DASC", attendees: 51 };
+
+  it("works the cost out from the court plan by default", () => {
+    const { split } = buildFeeSchedule(base);
+    expect(split).toMatchObject({
+      courtHours: 12,
+      plannedCourtHours: 12,
+      courtHoursOverridden: false,
+      courtCost: 3600,
+    });
+  });
+
+  it("uses the queue master's court-hours instead of the plan's", () => {
+    const { split } = buildFeeSchedule({ ...base, courtHoursOverride: 3 });
+    expect(split).toMatchObject({
+      courtHours: 3,
+      plannedCourtHours: 12,
+      courtHoursOverridden: true,
+      courtCost: 900,
+    });
+    // ₱900 ÷ 51 = ₱17.65, rounded up to ₱20.
+    expect(split.flatFee).toBe(20);
+  });
+
+  it("ignores an empty or zero override", () => {
+    expect(buildFeeSchedule({ ...base, courtHoursOverride: null }).split.courtHours).toBe(12);
+    expect(buildFeeSchedule({ ...base, courtHoursOverride: 0 }).split.courtHours).toBe(12);
+  });
+});
+
+describe("courtHoursSchema", () => {
+  it("takes whole, half and quarter hours, or null to follow the plan", () => {
+    expect(courtHoursSchema.parse(7.5)).toBe(7.5);
+    expect(courtHoursSchema.parse(null)).toBeNull();
+    expect(courtHoursSchema.safeParse(0).success).toBe(false);
+    expect(courtHoursSchema.safeParse(7.3).success).toBe(false);
   });
 });
