@@ -1,4 +1,5 @@
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { History, LogOut } from "lucide-react";
 import { AppNav, FooterLinks, MobileNav } from "@/components/app/app-nav";
 import { Logo, OrgBadge } from "@/components/logo";
 import { logoutAction } from "@/lib/actions/auth";
@@ -26,9 +27,17 @@ export function AppShell({
             <OrgBadge className="mt-5" tone="cream" />
           </div>
           {admin && (
-            <span className="border-lime/30 bg-lime/10 text-lime mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold tracking-[0.14em] uppercase">
-              <span className="bg-lime h-1.5 w-1.5 rounded-full" /> Developer
-            </span>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="border-lime/30 bg-lime/10 text-lime inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold tracking-[0.14em] uppercase">
+                <span className="bg-lime h-1.5 w-1.5 rounded-full" /> Developer
+              </span>
+              <Link
+                href="/app/sign-ins"
+                className="text-cream/70 hover:text-lime inline-flex items-center gap-1 text-[11px] font-semibold underline-offset-2 hover:underline"
+              >
+                <History className="h-3.5 w-3.5" /> Sign-in log
+              </Link>
+            </div>
           )}
         </div>
 
@@ -67,9 +76,13 @@ export function AppShell({
           <Logo compact tone="cream" />
           <div className="flex items-center gap-2">
             {admin && (
-              <span className="border-lime/30 bg-lime/10 text-lime rounded-full border px-2 py-1 text-[9px] font-bold tracking-[0.12em] uppercase">
-                Dev
-              </span>
+              <Link
+                href="/app/sign-ins"
+                className="press border-lime/30 bg-lime/10 text-lime inline-flex h-9 items-center gap-1 rounded-full border px-2.5 text-[9px] font-bold tracking-[0.12em] uppercase"
+                aria-label="Developer: sign-in log"
+              >
+                <History className="h-3.5 w-3.5" /> Dev
+              </Link>
             )}
             <InstallAppButton variant="icon" />
             <span className="border-cream/15 bg-cream/5 text-cream/70 max-w-[11rem] truncate rounded-full border px-3 py-1.5 text-[11px] font-semibold">

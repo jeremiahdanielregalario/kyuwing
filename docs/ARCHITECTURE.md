@@ -147,6 +147,7 @@ One shared queue-master identity, plus a separate developer identity.
 3. On success, `createSession` signs a JWT (`HS256`, 14-hour expiry) with `AUTH_SECRET` and sets it as an HTTP-only, `SameSite=Lax` cookie (`Secure` in production). Developer sessions carry an `admin: true` claim.
 4. `app/app/layout.tsx` calls `getSession()` and redirects to `/login?next=/app` when absent.
 5. API routes and server actions re-check the session; the layout guard is not the only line of defense. `lib/actions/ui-config.ts` additionally requires `isAdmin()`.
+6. **Sign-in log.** Each successful sign-in writes a `SignInLog` row (name typed, developer or not, a short device label from the user agent via `deviceLabel` in `lib/sign-in-log.ts`, and `expiresAt` = sign-in + 14 hours) and puts its id in the JWT as `sid`. **Sign out** stamps `signedOutAt` with `SIGNED_OUT`; signing in again on the same device closes the old row with `SIGNED_IN_AGAIN`; a row with neither is shown as expired once `expiresAt` passes. Logging failures are caught so they never block signing in or out. Wrong PINs are not logged. The developer-only page `/app/sign-ins` (404 for queue masters) shows the latest 300, linked from the Developer badge in the sidebar and the **Dev** pill in the phone header. Sessions from before the log existed have no `sid` and are not listed.
 
 ### Motion and feel
 

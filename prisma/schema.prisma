@@ -99,31 +99,31 @@ enum PaymentMethod {
 }
 
 model Venue {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
-  shortName     String    @unique
+  shortName     String   @unique
   dayOfWeek     Int // 0 = Sunday ... 6 = Saturday
-  defaultStart  String    @default("10:00")
-  defaultEnd    String    @default("14:00")
-  defaultCourts Int       @default(3)
+  defaultStart  String   @default("10:00")
+  defaultEnd    String   @default("14:00")
+  defaultCourts Int      @default(3)
   address       String?
   notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   feeRules FeeRule[]
   gameDays GameDay[]
 }
 
 model FeeRule {
-  id          String          @id @default(cuid())
-  venueId     String
-  dayType     GameDayType     @default(REGULAR)
-  category    PlayerCategory
-  flatFee     Int // whole Philippine pesos
-  perGameFee  Int // whole Philippine pesos
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id         String         @id @default(cuid())
+  venueId    String
+  dayType    GameDayType    @default(REGULAR)
+  category   PlayerCategory
+  flatFee    Int // whole Philippine pesos
+  perGameFee Int // whole Philippine pesos
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
@@ -146,8 +146,8 @@ model Player {
 
   sessionPlayers   SessionPlayer[]
   matchPlayers     MatchPlayer[]
-  pairingRequests  PairingRequest[] @relation("RequestingPlayer")
-  targetedRequests PairingRequest[] @relation("TargetPlayer")
+  pairingRequests  PairingRequest[]        @relation("RequestingPlayer")
+  targetedRequests PairingRequest[]        @relation("TargetPlayer")
   attendance       AttendanceEntry[]
   tournamentAwards TournamentAwardPlayer[]
 
@@ -157,17 +157,17 @@ model Player {
 
 /// One past game day or tournament, imported from a chat list.
 model AttendanceEvent {
-  id        String           @id @default(cuid())
-  date      DateTime         @db.Date
+  id        String         @id @default(cuid())
+  date      DateTime       @db.Date
   label     String?
-  kind      AttendanceKind   @default(GAMEDAY)
+  kind      AttendanceKind @default(GAMEDAY)
   /// The game day this list was logged from when it ended. Null for lists pasted from the chat.
-  gameDayId String?          @unique
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  gameDayId String?        @unique
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   entries AttendanceEntry[]
-  gameDay GameDay?         @relation(fields: [gameDayId], references: [id], onDelete: SetNull)
+  gameDay GameDay?          @relation(fields: [gameDayId], references: [id], onDelete: SetNull)
 
   @@index([date])
 }
@@ -235,28 +235,28 @@ model TournamentAwardPlayer {
 }
 
 model GameDay {
-  id          String         @id @default(cuid())
-  name        String
-  venueId     String
-  date        DateTime       @db.Date
-  type        GameDayType    @default(REGULAR)
-  status      GameDayStatus  @default(DRAFT)
-  courtPlan   Json           @default("[]")
-  notes       String?
+  id                String        @id @default(cuid())
+  name              String
+  venueId           String
+  date              DateTime      @db.Date
+  type              GameDayType   @default(REGULAR)
+  status            GameDayStatus @default(DRAFT)
+  courtPlan         Json          @default("[]")
+  notes             String?
   /// Court rate per hour per court. When set, the court cost is split among players as the flat fee, instead of using the venue's fee rules.
-  courtRatePerHour Int?
+  courtRatePerHour  Int?
   /// Officers on duty, shown on the session report.
   queueMasterName   String?
   financeMemberName String?
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  venue    Venue            @relation(fields: [venueId], references: [id])
-  players  SessionPlayer[]
-  matches  Match[]
-  requests PairingRequest[]
+  venue         Venue            @relation(fields: [venueId], references: [id])
+  players       SessionPlayer[]
+  matches       Match[]
+  requests      PairingRequest[]
   leaveRequests LeaveRequest[]
   attendance    AttendanceEvent?
 
@@ -291,8 +291,8 @@ model SessionPlayer {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
-  gameDay GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
-  player  Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameDay       GameDay        @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+  player        Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
   leaveRequests LeaveRequest[]
 
   @@unique([gameDayId, playerId])
@@ -373,4 +373,22 @@ model AppSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+/// One queue master or developer sign-in, for the developer's Sign-in log.
+model SignInLog {
+  id          String    @id @default(cuid())
+  /// The name typed at sign-in.
+  name        String
+  developer   Boolean   @default(false)
+  /// Short device description from the browser, e.g. "iPhone · Safari".
+  device      String?
+  signedInAt  DateTime  @default(now())
+  /// When the sign-in cookie runs out if nobody signs out.
+  expiresAt   DateTime
+  signedOutAt DateTime?
+  /// SIGNED_OUT (pressed Sign out) or SIGNED_IN_AGAIN (signed in again on the same device).
+  endReason   String?
+
+  @@index([signedInAt])
 }

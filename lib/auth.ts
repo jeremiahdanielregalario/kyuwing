@@ -3,13 +3,15 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
 const COOKIE_NAME = "kyuwing_session";
-const SESSION_HOURS = 14;
+export const SESSION_HOURS = 14;
 
 export type QueueMasterSession = {
   name: string;
   role: "queue_master";
   /** Developer session: can hide/show optional UI pieces for everyone. */
   admin: boolean;
+  /** This sign-in's row in the Sign-in log, so signing out can close it. */
+  sid?: string;
 };
 
 function getSecret() {
@@ -46,12 +48,18 @@ export function checkAdminPin(pin: string): boolean {
   return pinMatches(pin, expected);
 }
 
-export async function createSession(name: string, options: { admin?: boolean } = {}) {
-  const cleanName = name.trim().slice(0, 40) || (options.admin ? "Developer" : "Queue Master");
+/** The name a session is stored under: trimmed, at most 40 characters, with a fallback. */
+export function sessionName(name: string, admin = false): string {
+  return name.trim().slice(0, 40) || (admin ? "Developer" : "Queue Master");
+}
+
+export async function createSession(name: string, options: { admin?: boolean; sid?: string } = {}) {
+  const cleanName = sessionName(name, options.admin);
   const token = await new SignJWT({
     name: cleanName,
     role: "queue_master",
     admin: Boolean(options.admin),
+    ...(options.sid ? { sid: options.sid } : {}),
   } satisfies QueueMasterSession)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -80,6 +88,7 @@ export async function getSession(): Promise<QueueMasterSession | null> {
       name: String(payload.name || "Queue Master"),
       role: "queue_master",
       admin: payload.admin === true,
+      sid: typeof payload.sid === "string" ? payload.sid : undefined,
     };
   } catch {
     return null;
