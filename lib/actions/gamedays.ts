@@ -19,9 +19,11 @@ import {
   normalizeCourtLabel,
   QUEUED_COURT,
   renamedCourt,
+  timeToMinutes,
   withoutCourt,
 } from "@/lib/datetime";
 import { syncGameDayAttendance } from "@/lib/attendance";
+import { gameStartInstant, missedGames } from "@/lib/late-arrival";
 import { canUndoCheckIn } from "@/lib/check-in";
 import { addCourtForWindow, formatTime12, planProblem, planWindow } from "@/lib/court-plan";
 import { applyCourtSetup, type CourtSetup } from "@/lib/court-setup";
@@ -1033,6 +1035,10 @@ export async function generateMatches(
     requestsByPlayer.set(request.playerId, current);
   }
 
+  // Late arrivals are treated as having played the games they missed (see lib/late-arrival.ts).
+  const firstCourtTime = [...plan].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))[0].start;
+  const gameStartAt = gameStartInstant(gameDay.date, firstCourtTime);
+  const checkedIn = gameDay.players.filter((row) => row.status !== "EXPECTED").length;
   const pairingPlayers: PairingPlayer[] = waiting.map((row) => ({
     id: row.playerId,
     nickname: row.player.nickname,
@@ -1040,6 +1046,12 @@ export async function generateMatches(
     // Someone still on court has not been waiting, whatever their old queue time says.
     waitMinutes: row.status === "WAITING" ? elapsedMinutes(row.queuedAt ?? row.joinedAt) : 0,
     gamesPlayed: row.gamesPlayed,
+    missedGames: missedGames({
+      joinedAt: row.joinedAt,
+      gameStart: gameStartAt,
+      courts: slot.courts,
+      players: checkedIn,
+    }),
     priority: row.priority,
     permanentPartnerId: row.permanentPartnerId,
     requests: requestsByPlayer.get(row.playerId) ?? [],

@@ -11,7 +11,7 @@ suggestMatches(players, history, { courts }) → PairingSuggestion[]
 
 ## The short version
 
-1. Sort the queue by priority, then longest wait, then fewest games.
+1. Sort the queue by priority, then longest wait, then fewest games (games missed by arriving late count as played).
 2. Take a candidate pool (max 14 by default), pulling in the partner of any permanent pair so it is never half-included.
 3. Build “units”: a mutual permanent pair is one unit of two; everyone else is a unit of one.
 4. Enumerate every combination of units that totals exactly four players.
@@ -108,6 +108,7 @@ Permanent partners are a stronger rule than a `PAIR_WITH` request and are enforc
 - Wait is measured from `queuedAt` (check-in), never from sign-up.
 - The wait bonus is capped at 120 minutes so a single very long wait cannot dominate team balance.
 - Games played adds 17 per game, which is why someone on their fourth game loses to someone on their first when other factors are close.
+- Late arrivals count the games they missed as played (`missedGames`, from `lib/late-arrival.ts`). A player who checks in more than 10 minutes after the first court time gets `minutes late × min(1, 4 × courts ÷ checked-in players) ÷ 15` extra games (one decimal). With 4 courts and 32 players, an hour late counts as 2 games. So a late player is not put first for having fewer games, and the later they came the more games they lose. Their wait time is unchanged: it starts when they check in, like everyone else's. Tests: "late arrivals" in `lib/pairing.test.ts` and `lib/late-arrival.test.ts`.
 - Priority subtracts 90 — roughly five games’ worth — which is enough to pull someone forward without letting them jump repeatedly.
 
 Tie-break: if two candidates have exactly equal cost, the one with the higher average wait wins.

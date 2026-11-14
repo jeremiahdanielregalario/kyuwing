@@ -68,6 +68,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Late players are not prioritized** — auto-pair now counts the games a late player missed (from their check-in time versus the first court time, after a 10-minute grace) as if played, scaled by courts and players checked in. Arriving late no longer earns a head start for having fewer games, and the later the arrival the more games are lost. Priority and placing by hand still override it.
 - **Lighter start reminder on court cards** — the gold "Not started yet. Press Start once all four are on court" note is now a short, slightly see-through "Start game · 1 min ago" tag that floats over the court above **Start**, so the card no longer grows to make room for it.
 - **Clearer Remove court button** — the **−** in a court's header is now a solid red circle with a bold white minus, larger and easier to spot. It is dimmed while a game is in progress on that court.
 - **A court added mid-day is charged only for the time it is used** — **Add court** now asks when the court is used: **Used from** (the half hour in progress by default) and **For how long** (until the end of the reserved time, or 30 min, 1, 1½, 2 or 3 hours only), and shows what that adds to the court rent. The court plan is split around that time, so the rent and every player's share count the extra court only for those hours. Before, an added court was charged for the whole block it was added to.

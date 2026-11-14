@@ -372,3 +372,27 @@ describe("placed players (sides)", () => {
     );
   });
 });
+
+describe("late arrivals", () => {
+  // Five equal players waiting equally long: one sits out. The late one has played less,
+  // but the games they missed by arriving late count as played.
+  const onTime = ["a", "b", "c", "d"].map((id) => player(id, "C", { gamesPlayed: 2, waitMinutes: 5 }));
+
+  it("puts a player with fewer games first when they were not late", () => {
+    const pick = findBestMatch([...onTime, player("late", "C", { gamesPlayed: 0, waitMinutes: 5 })]);
+    expect(pick!.playerIds).toContain("late");
+  });
+
+  it("does not put a late player first for having fewer games", () => {
+    const pick = findBestMatch([
+      ...onTime,
+      player("late", "C", { gamesPlayed: 0, missedGames: 3, waitMinutes: 5 }),
+    ]);
+    expect(pick!.playerIds).not.toContain("late");
+  });
+
+  it("costs a little lateness less than a lot", () => {
+    const slightly = player("late", "C", { gamesPlayed: 0, missedGames: 1, waitMinutes: 5 });
+    expect(findBestMatch([...onTime, slightly])!.playerIds).toContain("late");
+  });
+});

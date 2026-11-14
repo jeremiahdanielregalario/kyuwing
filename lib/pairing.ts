@@ -13,6 +13,11 @@ export type PairingPlayer = {
   level: string;
   waitMinutes: number;
   gamesPlayed: number;
+  /**
+   * Games missed by arriving late (see `lib/late-arrival.ts`). Counted as if played, so a late
+   * player is not put ahead for having fewer games; the later they came, the more they lose.
+   */
+  missedGames?: number;
   priority?: boolean;
   permanentPartnerId?: string | null;
   requests?: PairingRequest[];
@@ -107,11 +112,16 @@ function unitKey(ids: string[]) {
   return [...ids].sort().join("|");
 }
 
+/** Games played plus games missed by arriving late: what fairness compares. */
+export function gamesCounted(player: PairingPlayer): number {
+  return player.gamesPlayed + (player.missedGames ?? 0);
+}
+
 function sortPlayers(players: PairingPlayer[]) {
   return [...players].sort((a, b) => {
     if (Boolean(a.priority) !== Boolean(b.priority)) return a.priority ? -1 : 1;
     if (b.waitMinutes !== a.waitMinutes) return b.waitMinutes - a.waitMinutes;
-    if (a.gamesPlayed !== b.gamesPlayed) return a.gamesPlayed - b.gamesPlayed;
+    if (gamesCounted(a) !== gamesCounted(b)) return gamesCounted(a) - gamesCounted(b);
     return a.nickname.localeCompare(b.nickname);
   });
 }
@@ -336,7 +346,7 @@ function evaluateMatch(
   // Wait + games fairness.
   for (const player of all) {
     cost -= Math.min(120, player.waitMinutes) * WAIT_WEIGHT;
-    cost += player.gamesPlayed * GAMES_WEIGHT;
+    cost += gamesCounted(player) * GAMES_WEIGHT;
     if (player.priority) cost -= PRIORITY_WEIGHT;
   }
 
