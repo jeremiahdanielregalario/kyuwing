@@ -1,28 +1,41 @@
 "use client";
 
 import * as React from "react";
-import { Clock3, Minus, Play, Plus, TriangleAlert } from "lucide-react";
-import { formatTime12 } from "@/lib/court-plan";
+import { CalendarDays, Clock3, MapPin, Minus, Play, Plus, TriangleAlert, Users, Wallet } from "lucide-react";
+import { formatTime12, planWindow } from "@/lib/court-plan";
 import { courtNamesText, courtSetupProblem, resizedCourtNames, type CourtSetup } from "@/lib/court-setup";
-import { courtName, parseCourtNumbers, type CourtSlot } from "@/lib/datetime";
+import type { BoardGameDay, BoardPlayer } from "@/lib/board-types";
+import {
+  courtName,
+  formatGameDate,
+  formatTimeRange,
+  parseCourtNumbers,
+  type CourtSlot,
+} from "@/lib/datetime";
+import { isUnrated } from "@/lib/levels";
+import { courtCost, courtHours, effectiveCourtRate, formatPeso, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
 /**
- * "Check the courts" before a game day goes live: per block, how many courts were reserved and
- * what the venue calls them. Mount it only while open, so it starts from the saved plan.
+ * The review before a game day goes live: every detail of the game day and who signed up, then
+ * per block how many courts were reserved and what the venue calls them. Opens on its own at the
+ * start time (see the board), or from Start game day. Mount it only while open, so it starts from
+ * the saved plan.
  */
 export function StartGameDayDialog({
   plan,
-  venue,
+  gameDay,
+  players,
   pending,
   onClose,
   onStart,
 }: {
   plan: CourtSlot[];
-  venue: string;
+  gameDay: BoardGameDay;
+  players: BoardPlayer[];
   pending: boolean;
   onClose: () => void;
   onStart: (setup: CourtSetup[]) => void;
@@ -47,6 +60,14 @@ export function StartGameDayDialog({
     update(index, { courts, names: resizedCourtNames(row.names, courts) ?? row.names });
   };
 
+  const venue = gameDay.venue.shortName || gameDay.venue.name;
+  const span = planWindow(plan);
+  const rate = effectiveCourtRate(gameDay.courtRatePerHour, gameDay.venue.shortName);
+  const rent = courtCost(plan, rate);
+  const checkedIn = players.filter((player) => player.status !== "EXPECTED");
+  const expected = players.filter((player) => player.status === "EXPECTED");
+  const unrated = players.filter((player) => isUnrated(player.level)).length;
+
   const copyToAll = (index: number) =>
     setRows((current) =>
       current.map((row) => ({ ...row, courts: current[index].courts, names: current[index].names })),
@@ -56,8 +77,8 @@ export function StartGameDayDialog({
     <Modal
       open
       onClose={onClose}
-      title="Check the courts before you start"
-      description={`Match these to what ${venue} gave you today. Players and the live view will see these court names.`}
+      title="Review the game day before you start"
+      description="Check every detail below. Fix the courts here; change anything else in Settings."
       size="md"
       footer={
         <>
@@ -65,12 +86,69 @@ export function StartGameDayDialog({
             Cancel
           </Button>
           <Button variant="accent" onClick={() => onStart(rows)} loading={pending} disabled={blocked}>
-            <Play className="h-4 w-4" /> Courts are right, start
+            <Play className="h-4 w-4" /> Everything&apos;s right, start
           </Button>
         </>
       }
     >
       <div className="space-y-3">
+        <section className="border-line bg-paper rounded-2xl border p-3.5">
+          <p className="font-display text-[15px] leading-tight font-bold">{gameDay.name}</p>
+          <dl className="mt-2.5 grid gap-x-4 gap-y-2 text-[12px] sm:grid-cols-2">
+            <ReviewRow icon={CalendarDays} label="Date">
+              {formatGameDate(gameDay.date, { weekday: true })}
+            </ReviewRow>
+            <ReviewRow icon={Clock3} label="Game time">
+              {span ? formatTimeRange(span.start, span.end) : "No court blocks"}
+            </ReviewRow>
+            <ReviewRow icon={MapPin} label="Venue">
+              {gameDay.venue.name}
+              {gameDay.venue.shortName && gameDay.venue.shortName !== gameDay.venue.name
+                ? ` (${gameDay.venue.shortName})`
+                : ""}
+            </ReviewRow>
+            <ReviewRow icon={CalendarDays} label="Type">
+              {GAMEDAY_TYPE_LABELS[gameDay.type]}
+            </ReviewRow>
+            <ReviewRow icon={Wallet} label="Court rent">
+              {rate > 0
+                ? `${courtHours(plan)} court-hours × ${formatPeso(rate)} = ${formatPeso(rent)}`
+                : "No court rate set"}
+            </ReviewRow>
+            <ReviewRow icon={Users} label="Queue master · Finance">
+              {gameDay.queueMasterName || "Not set"} · {gameDay.financeMemberName || "Not set"}
+            </ReviewRow>
+          </dl>
+        </section>
+
+        <section className="border-line bg-paper rounded-2xl border p-3.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-[13px] font-semibold">Players</p>
+            <p className="text-muted text-[11px]">
+              {players.length} signed up · {checkedIn.length} checked in · {expected.length} not here yet
+            </p>
+          </div>
+          {players.length === 0 ? (
+            <p className="text-muted mt-1.5 text-[12px]">
+              Nobody has signed up yet. You can still start and check players in as they arrive.
+            </p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <PlayerChips label="Checked in" players={checkedIn} tone="in" />
+              <PlayerChips label="Not here yet" players={expected} tone="out" />
+            </div>
+          )}
+          {unrated > 0 && (
+            <p className="text-coral mt-2 flex items-center gap-1.5 text-[11px] font-semibold">
+              <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> {unrated}{" "}
+              {unrated === 1 ? "player has" : "players have"} no level yet.
+            </p>
+          )}
+        </section>
+
+        <p className="text-muted px-1 pt-1 text-[10px] font-bold tracking-[0.14em] uppercase">
+          Courts at {venue}
+        </p>
         {plan.map((slot, index) => {
           const row = rows[index];
           const problem = problems[index];
@@ -179,5 +257,58 @@ export function StartGameDayDialog({
         </p>
       </div>
     </Modal>
+  );
+}
+
+function ReviewRow({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2">
+      <Icon className="text-muted mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="min-w-0">
+        <dt className="text-muted text-[10px] font-bold tracking-[0.12em] uppercase">{label}</dt>
+        <dd className="text-ink font-semibold break-words">{children}</dd>
+      </div>
+    </div>
+  );
+}
+
+function PlayerChips({
+  label,
+  players,
+  tone,
+}: {
+  label: string;
+  players: BoardPlayer[];
+  tone: "in" | "out";
+}) {
+  if (players.length === 0) return null;
+  return (
+    <div>
+      <p className="text-muted mb-1 text-[10px] font-bold tracking-[0.12em] uppercase">
+        {label} · {players.length}
+      </p>
+      <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
+        {players.map((player) => (
+          <span
+            key={player.sessionPlayerId}
+            className={cn(
+              "rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+              tone === "in" ? "border-forest/30 bg-cream/60 text-ink" : "border-line text-muted bg-white",
+            )}
+          >
+            {player.nickname}
+            <span className="ml-1 opacity-60">{player.levelLabel}</span>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -18,6 +18,7 @@ import {
   courtName,
   FREE_GAME_WINDOW_MINUTES,
   minutesLeftInReservation,
+  startTimeReached,
   offersFreeGame,
   openCourts,
   parseCourtNumbers,
@@ -350,5 +351,26 @@ describe("Manila dates", () => {
 
   it("formats the clock in Manila time", () => {
     expect(formatClock("2026-11-02T01:30:00.000Z")).toBe("9:30 AM");
+  });
+});
+
+describe("startTimeReached", () => {
+  const PLAN: CourtSlot[] = [
+    { id: "a", label: "First", start: "10:00", end: "12:00", courts: 3 },
+    { id: "b", label: "Second", start: "12:00", end: "14:00", courts: 4 },
+  ];
+  const DATE = "2026-11-02T00:00:00.000Z";
+  const at = (utc: string) => startTimeReached(PLAN, DATE, new Date(utc));
+
+  it("is false before the first court time and true from it", () => {
+    expect(at("2026-11-02T01:59:00.000Z")).toBe(false); // 9:59 AM Manila
+    expect(at("2026-11-02T02:00:00.000Z")).toBe(true); // 10:00 AM
+    expect(at("2026-11-02T05:30:00.000Z")).toBe(true); // 1:30 PM
+  });
+
+  it("is false once the reservation has ended, on another day, or with no plan", () => {
+    expect(at("2026-11-02T06:00:00.000Z")).toBe(false); // 2:00 PM
+    expect(at("2026-11-03T03:00:00.000Z")).toBe(false);
+    expect(startTimeReached([], DATE, new Date("2026-11-02T03:00:00.000Z"))).toBe(false);
   });
 });

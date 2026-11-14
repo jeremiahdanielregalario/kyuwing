@@ -110,6 +110,7 @@ import {
   formatDuration,
   formatGameDate,
   minutesLeftInReservation,
+  startTimeReached,
   offersFreeGame,
   QUEUED_COURT,
   reservationEnd,
@@ -148,6 +149,23 @@ const fetcher = async (url: string) => {
  * the first client render agree (Date.now() during render is a hydration
  * mismatch); the effect fills in the real time immediately after mount.
  */
+/** Whether this device already closed the automatic start review for a game day. */
+function reviewSeen(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markReviewSeen(key: string) {
+  try {
+    window.localStorage.setItem(key, "1");
+  } catch {
+    // Private mode: it stays closed until the page reloads.
+  }
+}
+
 function useNow() {
   const [now, setNow] = React.useState(0);
   React.useEffect(() => {
@@ -364,6 +382,8 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [addCourtOpen, setAddCourtOpen] = React.useState(false);
   /** "Check the courts" pop-up shown when a draft game day is started. */
   const [startCourtsOpen, setStartCourtsOpen] = React.useState(false);
+  /** The game day whose automatic start review was closed in this page load. */
+  const [autoReviewed, setAutoReviewed] = React.useState<string | null>(null);
   const [shareOpen, setShareOpen] = React.useState(false);
   const router = useRouter();
   // Reservation-end prompt: snoozing hides it until the given time on this device.
@@ -576,6 +596,23 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
   const plan = data.gameDay.courtPlan;
   const slot = plan[data.activeSlotIndex] ?? plan[0];
+
+  // When the clock reaches the first court time and the game day is still a draft, the start
+  // review opens by itself so the queue master checks everything and starts the day. Once closed
+  // (or started) it stays closed on this device; Start game day still opens it any time.
+  const reviewKey = `kyuwing:start-review:${data.gameDay.id}`;
+  const autoReviewOpen =
+    data.gameDay.status === "DRAFT" &&
+    now > 0 &&
+    autoReviewed !== data.gameDay.id &&
+    startTimeReached(plan, data.gameDay.date, new Date(now)) &&
+    !reviewSeen(reviewKey);
+  const startReviewOpen = startCourtsOpen || autoReviewOpen;
+  const closeStartReview = () => {
+    markReviewSeen(reviewKey);
+    setAutoReviewed(data.gameDay.id);
+    setStartCourtsOpen(false);
+  };
   const suggested = data.activeMatches.filter(
     (match) => match.status === "SUGGESTED" && match.courtNumber !== QUEUED_COURT,
   );
@@ -726,7 +763,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     !checkOpen &&
     !walkOpen &&
     !addCourtOpen &&
-    !startCourtsOpen &&
+    !startReviewOpen &&
     !renameTarget &&
     !endPromptOpen;
   const startReminderOpen =
@@ -740,7 +777,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     !walkOpen &&
     !addCourtOpen &&
     !shareOpen &&
-    !startCourtsOpen &&
+    !startReviewOpen &&
     !renameTarget &&
     !endPromptOpen;
   const startReminderMoved = startReminder.some((match) => promotedIds.includes(match.id));
@@ -2162,18 +2199,14 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             </p>
           </Modal>
 
-          {startCourtsOpen && (
+          {startReviewOpen && (
             <StartGameDayDialog
               plan={plan}
-              venue={data.gameDay.venue.shortName || data.gameDay.venue.name}
+              gameDay={data.gameDay}
+              players={data.players}
               pending={pending}
-              onClose={() => setStartCourtsOpen(false)}
-              onStart={(setup) =>
-                act(
-                  () => startGameDay(data.gameDay.id, setup),
-                  () => setStartCourtsOpen(false),
-                )
-              }
+              onClose={closeStartReview}
+              onStart={(setup) => act(() => startGameDay(data.gameDay.id, setup), closeStartReview)}
             />
           )}
 

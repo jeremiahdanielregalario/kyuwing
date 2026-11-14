@@ -46,6 +46,7 @@ export default async function GameDaySettingsPage({ params }: { params: Promise<
           gameDay={data.gameDay}
           venues={venues.map((venue) => ({ id: venue.id, name: venue.name, shortName: venue.shortName }))}
           stats={stats}
+          players={data.players}
         />
       </div>
     </>

@@ -330,6 +330,20 @@ export function minutesLeftInReservation(
   return end - timeToMinutes(manilaTime(now));
 }
 
+/**
+ * True from the game day's first court time until its reservation ends, on the game day itself
+ * (Manila). Used to pop up the start review for a game day that is still a draft.
+ */
+export function startTimeReached(plan: CourtSlot[], gameDate: Date | string, now = new Date()): boolean {
+  if (plan.length === 0) return false;
+  const dateKey = (typeof gameDate === "string" ? gameDate : gameDate.toISOString()).slice(0, 10);
+  if (dateKey !== manilaDateKey(now)) return false;
+  const current = timeToMinutes(manilaTime(now));
+  const start = Math.min(...plan.map((slot) => timeToMinutes(slot.start)));
+  const end = Math.max(...plan.map((slot) => timeToMinutes(slot.end)));
+  return current >= start && current < end;
+}
+
 /** True when a game started now should be offered as a free game. */
 export function offersFreeGame(minutesLeft: number | null): boolean {
   return minutesLeft !== null && minutesLeft < FREE_GAME_WINDOW_MINUTES;

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { deleteGameDay, setGameDayStatus, startGameDay, updateGameDay } from "@/lib/actions/gamedays";
 import { applyCourtSetup } from "@/lib/court-setup";
 import { StartGameDayDialog } from "@/components/app/start-game-day-dialog";
-import type { BoardGameDay } from "@/lib/board-types";
+import type { BoardGameDay, BoardPlayer } from "@/lib/board-types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CourtRateField } from "@/components/app/court-rate-field";
@@ -49,8 +49,10 @@ export function GameDaySettings({
   gameDay,
   venues,
   stats,
+  players,
 }: {
   gameDay: BoardGameDay;
+  players: BoardPlayer[];
   venues: VenueOption[];
   stats: { players: number; matches: number };
 }) {
@@ -446,7 +448,8 @@ export function GameDaySettings({
       {startOpen && (
         <StartGameDayDialog
           plan={gameDay.courtPlan}
-          venue={gameDay.venue.shortName || gameDay.venue.name}
+          gameDay={gameDay}
+          players={players}
           pending={pending}
           onClose={() => setStartOpen(false)}
           onStart={(setup) =>
