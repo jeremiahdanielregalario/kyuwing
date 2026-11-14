@@ -98,7 +98,7 @@ Press **Done**. Their games and fees stay. Do not remove them from the game day 
 Press **Requeue**. They re-enter Waiting with a fresh timer.
 
 **Two players always want to partner.**
-On the **Sign-ups** page, press the gear on one of their rows and pick a **permanent partner** from the Partner menu (it saves as soon as you choose; the pair is set both ways). Pairing requests (partner with, play against) are in the same panel. The engine will never split them across the net and will bench them together rather than break the pair.
+On the **Sign-ups** page, press **⋯** on one of their rows and pick a **permanent partner** from the Partner menu (it saves as soon as you choose; the pair is set both ways). Pairing requests (partner with, play against) are in the same panel. The engine will never split them across the net and will bench them together rather than break the pair.
 
 **Two players want to play each other once.**
 Add a **Play against** request. It is honored when the match stays fair.

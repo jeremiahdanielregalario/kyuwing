@@ -11,7 +11,7 @@ import {
   Link2,
   Plus,
   Search,
-  Settings2,
+  MoreHorizontal,
   Trash2,
   Undo2,
   UserCheck,
@@ -158,8 +158,8 @@ export function SignupManager({
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px]">
       <div className="space-y-4">
-        <div className="glass border-line bg-paper/85 sticky top-17 z-20 flex flex-wrap items-center gap-2 rounded-2xl border p-3 lg:top-2">
-          <div className="flex flex-wrap gap-1">
+        <div className="glass border-line bg-paper/85 sticky top-17 z-20 flex flex-wrap items-center gap-2 rounded-2xl border p-2 sm:p-3 lg:top-2">
+          <div className="-mx-1 flex w-full [scrollbar-width:none] gap-1 overflow-x-auto px-1 sm:w-auto">
             {(
               [
                 ["all", "All", counts.all],
@@ -173,7 +173,7 @@ export function SignupManager({
                 type="button"
                 onClick={() => setTab(value)}
                 className={cn(
-                  "press rounded-full px-3 py-2 text-[11px] font-semibold",
+                  "press shrink-0 rounded-full px-3 py-2 text-[11px] font-semibold whitespace-nowrap",
                   tab === value ? "bg-forest text-cream" : "text-muted hover:bg-cream-deep",
                 )}
               >
@@ -452,13 +452,6 @@ function statusLabel(status: string) {
   return "Done";
 }
 
-function statusTone(status: string): "green" | "amber" | "neutral" | "lime" | "sky" {
-  if (status === "WAITING") return "green";
-  if (status === "EXPECTED") return "amber";
-  if (status === "PLAYING") return "sky";
-  return "neutral";
-}
-
 /**
  * One sign-up, with everything the queue master sets for a player right on the row:
  * check in / undo / done, a permanent partner (saves as soon as it is picked), and
@@ -489,85 +482,120 @@ function PlayerRow({
   const [open, setOpen] = React.useState(false);
   const hasSettings = Boolean(player.permanentPartnerNickname) || player.requests.length > 0;
 
+  const statusDot = {
+    EXPECTED: "bg-gold",
+    WAITING: "bg-forest",
+    PLAYING: "bg-sky-500",
+    DONE: "bg-muted/50",
+  }[player.status as "EXPECTED" | "WAITING" | "PLAYING" | "DONE"];
+
   return (
-    <div className="hover:bg-cream/30 animate-pop-in px-4 py-3 transition-colors">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="hover:bg-cream/30 animate-pop-in px-3 py-2.5 transition-colors sm:px-4 sm:py-3">
+      <div className="flex items-center gap-2.5 sm:gap-3">
         <Avatar name={player.nickname} level={player.levelLabel} size="md" />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[13px] font-semibold">{player.nickname}</p>
-            <Badge tone={statusTone(player.status)}>{statusLabel(player.status)}</Badge>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p className="truncate text-[14px] leading-tight font-semibold">{player.nickname}</p>
             {player.priority && <Badge tone="lime">Priority</Badge>}
           </div>
-          <div className="text-muted mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
-            <span>{CATEGORY_SHORT[player.category]}</span>
-            <span>· {player.gamesPlayed} games</span>
-            {player.joinedAt && (
-              <span>
-                · arrived{" "}
-                {new Date(player.joinedAt).toLocaleTimeString("en-PH", {
+          <div className="text-muted mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-tight">
+            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", statusDot)} aria-hidden="true" />
+            <span className="truncate">
+              {statusLabel(player.status)} · {CATEGORY_SHORT[player.category]}
+              {player.gamesPlayed > 0 &&
+                ` · ${player.gamesPlayed} ${player.gamesPlayed === 1 ? "game" : "games"}`}
+              {player.joinedAt &&
+                ` · ${new Date(player.joinedAt).toLocaleTimeString("en-PH", {
                   hour: "numeric",
                   minute: "2-digit",
                   timeZone: "Asia/Manila",
-                })}
-              </span>
-            )}
-            {player.permanentPartnerNickname && (
-              <span className="text-forest inline-flex items-center gap-0.5">
-                <Link2 className="h-2.5 w-2.5" /> {player.permanentPartnerNickname}
-              </span>
-            )}
-            {player.requests.map((request) => (
-              <span
-                key={request.id}
-                className={cn(
-                  "inline-flex items-center gap-0.5",
-                  request.type === "PAIR_WITH" ? "text-forest" : "text-coral",
-                )}
-              >
-                {request.type === "PAIR_WITH" ? (
-                  <HeartHandshake className="h-2.5 w-2.5" />
-                ) : (
-                  <Crosshair className="h-2.5 w-2.5" />
-                )}
-                {request.targetNickname}
-              </span>
-            ))}
+                })}`}
+            </span>
           </div>
+          {(player.permanentPartnerNickname || player.requests.length > 0) && (
+            <div className="text-muted mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 text-[10px]">
+              {player.permanentPartnerNickname && (
+                <span className="text-forest inline-flex items-center gap-0.5">
+                  <Link2 className="h-2.5 w-2.5" /> {player.permanentPartnerNickname}
+                </span>
+              )}
+              {player.requests.map((request) => (
+                <span
+                  key={request.id}
+                  className={cn(
+                    "inline-flex items-center gap-0.5",
+                    request.type === "PAIR_WITH" ? "text-forest" : "text-coral",
+                  )}
+                >
+                  {request.type === "PAIR_WITH" ? (
+                    <HeartHandshake className="h-2.5 w-2.5" />
+                  ) : (
+                    <Crosshair className="h-2.5 w-2.5" />
+                  )}
+                  {request.targetNickname}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        <LevelBadge level={player.level} />
 
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
           {player.status === "EXPECTED" && (
             <Button
               size="sm"
               variant="accent"
               onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
               disabled={pending}
+              className="px-3"
             >
               <UserCheck className="h-3.5 w-3.5" /> Check in
             </Button>
           )}
-          {settable && (
-            <button
-              type="button"
-              onClick={() => setOpen((value) => !value)}
-              aria-expanded={open}
-              aria-label={`Partner and pairing settings for ${player.nickname}`}
-              title="Permanent partner and pairing requests"
-              className={cn(
-                "press relative grid h-9 w-9 place-items-center rounded-full border",
-                open
-                  ? "border-ink bg-ink text-cream"
-                  : "border-line text-muted hover:bg-cream-deep hover:text-ink bg-white",
-              )}
+          {player.status === "WAITING" && (
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => act(() => markPlayerDone(player.sessionPlayerId))}
+              disabled={pending}
+              className="px-3"
             >
-              <Settings2 className="h-3.5 w-3.5" />
-              {hasSettings && !open && (
-                <span className="bg-gold absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-white" />
-              )}
-            </button>
+              <Check className="h-3.5 w-3.5" /> Done
+            </Button>
           )}
+          {player.status === "DONE" && (
+            <Button
+              size="sm"
+              variant="paper"
+              onClick={() => act(() => requeuePlayer(player.sessionPlayerId))}
+              disabled={pending}
+              className="px-3"
+            >
+              <ChevronRight className="h-3.5 w-3.5" /> Requeue
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-label={`More for ${player.nickname}`}
+            title="Partner, requests and more"
+            className={cn(
+              "press relative grid h-9 w-9 place-items-center rounded-full border",
+              open
+                ? "border-ink bg-ink text-cream"
+                : "border-line text-muted hover:bg-cream-deep hover:text-ink bg-white",
+            )}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+            {hasSettings && !open && (
+              <span className="bg-gold absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-white" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="animate-pop-in mt-2 flex flex-wrap items-center justify-end gap-1.5 sm:ml-12">
           {player.status === "WAITING" && player.gamesPlayed === 0 && (
             <Button
               size="sm"
@@ -578,37 +606,17 @@ function PlayerRow({
               <Undo2 className="h-3.5 w-3.5" /> Undo check-in
             </Button>
           )}
-          {player.status === "WAITING" && (
-            <Button
-              size="sm"
-              variant="paper"
-              onClick={() => act(() => markPlayerDone(player.sessionPlayerId))}
-              disabled={pending}
-            >
-              <Check className="h-3.5 w-3.5" /> Done for the day
-            </Button>
-          )}
-          {player.status === "DONE" && (
-            <Button
-              size="sm"
-              variant="paper"
-              onClick={() => act(() => requeuePlayer(player.sessionPlayerId))}
-              disabled={pending}
-            >
-              <ChevronRight className="h-3.5 w-3.5" /> Requeue
-            </Button>
-          )}
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="ghost"
             onClick={onRemove}
             disabled={pending}
-            className="press text-muted hover:bg-coral-soft hover:text-coral grid h-9 w-9 place-items-center rounded-full"
-            aria-label={`Remove ${player.nickname}`}
+            className="text-coral hover:bg-coral-soft hover:text-coral"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+            <Trash2 className="h-3.5 w-3.5" /> Remove from game day
+          </Button>
         </div>
-      </div>
+      )}
 
       {settable && open && (
         <div className="border-line bg-cream/40 animate-pop-in mt-2.5 grid gap-2 rounded-2xl border p-3 sm:ml-12 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
