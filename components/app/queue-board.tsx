@@ -1366,7 +1366,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
             <div className="border-line/70 flex flex-wrap items-center gap-2 border-b px-3 py-2.5">
               <span
                 data-trim-id="board.plan-label"
-                className="text-muted ml-1 text-[10px] font-bold tracking-[0.16em] uppercase"
+                className="text-muted ml-1 hidden text-[10px] font-bold tracking-[0.16em] uppercase sm:inline"
               >
                 Court plan
               </span>
@@ -1380,7 +1380,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
               )}
               {plan.map((row, index) => {
                 const active = data.activeSlotIndex === index;
-                const current = plan[data.activeSlotIndex] === row && active;
                 return (
                   <button
                     key={row.id}
@@ -1396,9 +1395,6 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     <span className="font-mono">{formatTimeRange(row.start, row.end)}</span>
                     <span className="ml-1.5 opacity-60">· {row.courts}c</span>
                     {row.label && <span className="ml-1.5 hidden opacity-60 sm:inline">{row.label}</span>}
-                    {isValidating && current && (
-                      <span className="bg-lime ml-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full" />
-                    )}
                   </button>
                 );
               })}

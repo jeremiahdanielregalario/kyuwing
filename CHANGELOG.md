@@ -114,6 +114,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- **Court plan row no longer jumps** — the small dot that flashed inside the court block button while the board synced is gone (the header already says "Syncing board…"), so the button keeps its width. On phones the "Court plan" label is hidden so the block and the Manila clock fit on one line.
 - **Players dropped on a court can be moved again** — a player placed in an open court's slot used to be stuck there (only ⊗ worked). They can now be dragged or tapped to another place, court or game, and two placed players trade places. A player can no longer sit in two court places at once.
 - **Queue blocks keep their outline** — the outlines no longer disappear, and the blocks no longer refuse to drag, while a move is saving.
 - **Board buttons on phones** — the board's action bar no longer squeezes **Auto-pair** / **Queue next game**, **Check in** and **Walk-in** into three narrow columns where the labels wrapped out of the buttons. On a phone the main action gets its own full-width row, with Check in and Walk-in side by side under it. Button labels never wrap anymore anywhere in the app, and the Courts header buttons (Start all, Regenerate, Add court) wrap to a new line instead of overflowing.
