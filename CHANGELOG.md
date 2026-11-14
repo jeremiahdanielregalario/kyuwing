@@ -73,6 +73,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **"Start game" tag no longer covers warnings** — the tag on an unstarted game moved from floating above **Start** into the court's status line, next to the round number, so it no longer hides a "Wide level spread" or other level warning.
 - **Empty courts match paired ones** — an open court or waiting court is now the same size as one with a game: it has the same status line and button row, with **Pair** where **Start** would be and Re-pair, edit and cancel shown greyed out (they work once there is a game).
 - **Transfer to Court floats** — on a waiting game, the "Court X is empty" note and the **Transfer to Court** button now float over the players, slightly see-through, instead of taking up a row of the card.
 - **Start reminder waits a minute** — the "Start the game on Court X?" pop-up now only appears when a game on a court still has not started 1 minute after it was paired or moved there. It no longer pops up the moment a game moves onto a free court (it used to wait 2 minutes for other paired games).

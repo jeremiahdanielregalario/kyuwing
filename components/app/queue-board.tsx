@@ -3010,7 +3010,7 @@ function CourtCard({
             ))}
           </div>
           {/* The same rows as a paired court, so every card is the same size. */}
-          <div className="border-cream/15 mt-2 flex items-center justify-between gap-2 border-t pt-1.5">
+          <div className="border-cream/15 mt-2 flex min-h-[31px] items-center justify-between gap-2 border-t pt-1.5">
             <span className="text-cream/45 truncate text-[9px] font-semibold tracking-[0.1em] uppercase">
               {draft.some(Boolean)
                 ? `Pair fills the other ${draft.filter((id) => !id).length}`
@@ -3195,7 +3195,7 @@ function CourtCard({
           </div>
         </div>
 
-        <div className="border-cream/15 mt-2 flex items-center justify-between gap-2 border-t pt-1.5">
+        <div className="border-cream/15 mt-2 flex min-h-[31px] flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t pt-1.5">
           {mismatch ? (
             <MismatchTag mismatch={mismatch} />
           ) : (
@@ -3204,24 +3204,27 @@ function CourtCard({
               {balance === 0 ? "Level teams" : `${balance} level gap`}
             </span>
           )}
-          <span className="text-cream/40 font-mono text-[9px]">R{match.round}</span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            {/* Sits in the status line, beside any mismatch warning, so it never covers it. */}
+            {!live && !waiting && !isCompleted && (
+              <span
+                data-trim-id="board.start-reminder"
+                role="status"
+                className="bg-gold/85 text-ink animate-pop-in inline-flex h-6 items-center rounded-full px-2 text-[10px] font-bold whitespace-nowrap shadow-sm"
+              >
+                Start game
+                {unstartedMinutes >= 1 && (
+                  <span className="font-semibold opacity-70">
+                    &nbsp;· {formatWaited(unstartedMinutes)} ago
+                  </span>
+                )}
+              </span>
+            )}
+            <span className="text-cream/40 font-mono text-[9px]">R{match.round}</span>
+          </span>
         </div>
 
         <div className="relative mt-1.5 flex items-center gap-1.5">
-          {/* Floats over the court above Start, so it takes no room in the card. */}
-          {!live && !waiting && !isCompleted && (
-            <p
-              data-trim-id="board.start-reminder"
-              role="status"
-              className="bg-gold/85 text-ink shadow-float animate-pop-in pointer-events-none absolute bottom-full left-2 z-10 mb-2 rounded-full px-2.5 py-1 text-[11px] leading-none font-bold whitespace-nowrap backdrop-blur-sm"
-            >
-              Start game
-              {unstartedMinutes >= 1 && (
-                <span className="font-semibold opacity-70"> · {formatWaited(unstartedMinutes)} ago</span>
-              )}
-              <span aria-hidden className="bg-gold/85 absolute -bottom-1 left-6 h-2 w-2 rotate-45" />
-            </p>
-          )}
           {live ? (
             <Button
               variant="accent"
