@@ -41,6 +41,7 @@ import {
   Crosshair,
   Download,
   Flag,
+  Gamepad2,
   GripVertical,
   HeartHandshake,
   LayoutGrid,
@@ -56,6 +57,7 @@ import {
   Plus,
   Gift,
   Minus,
+  MoreVertical,
   AlarmClock,
   Search,
   Settings2,
@@ -100,7 +102,14 @@ import {
 } from "@/lib/actions/gamedays";
 import type { BoardData, BoardMatch, BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS } from "@/lib/fees";
-import { LEVEL_OPTIONS, isUnrated, levelLabel, levelValue } from "@/lib/levels";
+import { LEVEL_OPTIONS, isUnrated, levelLabel, levelTone, levelValue } from "@/lib/levels";
+import {
+  EMPTY_DRAFT,
+  firstFreePlace,
+  placeInDrafts,
+  removeFromDrafts,
+  type CourtDrafts,
+} from "@/lib/court-drafts";
 import { canDropOn, canTapOn, eventPoint, samePick } from "@/lib/drag-targets";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
@@ -213,7 +222,15 @@ type DragPayload =
       nickname: string;
       level: string;
     }
-  | { kind: "queue-player"; playerId: string; nickname: string; level: string; status: string };
+  | {
+      kind: "queue-player";
+      playerId: string;
+      nickname: string;
+      level: string;
+      status: string;
+      /** Set when the player is picked up from a hand-filled court place, not from the queue. */
+      fromDraft?: { courtNumber: number; index: number };
+    };
 
 type DropTarget =
   | { kind: "court"; courtNumber: number; matchId?: string }
@@ -277,8 +294,6 @@ const overlayAtPointer: Modifier = ({ activatorEvent, activeNodeRect, transform 
     y: transform.y + point.y - activeNodeRect.top,
   };
 };
-
-const EMPTY_DRAFT: Array<string | null> = [null, null, null, null];
 
 /** Phones and tablets below `lg`, where the queue is not a side column. */
 const NARROW_QUERY = "(max-width: 1023.98px)";
@@ -406,7 +421,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const [editCourt, setEditCourt] = React.useState(1);
   const [editTeam1, setEditTeam1] = React.useState<string[]>([]);
   const [editTeam2, setEditTeam2] = React.useState<string[]>([]);
-  const [drafts, setDrafts] = React.useState<Record<number, Array<string | null>>>({});
+  const [drafts, setDrafts] = React.useState<CourtDrafts>({});
   const [activeDrag, setActiveDrag] = React.useState<DragPayload | null>(null);
   const [picked, setPicked] = React.useState<DragPayload | null>(null);
   React.useEffect(() => {
@@ -436,7 +451,7 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     // Press and hold to pick up on a tablet, so a quick swipe still scrolls the queue.
-    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -479,11 +494,15 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
     }
   }, [data.leaveRequests]);
 
-  const placeInDraft = (court: number, index: number, playerId: string) => {
-    const current = drafts[court] ?? EMPTY_DRAFT;
-    const next = current.map((id) => (id === playerId ? null : id));
-    next[index] = playerId;
-    setDrafts((prev) => ({ ...prev, [court]: next }));
+  const placeInDraft = (
+    court: number,
+    index: number,
+    playerId: string,
+    from?: { courtNumber: number; index: number },
+  ) => {
+    const all = placeInDrafts(drafts, court, index, playerId, from);
+    const next = all[court];
+    setDrafts(all);
 
     if (!next.every(Boolean) || creatingDrafts.current.has(court)) return;
     creatingDrafts.current.add(court);
@@ -539,13 +558,16 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         }
       }
       if (over.kind === "draft-slot") {
-        placeInDraft(over.courtNumber, over.index, active.playerId);
+        placeInDraft(over.courtNumber, over.index, active.playerId, active.fromDraft);
         return;
       }
       if (over.kind === "court" && !over.matchId) {
+        // Dropped on the court itself: the first free place, unless they are already on it.
         const current = drafts[over.courtNumber] ?? EMPTY_DRAFT;
         const empty = current.findIndex((id) => id === null);
-        if (empty >= 0) placeInDraft(over.courtNumber, empty, active.playerId);
+        if (empty >= 0 && !current.includes(active.playerId)) {
+          placeInDraft(over.courtNumber, empty, active.playerId, active.fromDraft);
+        }
         return;
       }
       if (over.kind === "slot") {
@@ -555,10 +577,13 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         const lineup = lineupOf(match);
         const next = over.team === 1 ? [...lineup.team1] : [...lineup.team2];
         next[over.slot - 1] = active.playerId;
-        act(() =>
-          over.team === 1
-            ? updateMatchPlayers(match.id, next, lineup.team2)
-            : updateMatchPlayers(match.id, lineup.team1, next),
+        act(
+          () =>
+            over.team === 1
+              ? updateMatchPlayers(match.id, next, lineup.team2)
+              : updateMatchPlayers(match.id, lineup.team1, next),
+          // They are in a game now, so they leave any court place they were dropped on.
+          () => setDrafts((prev) => removeFromDrafts(prev, active.playerId)),
         );
       }
       return;
@@ -1031,6 +1056,34 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
       .sort((a, b) => levelValue(b.level) - levelValue(a.level));
   }, [data.activeMatches, data.players, editMatch]);
 
+  // The + on a queue block: the next free place, on the first open court, else the waiting court.
+  const draftedIds = new Set(Object.values(drafts).flatMap((places) => places.filter(Boolean)));
+  const pairedIds = new Set(
+    data.activeMatches
+      .filter((match) => match.status !== "LIVE")
+      .flatMap((match) => [...match.team1, ...match.team2].map((row) => row.playerId)),
+  );
+  const quickAdd = (player: BoardPlayer) => {
+    const openCourts = courtNumbers.filter(
+      (court) => !data.activeMatches.some((match) => match.courtNumber === court),
+    );
+    // Someone still playing can only be planned into the waiting court.
+    const place = firstFreePlace(
+      drafts,
+      player.status === "PLAYING" ? [QUEUED_COURT] : [...openCourts, QUEUED_COURT],
+    );
+    if (!place) {
+      toast.error("No free place. Pair or clear a court first.");
+      return;
+    }
+    haptic("tap");
+    placeInDraft(place.court, place.index, player.playerId);
+    toast(
+      `${player.nickname} → ${place.court === QUEUED_COURT ? "Waiting court" : courtName(slot, place.court)}`,
+      { duration: 1800 },
+    );
+  };
+
   // The queue's tabs, search and list: in the side card, or in the split-screen panel on phones.
   const queueTabs = (
     <>
@@ -1076,13 +1129,15 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
         {query ? "No player matches that search." : `No players ${tab === "waiting" ? "waiting" : tab}.`}
       </div>
     ) : (
-      <div className="space-y-1">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(10.25rem,1fr))] gap-1.5">
         {visible.map((player) => (
           <QueueRow
             key={player.sessionPlayerId}
-            draggable={
-              (player.status === "WAITING" || player.status === "PLAYING") && !pending && !isCompleted
-            }
+            // Not tied to `pending`: the blocks keep their outline and stay draggable while a move saves.
+            draggable={(player.status === "WAITING" || player.status === "PLAYING") && !isCompleted}
+            drafted={draftedIds.has(player.playerId)}
+            onQuickAdd={isCompleted || pairedIds.has(player.playerId) ? undefined : () => quickAdd(player)}
+            onReturn={() => setDrafts((prev) => removeFromDrafts(prev, player.playerId))}
             player={player}
             now={now}
             pending={pending}
@@ -1538,8 +1593,8 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
                     className="border-line bg-paper/70 text-muted flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]"
                   >
                     <GripVertical className="text-forest h-3.5 w-3.5" />
-                    Drag a court card onto another court to swap them. Drag a player onto a slot to swap
-                    players, or fill an open court with four dropped players.
+                    Drag a court card onto another court to swap them. Drag a player block onto a place to
+                    swap players, or fill an open court with four players (drag them in, or press +).
                   </p>
                   <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
                     {courtNumbers.map((court) => {
@@ -2646,6 +2701,7 @@ function CourtCard({
                     court={court}
                     index={index}
                     player={draft[index] ? playerById.get(draft[index]!) : undefined}
+                    disabled={isCompleted}
                     onClear={onClearDraft}
                   />
                 ))}
@@ -2921,12 +2977,12 @@ function PlayerChip({
     <div
       ref={setDropRef}
       className={cn(
-        "rounded-lg border transition",
+        "bg-paper rounded-full border-2 shadow-sm transition",
         isOver || tappable
-          ? "border-lime bg-lime/15 ring-lime/50 ring-2"
+          ? "border-lime bg-lime/40 ring-lime/60 ring-2"
           : isPicked
-            ? "border-gold bg-gold/30 ring-gold ring-2"
-            : "border-cream/30 bg-forest-deep/35",
+            ? "border-gold bg-gold/40 ring-gold ring-2"
+            : "border-cream/70",
         isDragging && "opacity-40",
       )}
     >
@@ -2941,16 +2997,13 @@ function PlayerChip({
             ? `Put ${tap.picked && "nickname" in tap.picked ? tap.picked.nickname : "player"} here, in place of ${player.nickname}`
             : `Move ${player.nickname}`
         }
-        className="flex min-h-9 cursor-grab touch-manipulation items-center gap-1.5 px-1.5 py-1 select-none"
+        className={cn(BLOCK_GRAB, "flex h-8 items-center gap-1.5 pr-2 pl-1")}
       >
-        <Avatar name={player.nickname} size="sm" className="h-6 w-6 text-[9px]" />
-        <div className="min-w-0 flex-1">
-          <p className="text-cream truncate text-[11px] leading-tight font-semibold">{player.nickname}</p>
-          <p className="text-lime/70 font-mono text-[8px] leading-tight font-bold">
-            {levelLabel(player.level)}
-          </p>
-        </div>
-        <GripVertical className="text-cream/25 h-3 w-3 shrink-0" />
+        <LevelDot level={player.level} />
+        <p className="text-ink min-w-0 flex-1 truncate text-[12px] leading-tight font-semibold">
+          {player.nickname}
+        </p>
+        <GripVertical className="text-ink/30 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       </div>
     </div>
   );
@@ -2960,47 +3013,104 @@ function DraftSlot({
   court,
   index,
   player,
+  disabled,
   onClear,
 }: {
   court: number;
   index: number;
   player?: BoardPlayer;
+  disabled: boolean;
   onClear: (index: number) => void;
 }) {
   const target: DropTarget = { kind: "draft-slot", courtNumber: court, index };
-  const { setNodeRef, isOver } = useDroppable({ id: `draft-${court}-${index}`, data: target });
+  const { setNodeRef, isOver } = useDroppable({ id: `draft-${court}-${index}`, data: target, disabled });
+  // A player dropped here is still a block: drag or tap them to another place, court or game.
+  const payload: DragPayload = {
+    kind: "queue-player",
+    playerId: player?.playerId ?? "",
+    nickname: player?.nickname ?? "",
+    level: player?.level ?? "X",
+    status: player?.status ?? "WAITING",
+    fromDraft: { courtNumber: court, index },
+  };
+  const mounted = useMounted();
+  const {
+    setNodeRef: setDragRef,
+    listeners,
+    attributes,
+    isDragging,
+  } = useDraggable({
+    id: `draft-player-${court}-${index}`,
+    data: payload,
+    disabled: !player || disabled,
+  });
   const tap = React.useContext(TapMoveContext);
-  const tappable = tap.canTap(target);
+  const isPicked = !!player && samePick(tap.picked, payload);
+  const tappable = !isPicked && tap.canTap(target);
+
+  if (!player) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex h-9 items-center justify-center rounded-full border-2 border-dashed text-[10px] transition",
+          isOver || tappable
+            ? "border-lime bg-lime/15 text-lime ring-lime/50 ring-2"
+            : "border-cream/30 bg-forest-deep/20 text-cream/45",
+        )}
+      >
+        {tappable ? (
+          <button type="button" onClick={() => tap.drop(target)} className="h-full w-full font-semibold">
+            Tap to put here
+          </button>
+        ) : (
+          <span>{isOver ? "Drop player" : `Team ${index < 2 ? "A" : "B"} · ${(index % 2) + 1}`}</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-[40px] items-center justify-center rounded-lg border border-dashed text-[10px] transition",
+        "bg-paper flex h-9 items-center rounded-full border-2 shadow-sm transition",
         isOver || tappable
-          ? "border-lime bg-lime/15 text-lime ring-lime/50 ring-2"
-          : "border-cream/25 bg-forest-deep/20 text-cream/40",
+          ? "border-lime bg-lime/40 ring-lime/60 ring-2"
+          : isPicked
+            ? "border-gold bg-gold/40 ring-gold ring-2"
+            : "border-gold/80",
+        isDragging && "opacity-40",
       )}
     >
-      {tappable ? (
-        <button type="button" onClick={() => tap.drop(target)} className="h-full w-full font-semibold">
-          {player ? `Put here instead of ${player.nickname}` : "Tap to put here"}
-        </button>
-      ) : player ? (
-        <button
-          type="button"
-          onClick={() => onClear(index)}
-          className="flex w-full items-center gap-1.5 px-1.5 text-left"
-        >
-          <span className="text-cream truncate text-[11px] font-semibold">{player.nickname}</span>
-          <span className="text-lime/70 ml-auto font-mono text-[9px] font-bold">
-            {levelLabel(player.level)}
-          </span>
-          <XCircle className="text-cream/40 h-3 w-3 shrink-0" />
-        </button>
-      ) : (
-        <span>{isOver ? "Drop player" : `Team ${index < 2 ? "A" : "B"} · ${(index % 2) + 1}`}</span>
-      )}
+      <div
+        ref={setDragRef}
+        {...listeners}
+        {...(mounted ? attributes : {})}
+        onClick={() => (tappable ? tap.drop(target) : !disabled && tap.pick(payload))}
+        aria-pressed={mounted ? isPicked : undefined}
+        aria-label={
+          tappable
+            ? `Put ${tap.picked && "nickname" in tap.picked ? tap.picked.nickname : "player"} here, in place of ${player.nickname}`
+            : `Move ${player.nickname}`
+        }
+        className={cn(BLOCK_GRAB, "flex h-full min-w-0 flex-1 items-center gap-1.5 pl-1")}
+      >
+        <LevelDot level={player.level} />
+        <p className="text-ink min-w-0 flex-1 truncate text-[12px] leading-tight font-semibold">
+          {player.nickname}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onClear(index)}
+        disabled={disabled}
+        aria-label={`Take ${player.nickname} off this court`}
+        title="Back to the queue"
+        className="text-ink/45 hover:text-coral grid h-full w-8 shrink-0 place-items-center rounded-full"
+      >
+        <XCircle className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -3022,20 +3132,138 @@ function DragChip({ drag, courtLabel, touch }: { drag: DragPayload; courtLabel?:
   }
   return (
     <div className={place}>
-      <div className="border-lime/50 bg-forest-deep text-cream shadow-float inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5">
-        <Avatar name={drag.nickname} size="sm" className="h-6 w-6 text-[9px]" />
-        <span className="text-[12px] font-semibold">{drag.nickname}</span>
-        <span className="text-lime/70 font-mono text-[9px] font-bold">{levelLabel(drag.level)}</span>
+      <div className="border-gold bg-paper text-ink shadow-float inline-flex h-9 items-center gap-1.5 rounded-full border-2 pr-3.5 pl-1">
+        <LevelDot level={drag.level} />
+        <span className="text-[13px] font-semibold">{drag.nickname}</span>
       </div>
     </div>
   );
 }
 
+/** Shared feel of every draggable player block: grab cursor, no text selection or long-press menu. */
+const BLOCK_GRAB =
+  "cursor-grab touch-manipulation rounded-full select-none [-webkit-touch-callout:none] active:cursor-grabbing";
+
+/** The round level tag at the start of a player block, coloured by bracket. */
+function LevelDot({ level, className }: { level: string; className?: string }) {
+  const tone = levelTone(level);
+  return (
+    <span
+      className={cn(
+        "grid h-6 min-w-6 shrink-0 place-items-center rounded-full px-1 font-mono text-[9px] leading-none font-bold ring-1 ring-inset",
+        tone.bg,
+        tone.text,
+        tone.ring,
+        className,
+      )}
+    >
+      {levelLabel(level)}
+    </span>
+  );
+}
+
+type BlockMenuItem = { label: string; icon: React.ReactNode; onSelect: () => void };
+
+/** The ⋮ on a queue block. Opens next to the button, outside the scrolling list so it isn't cut off. */
+function BlockMenu({ label, items, disabled }: { label: string; items: BlockMenuItem[]; disabled: boolean }) {
+  const [place, setPlace] = React.useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (!place) return;
+    const close = (event: Event) => {
+      const node = event.target as Node | null;
+      if (node && (menuRef.current?.contains(node) || buttonRef.current?.contains(node))) return;
+      setPlace(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPlace(null);
+    };
+    document.addEventListener("pointerdown", close, true);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [place]);
+
+  const toggle = () => {
+    if (place) {
+      setPlace(null);
+      return;
+    }
+    const box = buttonRef.current?.getBoundingClientRect();
+    if (!box) return;
+    const right = Math.max(8, window.innerWidth - box.right);
+    // Open downwards unless the button is near the bottom of the screen.
+    setPlace(
+      window.innerHeight - box.bottom < items.length * 44 + 24
+        ? { bottom: window.innerHeight - box.top + 4, right }
+        : { top: box.bottom + 4, right },
+    );
+  };
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggle}
+        disabled={disabled}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={!!place}
+        className="text-muted hover:bg-cream-deep hover:text-ink press grid h-9 w-6 shrink-0 place-items-center rounded-full"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {place &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={place}
+            className="border-line bg-paper shadow-float animate-pop-in fixed z-[90] min-w-44 rounded-2xl border p-1"
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setPlace(null);
+                  item.onSelect();
+                }}
+                className="text-ink hover:bg-cream-deep flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-[13px] font-semibold"
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+/**
+ * A player block in the queue: level, name, games and waiting time in one compact pill. The pill
+ * is the drag handle; + drops the player into the next free court place, ⋮ holds the rest.
+ */
 function QueueRow({
   player,
   draggable,
+  drafted,
   now,
   pending,
+  onQuickAdd,
+  onReturn,
   onCheckIn,
   onUndoCheckIn,
   onDone,
@@ -3045,8 +3273,14 @@ function QueueRow({
   player: BoardPlayer;
   /** Waiting players can be dragged onto a court or waiting court; players on court only into a waiting court, to plan ahead. */
   draggable: boolean;
+  /** Already dropped into a court place that is still being filled by hand. */
+  drafted: boolean;
   now: number;
   pending: boolean;
+  /** Puts the player in the next free court place. Absent when they are already in a paired game. */
+  onQuickAdd?: () => void;
+  /** Takes the player back out of the court place they were dropped on. */
+  onReturn: () => void;
   onCheckIn: () => void;
   onUndoCheckIn: () => void;
   onDone: () => void;
@@ -3072,11 +3306,27 @@ function QueueRow({
   const tap = React.useContext(TapMoveContext);
   const isPicked = draggable && samePick(tap.picked, payload);
 
+  const menu: BlockMenuItem[] = [
+    {
+      label: player.priority ? "Clear priority" : "Mark priority",
+      icon: <Star className={cn("h-4 w-4", player.priority && "fill-lime-deep text-lime-deep")} />,
+      onSelect: onPriority,
+    },
+    ...(player.gamesPlayed === 0
+      ? [{ label: "Undo check-in", icon: <Undo2 className="h-4 w-4" />, onSelect: onUndoCheckIn }]
+      : []),
+    { label: "Done for the day", icon: <Check className="h-4 w-4" />, onSelect: onDone },
+  ];
+
   return (
     <div
       className={cn(
-        "group hover:border-line hover:bg-cream/50 animate-pop-in flex items-center gap-2 rounded-xl border border-transparent px-2 py-2 transition",
-        player.priority && "border-lime-deep/30 bg-lime/[0.07]",
+        "bg-paper animate-pop-in flex h-11 min-w-0 items-center rounded-full border-2 pr-1 shadow-sm transition",
+        draggable ? "border-forest/30 hover:border-forest/60" : "border-line",
+        player.priority && "border-lime-deep/60 bg-lime/10",
+        drafted && "border-gold bg-gold/25",
+        isDragging && "opacity-50",
+        isPicked && "border-gold bg-gold/30 ring-gold ring-2",
       )}
     >
       <div
@@ -3090,121 +3340,121 @@ function QueueRow({
           draggable
             ? player.status === "PLAYING"
               ? "Still playing: tap or drag into a waiting game to plan ahead"
-              : "Tap, then tap a court slot (or drag)"
+              : "Tap, then tap a court place (or drag)"
             : undefined
         }
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-2 rounded-xl",
-          draggable &&
-            "border-forest/35 bg-paper hover:border-forest hover:bg-lime/15 cursor-grab touch-manipulation border-2 border-dashed py-1 pr-2 pl-1 shadow-sm transition select-none [-webkit-touch-callout:none] active:cursor-grabbing",
-          isDragging && "border-lime bg-lime/20 opacity-50",
-          isPicked && "border-gold bg-gold/30 ring-gold border-solid ring-2",
+          "flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-full pr-1 pl-1.5",
+          draggable && BLOCK_GRAB,
         )}
       >
-        {draggable && <GripVertical className="text-forest/60 h-4 w-4 shrink-0" aria-hidden="true" />}
-        <Avatar name={player.nickname} level={player.levelLabel} />
+        <LevelDot level={player.level} className="h-7 min-w-7 text-[10px]" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <p className="truncate text-[13px] font-semibold">{player.nickname}</p>
-            {player.priority && <Star className="fill-lime-deep text-lime-deep h-3 w-3" />}
+          <div className="flex items-center gap-1">
+            <p className="truncate text-[12px] leading-tight font-semibold">{player.nickname}</p>
+            {player.priority && <Star className="fill-lime-deep text-lime-deep h-3 w-3 shrink-0" />}
           </div>
-          <div className="text-muted flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px]">
-            <span>{player.gamesPlayed} games</span>
+          <div className="text-muted flex items-center gap-1.5 overflow-hidden text-[10px] leading-tight whitespace-nowrap">
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 font-mono font-bold"
+              title={`${player.gamesPlayed} ${player.gamesPlayed === 1 ? "game" : "games"} played`}
+            >
+              {player.gamesPlayed}
+              <Gamepad2 className="h-3 w-3" aria-hidden="true" />
+            </span>
+            {player.status === "WAITING" && (
+              <span
+                className={cn(
+                  "shrink-0 font-mono font-bold tabular-nums",
+                  wait < 5 * 60 ? "text-forest" : wait < 15 * 60 ? "text-amber-700" : "text-coral",
+                )}
+                title="Waiting time"
+              >
+                {formatDuration(wait)}
+              </span>
+            )}
             {player.permanentPartnerNickname && (
               <span
-                className="text-forest inline-flex items-center gap-0.5"
+                className="text-forest inline-flex min-w-0 items-center gap-0.5"
                 title={`Permanent pair: ${player.permanentPartnerNickname}`}
               >
-                <Link2 className="h-2.5 w-2.5" /> {player.permanentPartnerNickname}
+                <Link2 className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{player.permanentPartnerNickname}</span>
               </span>
             )}
             {pairRequest && (
               <span
-                className="text-forest inline-flex items-center gap-0.5"
+                className="text-forest inline-flex min-w-0 items-center gap-0.5"
                 title={`Wants to partner with ${pairRequest.targetNickname}`}
               >
-                <HeartHandshake className="h-2.5 w-2.5" /> {pairRequest.targetNickname}
+                <HeartHandshake className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{pairRequest.targetNickname}</span>
               </span>
             )}
             {againstRequest && (
               <span
-                className="text-coral inline-flex items-center gap-0.5"
+                className="text-coral inline-flex min-w-0 items-center gap-0.5"
                 title={`Wants to play against ${againstRequest.targetNickname}`}
               >
-                <Crosshair className="h-2.5 w-2.5" /> {againstRequest.targetNickname}
+                <Crosshair className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{againstRequest.targetNickname}</span>
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {player.status === "WAITING" && (
-        <>
-          <span
-            className={cn(
-              "shrink-0 rounded-md px-1.5 py-1 font-mono text-[10px] font-bold tabular-nums",
-              wait < 5 * 60
-                ? "bg-lime/30 text-forest-deep"
-                : wait < 15 * 60
-                  ? "bg-amber-100 text-amber-900"
-                  : "bg-coral text-white",
-            )}
-            title="Waiting time"
+      {draggable &&
+        (drafted ? (
+          <button
+            type="button"
+            onClick={onReturn}
+            aria-label={`Take ${player.nickname} back off the court`}
+            title="Back to the queue"
+            className="border-gold bg-gold/40 text-ink press grid h-8 w-8 shrink-0 place-items-center rounded-full border"
           >
-            {formatDuration(wait)}
-          </span>
-          <div className="flex shrink-0 items-center">
+            <Undo2 className="h-4 w-4" />
+          </button>
+        ) : (
+          onQuickAdd && (
             <button
               type="button"
-              onClick={onPriority}
-              disabled={pending}
-              className={cn(
-                "text-muted hover:bg-cream-deep press grid h-7 w-7 place-items-center rounded-full",
-                player.priority && "text-lime-deep",
-              )}
-              title={player.priority ? "Clear priority" : "Mark priority"}
+              onClick={onQuickAdd}
+              aria-label={`Put ${player.nickname} in the next free court place`}
+              title={
+                player.status === "PLAYING" ? "Plan into the waiting court" : "Put in the next free place"
+              }
+              className="border-forest/35 text-forest hover:bg-lime/30 press grid h-8 w-8 shrink-0 place-items-center rounded-full border"
             >
-              <Star className={cn("h-3.5 w-3.5", player.priority && "fill-current")} />
+              <Plus className="h-4 w-4" />
             </button>
-            {player.gamesPlayed === 0 && (
-              <button
-                type="button"
-                onClick={onUndoCheckIn}
-                disabled={pending}
-                className="text-muted hover:bg-cream-deep hover:text-ink press grid h-7 w-7 place-items-center rounded-full"
-                title="Undo check-in (checked in by mistake)"
-                aria-label={`Undo check-in for ${player.nickname}`}
-              >
-                <Undo2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onDone}
-              disabled={pending}
-              className="text-muted hover:bg-cream-deep hover:text-ink press grid h-7 w-7 place-items-center rounded-full"
-              title="Mark done for the day"
-            >
-              <Check className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </>
+          )
+        ))}
+
+      {player.status === "WAITING" && (
+        <BlockMenu label={`More for ${player.nickname}`} items={menu} disabled={pending} />
       )}
 
       {player.status === "EXPECTED" && (
-        <Button size="sm" variant="accent" onClick={onCheckIn} disabled={pending} className="shrink-0">
+        <Button
+          size="sm"
+          variant="accent"
+          onClick={onCheckIn}
+          disabled={pending}
+          className="h-8 shrink-0 px-2.5"
+        >
           <UserCheck className="h-3.5 w-3.5" /> In
         </Button>
       )}
 
-      {player.status === "PLAYING" && (
-        <span className="bg-forest/10 text-forest shrink-0 rounded-full px-2 py-1 text-[9px] font-bold tracking-wide uppercase">
-          On court
-        </span>
-      )}
-
       {player.status === "DONE" && (
-        <Button size="sm" variant="paper" onClick={onRequeue} disabled={pending} className="shrink-0">
+        <Button
+          size="sm"
+          variant="paper"
+          onClick={onRequeue}
+          disabled={pending}
+          className="h-8 shrink-0 px-2.5"
+        >
           Requeue
         </Button>
       )}

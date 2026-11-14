@@ -66,6 +66,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **New player blocks on the board** — players are now compact pills everywhere on the board: a round level tag coloured by bracket and the nickname, plus games played and waiting time in the queue. The queue shows them two across, so more players fit on screen. Blocks on courts are light on the dark court so they are easy to see and grab.
+- **+ on a queue block** — puts the player in the next free place (the first open court, else the waiting court) without dragging. A placed player's queue block turns gold with a ↩ to take them back. Priority, undo check-in and done for the day moved into the block's **⋮** menu.
 - **New app logo** — the app now uses the official UP BadAss emblem (the black, gold and grey feather, without the lettering) as its logo: the browser tab icon, the home-screen and installed-app icons, the logo beside "kyuwing." across the app, and the centre of the live-link QR code. PDF and Excel reports keep the full UP BadAss wordmark. An app that is already installed may show the old icon until it is removed and installed again.
 - **Show archived on the public roster** — `/roster` now has a **Show archived** button that lists archived players (nickname, full name, level, player type, attendance history and awards, marked Archived). They stay hidden by default and are not counted in the stats or bracket chart. Contacts and notes are still never shown.
 - **No more surprise zoom on phones** — the board no longer gets stuck zoomed in. Text boxes and menus are 16px on touch screens, so iPhones stop zooming in when you type in them. Quick taps on buttons no longer count as a double-tap zoom, and rotating the phone no longer enlarges the text. Pinch-to-zoom still works.
@@ -112,6 +114,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- **Players dropped on a court can be moved again** — a player placed in an open court's slot used to be stuck there (only ⊗ worked). They can now be dragged or tapped to another place, court or game, and two placed players trade places. A player can no longer sit in two court places at once.
+- **Queue blocks keep their outline** — the outlines no longer disappear, and the blocks no longer refuse to drag, while a move is saving.
 - **Board buttons on phones** — the board's action bar no longer squeezes **Auto-pair** / **Queue next game**, **Check in** and **Walk-in** into three narrow columns where the labels wrapped out of the buttons. On a phone the main action gets its own full-width row, with Check in and Walk-in side by side under it. Button labels never wrap anymore anywhere in the app, and the Courts header buttons (Start all, Regenerate, Add court) wrap to a new line instead of overflowing.
 - **Dragging on the board** — the dragged player or court chip now sits right under the mouse pointer (it used to appear far away from it) and follows the finger on phones and tablets, floating just above it so the finger doesn't hide it. The drop goes to the slot under the pointer or finger. On phones the queue no longer has its own scroll box, so holding a dragged player near the top of the screen scrolls the page up to the courts. Long-pressing a player no longer opens the iOS callout menu.
 - Excel and PDF reports show levels as `C+`, `A-`, … instead of internal codes like `C_PLUS`.

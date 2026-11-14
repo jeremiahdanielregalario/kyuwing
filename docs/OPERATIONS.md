@@ -49,7 +49,7 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 | Lane | Meaning |
 | --- | --- |
 | **Expected** | Signed up, not checked in. Not pairable. |
-| **Waiting** | Checked in, in the queue, timer running. Pairable. If you checked in the wrong person, press the undo arrow on their row (or **Undo check-in** on their Sign-ups row) to put them back to **Expected**; the toast offers **Check in again**. It only works for someone who has not played and is not lined up for a game; after that, use **Done**. |
+| **Waiting** | Checked in, in the queue, timer running. Pairable. If you checked in the wrong person, press **⋮** on their block and choose **Undo check-in** (or **Undo check-in** on their Sign-ups row) to put them back to **Expected**; the toast offers **Check in again**. It only works for someone who has not played and is not lined up for a game; after that, use **Done**. |
 | **Playing** | On court in a live match. Not pairable. |
 | **Done** | Finished for the day. Not pairable; games and fees are kept. |
 
@@ -59,15 +59,16 @@ Stats at the top show total players, waiting, playing, games completed, busy/ope
 
 Everything below works two ways: **tap to move** (easiest on a phone) or drag and drop.
 
-- **Tap to move.** Tap a player (their outlined name box in the queue, or their box on a court) or a court's grip handle (⠿ in the header). A black bar at the bottom says what you're moving, and every place it can go lights up. Tap one of them to put it there. Tap the same thing again, press **Cancel**, or press Esc to put it back down. On a court, a lit-up player box means "put them here instead"; an empty slot says **Tap to put here**; a whole court shows **Move to**, **Swap with** or **Take this place in line**.
+- **Tap to move.** Tap a player (their block in the queue, on a court, or in a court place you are filling by hand) or a court's grip handle (⠿ in the header). A black bar at the bottom says what you're moving, and every place it can go lights up. Tap one of them to put it there. Tap the same thing again, press **Cancel**, or press Esc to put it back down. On a court, a lit-up player box means "put them here instead"; an empty slot says **Tap to put here**; a whole court shows **Move to**, **Swap with** or **Take this place in line**.
 - **Drag and drop.** Grab the same things and drop them on a target; it lands on the slot under your pointer or finger. On a phone or tablet, press and hold for a moment before dragging, so a quick swipe still scrolls; the dragged name floats just above your finger. To reach the courts from the queue on a phone, hold the dragged name near the top of the screen and the page scrolls up.
 - **Split screen (phones and small tablets).** The board keeps the courts on top and the queue in a panel above the bottom navigation, so names drag straight up onto a court. Hold a dragged name just above the panel to scroll down to lower courts (the closer to the panel, the faster), or near the top of the screen to scroll up. Letting go over the panel cancels the drag. Use the search icon to find a player and the chevron to shrink the panel. **Split screen** in the Courts header switches it off or on for that device.
 
 What each move does:
 
 - **Move a match** — grab the grip handle in a court header and drop the card on another court. If that court already has a match, the two swap. Drag a waiting court's game onto a free court to send it there.
-- **Swap players** — drag a player from the queue (grab the outlined name box; on a tablet, press and hold it for a moment) or from another court onto a slot. Dropping a waiting player onto an occupied slot replaces that player; the replaced player stays checked in and waiting.
-- **Build a court by hand** — drop four waiting players onto the empty slots of an open court. The first two become Team A, the last two Team B, and the match appears as a suggestion for you to start.
+- **Swap players** — drag a player's block from the queue (on a phone or tablet, press and hold it for a moment) or from another court onto a slot. Dropping a waiting player onto an occupied slot replaces that player; the replaced player stays checked in and waiting.
+- **Build a court by hand** — drop four waiting players onto the empty slots of an open court, or press **+** on their blocks to put each in the next free place (the first open court, else the waiting court). The first two become Team A, the last two Team B, and the match appears as a suggestion for you to start. A player you have placed is still a block: drag or tap them to another place or court (dropping on another placed player trades places), or press ⊗ on the block, or ↩ on their gold queue block, to send them back.
+- **Player blocks** — every player is a compact pill: level tag, nickname, and in the queue the games played and waiting time. **+** places them, **⋮** opens **Mark priority**, **Undo check-in** and **Done for the day**. The blocks stay outlined and draggable while a move is saving.
 
 Every move is saved immediately and every other device sees it on the next poll.
 
@@ -89,7 +90,7 @@ Press **Undo** on the "Court … finished" message (it stays up for about ten se
 A game takes about 15 minutes. When you start a game within 15 minutes of the reservation's end, the board asks whether it is a **free game**. Free games are played with a used shuttle, show a violet **Free** tag, and do not count as a game played, so they are not added to anyone's fees.
 
 **Someone has waited a long time.**
-Pair normally. The engine already weights wait time. If they are about to leave, toggle **Priority** so they jump the next wave.
+Pair normally. The engine already weights wait time. If they are about to leave, choose **Mark priority** in their block's **⋮** menu so they jump the next wave.
 
 **Someone leaves early.**
 Press **Done**. Their games and fees stay. Do not remove them from the game day — removal deletes their session record.
