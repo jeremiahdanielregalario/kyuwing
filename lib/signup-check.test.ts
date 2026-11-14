@@ -29,6 +29,7 @@ function checkFor(text: string): SignupCheck {
     alreadyOnList: [],
     inactive: [],
     headerMismatch: null,
+    players: [],
   };
 }
 

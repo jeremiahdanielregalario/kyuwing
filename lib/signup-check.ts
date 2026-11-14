@@ -23,6 +23,8 @@ export type SignupCheck = {
   inactive: string[];
   /** Set when the two lists' headers name different dates or venues. */
   headerMismatch: string | null;
+  /** Every player, for picking the right one by hand when no suggestion fits. */
+  players: Array<{ nickname: string; fullName: string | null }>;
 };
 
 /** The two Messenger lists: members and alumni, and applicants. Either may be empty. */
@@ -93,6 +95,9 @@ export async function checkSignup(input: SignupTexts | string, gameDayId?: strin
     headerMismatch: mismatch.length
       ? `The two lists name different ${mismatch.join(" and ")}. The members list is used.`
       : null,
+    players: players
+      .map((player) => ({ nickname: player.nickname, fullName: player.fullName }))
+      .sort((a, b) => a.nickname.localeCompare(b.nickname)),
   };
 }
 

@@ -7,9 +7,9 @@ import { toast } from "sonner";
 import { checkSignupText } from "@/lib/actions/signup-text";
 import { rememberListNames } from "@/lib/actions/players";
 import type { SignupCheck, SignupTexts } from "@/lib/signup-check";
-import { removeLine, rewriteLine, type ResolvedLine, type SignupList } from "@/lib/signup-text";
+import { findNickname, removeLine, rewriteLine, type ResolvedLine, type SignupList } from "@/lib/signup-text";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const MEMBERS_EXAMPLE = `Official Game Day (DASC)
@@ -237,7 +237,8 @@ export function SignupTextPanel({
             <div>
               <h3 className="text-[11px] font-bold tracking-[0.14em] uppercase">To fix</h3>
               <p className="text-muted text-[11px]">
-                Pressing Use also remembers the name for that player, so next time it needs no fixing.
+                Pressing Use (or typing the right nickname) also remembers the name for that player, so next
+                time it needs no fixing.
               </p>
             </div>
             {fullNameFixes.length > 1 && (
@@ -246,11 +247,19 @@ export function SignupTextPanel({
               </Button>
             )}
           </div>
+          <datalist id={NICKNAME_LIST_ID}>
+            {check.players.map((player) => (
+              <option key={player.nickname} value={player.nickname}>
+                {player.fullName ?? ""}
+              </option>
+            ))}
+          </datalist>
           <ul className="border-line divide-line/60 divide-y overflow-hidden rounded-2xl border bg-white">
             {problems.map((line) => (
               <ProblemRow
                 key={`${line.list}-${line.lineIndex}-${line.name}`}
                 line={line}
+                players={check.players}
                 onUse={(nickname) => {
                   setList(line.list, rewriteLine(texts[line.list], line, nickname));
                   remember([{ name: line.name, nickname }]);
@@ -265,15 +274,30 @@ export function SignupTextPanel({
   );
 }
 
+const NICKNAME_LIST_ID = "signup-nicknames";
+
 function ProblemRow({
   line,
+  players,
   onUse,
   onRemove,
 }: {
   line: ResolvedLine;
+  players: Array<{ nickname: string }>;
   onUse: (nickname: string) => void;
   onRemove: () => void;
 }) {
+  // Typing the right nickname by hand, for when no suggestion is the player ("AJ Laxamana" is Jax).
+  const [manual, setManual] = React.useState<string | null>(null);
+  const [manualError, setManualError] = React.useState<string | null>(null);
+  const applyManual = () => {
+    const nickname = findNickname(manual ?? "", players);
+    if (!nickname) {
+      setManualError(`No player has the nickname "${(manual ?? "").trim()}". Pick one from the list.`);
+      return;
+    }
+    onUse(nickname);
+  };
   return (
     <li className="flex flex-wrap items-center gap-2 px-3 py-2.5">
       <span className="text-muted w-6 font-mono text-[10px] font-bold">{line.number}</span>
@@ -313,7 +337,50 @@ function ProblemRow({
             <Trash2 className="h-3.5 w-3.5" /> Remove line
           </Button>
         )}
+        {line.status !== "duplicate" && manual === null && (
+          <Button size="sm" variant="paper" onClick={() => setManual("")}>
+            {line.suggestions.length > 0 ? "Someone else…" : "Type nickname…"}
+          </Button>
+        )}
       </div>
+      {manual !== null && (
+        <form
+          className="flex w-full flex-wrap items-center gap-1.5 pl-8"
+          onSubmit={(event) => {
+            event.preventDefault();
+            applyManual();
+          }}
+        >
+          <Input
+            autoFocus
+            list={NICKNAME_LIST_ID}
+            value={manual}
+            onChange={(event) => {
+              setManual(event.target.value);
+              setManualError(null);
+            }}
+            placeholder="Official nickname, e.g. Jax"
+            aria-label={`Official nickname for ${line.name}`}
+            autoComplete="off"
+            className="h-10 min-w-0 flex-1 basis-40 text-[13px]"
+          />
+          <Button type="submit" size="sm" variant="primary" disabled={!manual.trim()}>
+            Use
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setManual(null);
+              setManualError(null);
+            }}
+          >
+            Cancel
+          </Button>
+          {manualError && <p className="text-coral w-full text-[11px] font-semibold">{manualError}</p>}
+        </form>
+      )}
     </li>
   );
 }

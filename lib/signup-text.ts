@@ -349,3 +349,13 @@ function joinNames(names: string[]): string {
 export function officerLabel(singular: string, name: string | null | undefined): string {
   return name && / & /.test(name) ? `${singular}s` : singular;
 }
+
+/**
+ * The official nickname a queue master typed by hand for a flagged line, matched without
+ * regard to case or spacing ("jax " → "Jax"), or null when no player has it.
+ */
+export function findNickname(input: string, players: Array<{ nickname: string }>): string | null {
+  const key = nameKey(input);
+  if (!key) return null;
+  return players.find((player) => nameKey(player.nickname) === key)?.nickname ?? null;
+}

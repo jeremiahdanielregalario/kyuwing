@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nicknameSurnameKeys, parseSignupText, resolveSignup } from "./signup-text";
+import { findNickname, nicknameSurnameKeys, parseSignupText, resolveSignup } from "./signup-text";
 
 const APPLICANTS = `Official Game Day (DASC)
 Nov 16, 2026; Monday
@@ -107,5 +107,19 @@ describe("nicknameSurnameKeys", () => {
     expect(nicknameSurnameKeys("Matt", "DELA CRUZ, Matthew")).toEqual(["matt dela cruz"]);
     expect(nicknameSurnameKeys("Matt", "Matthew Dela Cruz")).toEqual(["matt cruz", "matt dela cruz"]);
     expect(nicknameSurnameKeys("Matt", null)).toEqual([]);
+  });
+});
+
+describe("findNickname", () => {
+  const players = [{ nickname: "Jax" }, { nickname: "AJ" }];
+
+  it("finds the official nickname typed by hand, whatever the case or spacing", () => {
+    expect(findNickname(" jax ", players)).toBe("Jax");
+    expect(findNickname("aj", players)).toBe("AJ");
+  });
+
+  it("returns null for a nickname nobody has", () => {
+    expect(findNickname("Jaxx", players)).toBeNull();
+    expect(findNickname("  ", players)).toBeNull();
   });
 });
