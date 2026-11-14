@@ -74,7 +74,7 @@ Payment state is stored on `SessionPlayer` (`paid`, `amountPaid`, `paymentMethod
 ## Where fees appear
 
 1. **Fee ledger** — the operational view for collecting money.
-2. **Excel export** — a “Players & Fees” sheet with the full breakdown, totals, and payment state.
+2. **Excel export** — laid out like the finance team's **Gameday Finance Tracker** sheet: one row per player with membership status, games, total, mode of payment and remarks (grips, other charges, sukli, balances), rows shaded green once paid, and the side panel with base price, rent, shuttles used, expenses, estimated revenue and totals by payment method. The shuttle tube price (₱880) can be edited in the sheet.
 3. **PDF export** — a summary table with totals, using `PHP 250` instead of `₱250` because standard PDF fonts lack the peso glyph.
 4. **Board** — a paid indicator on player rows, so the queue master can see who still owes without leaving the board.
 
@@ -91,7 +91,7 @@ Create it in **Venues**. With no default rate its court cost is ₱0 until you s
 1. Finish the session and complete the game day.
 2. Open **Fees** and reconcile any partial payments.
 3. Open **Reports** and download both Excel and PDF.
-4. Check that the Excel total matches the cash + GCash + bank received.
+4. Check that the Excel **Cash** and **Gcash** totals match what was received.
 5. File the export; it is the immutable record for that date.
 
 ## Extras, change, and settling

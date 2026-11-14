@@ -52,6 +52,12 @@ export const SPLIT_SHUTTLE_RATES: Record<PlayerCategory, number> = {
   NON_AFFILIATE: 30,
 };
 
+/**
+ * Price of a tube of 12 shuttles, used for the shuttle cost in the Excel finance tracker
+ * (shuttles used = player-games ÷ 4). Editable in the sheet.
+ */
+export const SHUTTLE_TUBE_PRICE = 880;
+
 /** Badminton grip, sold on the day, per piece in pesos. */
 export const GRIP_PRICE = 20;
 

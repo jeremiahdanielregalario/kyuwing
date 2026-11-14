@@ -68,6 +68,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Excel report uses the finance team's template** — the first sheet is now the **Gameday Finance Tracker**, named after the date, with the same title band, columns (VERIFIED?, Membership Status, Name, No. of Games, Total Amount, Mode of Payment, Voucher, Remarks), green rows for paid players, and side panel (base price, rent, shuttles used, expenses, estimated revenue, totals by payment method, member counts). The match history follows in the same style. The old Summary and Players & Fees sheets are replaced.
 - **Two QMs on a Messenger list** — when a pasted sign-up list has more than one `QM:` (or `FIN:`) line, every one is kept and the field is filled as "Roniel & Jgops" instead of only the first. The reports page, PDF and Excel then label them **Queue masters** / **Finance members**.
 - **Late players are not prioritized** — auto-pair now counts the games a late player missed (from their check-in time versus the first court time, after a 10-minute grace) as if played, scaled by courts and players checked in. Arriving late no longer earns a head start for having fewer games, and the later the arrival the more games are lost. Priority and placing by hand still override it.
 - **Lighter start reminder on court cards** — the gold "Not started yet. Press Start once all four are on court" note is now a short, slightly see-through "Start game · 1 min ago" tag that floats over the court above **Start**, so the card no longer grows to make room for it.
