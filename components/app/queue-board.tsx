@@ -53,6 +53,7 @@ import {
   ChevronUp,
   ChevronDown,
   PanelBottom,
+  TriangleAlert,
   Undo2,
   Play,
   Plus,
@@ -121,6 +122,7 @@ import {
   type CourtDrafts,
 } from "@/lib/court-drafts";
 import { canDropOn, canTapOn, eventPoint, samePick } from "@/lib/drag-targets";
+import { mismatchWarning } from "@/lib/mismatch";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
@@ -531,6 +533,13 @@ export function QueueBoard({ initialData, livePath }: { initialData: BoardData; 
 
     if (!next.every(Boolean) || creatingDrafts.current.has(court)) return;
     creatingDrafts.current.add(court);
+    // Built by hand, so the levels may be far apart: say so, but let the queue master decide.
+    const levelOf = (id: string | null) => ({ level: (id && playerById.get(id)?.level) || "X" });
+    const mismatch = mismatchWarning(
+      [levelOf(next[0]), levelOf(next[1])],
+      [levelOf(next[2]), levelOf(next[3])],
+    );
+    if (mismatch) toast.warning(mismatch.short, { description: mismatch.detail, duration: 8000 });
 
     startTransition(async () => {
       const result = await createManualMatch(data.gameDay.id, court, next as string[]);
@@ -2805,6 +2814,38 @@ function RemoveCourtButton({
   );
 }
 
+/**
+ * The warning on a court whose game looks one-sided (see `mismatchWarning`). A small see-through
+ * coral tag; tap or hover it for the reason, shown as a floating bubble over the court.
+ */
+function MismatchTag({ mismatch }: { mismatch: { short: string; detail: string } }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <span className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        onBlur={() => setOpen(false)}
+        aria-expanded={open}
+        aria-label={`${mismatch.short}. ${mismatch.detail}`}
+        className="bg-coral/85 text-paper inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10px] font-bold shadow-sm backdrop-blur-sm"
+      >
+        <TriangleAlert className="h-3 w-3" aria-hidden="true" />
+        {mismatch.short}
+      </button>
+      {open && (
+        <span
+          role="tooltip"
+          className="bg-ink/85 text-paper shadow-float animate-pop-in pointer-events-none absolute bottom-full left-0 z-20 mb-2 w-60 rounded-xl px-3 py-2 text-[11px] leading-snug font-medium backdrop-blur-sm"
+        >
+          {mismatch.detail}
+          <span aria-hidden className="bg-ink/85 absolute -bottom-1 left-5 h-2 w-2 rotate-45" />
+        </span>
+      )}
+    </span>
+  );
+}
+
 function CourtCard({
   court,
   name,
@@ -2966,6 +3007,7 @@ function CourtCard({
   const elapsed =
     match.startedAt && now ? Math.max(0, Math.floor((now - Date.parse(match.startedAt)) / 1000)) : 0;
   const balance = Math.abs(teamValue(match.team1) - teamValue(match.team2));
+  const mismatch = mismatchWarning(match.team1, match.team2);
   const unstartedMinutes = !live && now ? Math.floor((now - Date.parse(match.changedAt)) / 60000) : 0;
 
   return (
@@ -3078,10 +3120,14 @@ function CourtCard({
         </div>
 
         <div className="border-cream/15 mt-2 flex items-center justify-between gap-2 border-t pt-1.5">
-          <span className="text-cream/50 inline-flex items-center gap-1 text-[9px] font-semibold tracking-[0.1em] uppercase">
-            <Zap className="text-lime/70 h-3 w-3" />
-            {balance === 0 ? "Level teams" : `${balance} level gap`}
-          </span>
+          {mismatch ? (
+            <MismatchTag mismatch={mismatch} />
+          ) : (
+            <span className="text-cream/50 inline-flex items-center gap-1 text-[9px] font-semibold tracking-[0.1em] uppercase">
+              <Zap className="text-lime/70 h-3 w-3" />
+              {balance === 0 ? "Level teams" : `${balance} level gap`}
+            </span>
+          )}
           <span className="text-cream/40 font-mono text-[9px]">R{match.round}</span>
         </div>
 
