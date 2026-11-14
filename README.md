@@ -14,7 +14,7 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 - **Balanced games, not random ones.** The engine weighs every foursome and every team split, then picks the fairest available match.
 - **Repeat pairings fade out.** Teammates, opponents, and whole foursomes are penalized if they keep recurring.
 - **Court blocks match reality.** Set the game time (say 9 AM–12 PM), then split it: “3 courts from 9–10, 4 courts from 10–12” is a first-class setting, and blocks always stay inside the game time.
-- **Fees follow the games.** Flat fee = total court rent ÷ players (DASC ₱300, KBC ₱250 per court per hour), plus a shuttle rate per game by player type.
+- **Fees follow the finance sheet.** Base price = total court rent ÷ players, rounded up to ₱5 (DASC ₱300, KBC ₱250 per court per hour), plus a shuttle rate per game by player type, ₱10 more for applicants and Plus 1s, less any voucher. Queue masters on duty pay ₱20 a game only.
 - **Reports the treasurer can use.** One click for a formatted Excel workbook or a print-ready PDF.
 
 ## Feature tour
@@ -67,7 +67,7 @@ Both venues and their court blocks are editable in **Venues**.
 - **Tipid** — court fee only, used shuttles.
 - **MEGA** — larger scale, higher fee tier.
 
-> **Fees are fixed.** The court rate is fixed per venue (DASC ₱300, KBC ₱250 per court per hour; a game day can override it), and the flat fee is always the total rent divided by the players who checked in. The old per-venue fee matrix is retired. See [docs/FEES.md](docs/FEES.md).
+> **Fees are fixed.** The court rate is fixed per venue (DASC ₱300, KBC ₱250 per court per hour; a game day can override it), and the base price is always the total rent divided by the players who checked in, rounded up to ₱5. The old per-venue fee matrix is retired. See [docs/FEES.md](docs/FEES.md).
 
 ## Tech stack
 

@@ -13,6 +13,9 @@ function row(overrides: Partial<FeeRow>): FeeRow {
     gamesPlayed: 5,
     flatFee: 120,
     perGameFee: 20,
+    surcharge: 0,
+    voucher: 0,
+    queueMaster: false,
     total: 220,
     gripCount: 0,
     otherCharge: 0,
@@ -60,6 +63,14 @@ describe("trackerRows", () => {
       "Mem Wan",
       "Plus 1 Ian",
     ]);
+  });
+
+  it("lists queue masters on duty first as QM, and carries the voucher", () => {
+    const rows = trackerRows([
+      row({ nickname: "Wan" }),
+      row({ nickname: "Roniel", queueMaster: true, voucher: 100 }),
+    ]);
+    expect(rows.map((r) => `${r.status} ${r.name} ${r.voucher}`)).toEqual(["QM Roniel 100", "Mem Wan 0"]);
   });
 
   it("leaves the payment blank for someone who has not paid", () => {

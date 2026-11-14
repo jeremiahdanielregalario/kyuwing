@@ -281,6 +281,8 @@ model SessionPlayer {
   /// Any other amount the finance member charges this player, with a short reason.
   otherCharge        Int                 @default(0)
   otherNote          String?
+  /// Discount in pesos taken off this player's fee (the finance sheet's Voucher column).
+  voucher            Int                 @default(0)
   /// Paid in full and, if they overpaid in cash, change handed back.
   settled            Boolean             @default(false)
   note               String?

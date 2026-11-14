@@ -51,17 +51,17 @@ export function trackerRemarks(row: FeeRow): string {
  * status like the template's sheets, then by name.
  */
 export function trackerRows(rows: FeeRow[]): TrackerRow[] {
-  const order = ["App", "Inact/Alum", "Mem", "Plus 1"];
+  const order = ["QM", "App", "Inact/Alum", "Mem", "Plus 1"];
   return rows
     .filter((row) => row.status !== "EXPECTED" || row.amountPaid > 0)
     .map((row) => ({
       verified: row.paid,
-      status: TRACKER_STATUS[row.category],
+      status: row.queueMaster ? "QM" : TRACKER_STATUS[row.category],
       name: row.nickname,
       games: row.gamesPlayed,
       total: row.total,
       payment: row.paymentMethod ? (TRACKER_PAYMENT[row.paymentMethod] ?? row.paymentMethod) : "",
-      voucher: 0,
+      voucher: row.voucher,
       remarks: trackerRemarks(row),
     }))
     .sort(

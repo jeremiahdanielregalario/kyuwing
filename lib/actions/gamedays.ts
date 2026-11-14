@@ -27,7 +27,7 @@ import { gameStartInstant, missedGames } from "@/lib/late-arrival";
 import { canUndoCheckIn } from "@/lib/check-in";
 import { addCourtForWindow, formatTime12, planProblem, planWindow } from "@/lib/court-plan";
 import { applyCourtSetup, type CourtSetup } from "@/lib/court-setup";
-import { buildFeeSchedule, changeDue, extrasTotal, formatPeso } from "@/lib/fees";
+import { buildFeeSchedule, changeDue, extrasTotal, formatPeso, isQueueMasterOnDuty } from "@/lib/fees";
 import { isUnrated, levelLabel, parseLevel } from "@/lib/levels";
 import {
   GAME_MINUTES,
@@ -1896,7 +1896,7 @@ type PaymentInput = {
   amountPaid?: number;
   method?: "CASH" | "GCASH" | "BANK" | "OTHER" | null;
   /** Grips and any other charge for this player; omitted leaves them as they are. */
-  charges?: { gripCount: number; otherCharge: number; otherNote?: string | null };
+  charges?: { gripCount: number; otherCharge: number; otherNote?: string | null; voucher?: number };
 };
 
 export async function setPayment(sessionPlayerId: string, input: PaymentInput): Promise<ActionResult> {
@@ -1915,15 +1915,20 @@ export async function setPayment(sessionPlayerId: string, input: PaymentInput): 
   let gripCount = row.gripCount;
   let otherCharge = row.otherCharge;
   let otherNote = row.otherNote;
+  let voucher = row.voucher;
   if (input.charges) {
     const parsed = chargesSchema.safeParse(input.charges);
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the extra charges.");
     gripCount = parsed.data.gripCount;
     otherCharge = parsed.data.otherCharge;
     otherNote = otherCharge > 0 ? parsed.data.otherNote || null : null;
+    voucher = parsed.data.voucher ?? voucher;
   }
 
-  const fee = feeScheduleFor(row.gameDay).feeFor(row.player.category, row.gamesPlayed);
+  const fee = feeScheduleFor(row.gameDay).feeFor(row.player.category, row.gamesPlayed, {
+    queueMaster: isQueueMasterOnDuty(row.player.nickname, row.gameDay.queueMasterName),
+    voucher,
+  });
   const total = fee.total + extrasTotal({ gripCount, otherCharge });
   const amount = Math.max(0, Math.round(input.amountPaid ?? (input.paid ? total : 0)));
   // The amount decides: fully covered is paid. Only a zero-total player can be marked paid outright.
@@ -1939,6 +1944,7 @@ export async function setPayment(sessionPlayerId: string, input: PaymentInput): 
       gripCount,
       otherCharge,
       otherNote,
+      voucher,
       // Exact payment is settled right away; overpaying leaves it open until the change is handed back.
       settled: paid && changeDue(total, kept) === 0,
     },
@@ -1988,7 +1994,11 @@ export async function markAllPaid(gameDayId: string): Promise<ActionResult<{ upd
   let updated = 0;
   for (const row of gameDay.players) {
     if (row.paid) continue;
-    const total = schedule.feeFor(row.player.category, row.gamesPlayed).total + extrasTotal(row);
+    const total =
+      schedule.feeFor(row.player.category, row.gamesPlayed, {
+        queueMaster: isQueueMasterOnDuty(row.player.nickname, gameDay.queueMasterName),
+        voucher: row.voucher,
+      }).total + extrasTotal(row);
     await prisma.sessionPlayer.update({
       where: { id: row.id },
       data: { paid: true, amountPaid: total, paymentMethod: "CASH", settled: true },

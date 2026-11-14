@@ -58,6 +58,36 @@ export const SPLIT_SHUTTLE_RATES: Record<PlayerCategory, number> = {
  */
 export const SHUTTLE_TUBE_PRICE = 880;
 
+/**
+ * The finance team's sheet adds ₱10 for applicants and "Plus 1" guests (non-affiliates),
+ * on top of their shuttle rate.
+ */
+export const NON_MEMBER_SURCHARGE: Record<PlayerCategory, number> = {
+  ACTIVE: 0,
+  INACTIVE: 0,
+  ALUMNI: 0,
+  APPLICANT: 10,
+  NON_AFFILIATE: 10,
+};
+
+/** A queue master on duty pays no base price and the member shuttle rate, whatever their category. */
+export const QUEUE_MASTER_PER_GAME = 20;
+
+/** The base price (rent ÷ players) is rounded up to the next multiple of this, like the sheet. */
+export const BASE_PRICE_STEP = 5;
+
+/**
+ * Whether a nickname is one of the game day's queue masters. The stored name may list more
+ * than one ("Roniel & Jgops", "A, B & C"); matching ignores case and spaces at the ends.
+ */
+export function isQueueMasterOnDuty(nickname: string, queueMasterName: string | null | undefined): boolean {
+  if (!queueMasterName) return false;
+  const key = nickname.trim().toLowerCase();
+  return queueMasterName
+    .split(/\s*(?:&|,|\band\b)\s*/i)
+    .some((name) => name.trim().toLowerCase() === key && key.length > 0);
+}
+
 /** Badminton grip, sold on the day, per piece in pesos. */
 export const GRIP_PRICE = 20;
 
@@ -98,8 +128,20 @@ export type FeeSplit = {
   courtCost: number;
   /** Players the cost is divided among (everyone who checked in). */
   players: number;
-  /** Each player's share of the court cost, rounded up to the next peso. */
+  /** Each player's share of the court cost, rounded up to the next ₱5 (the base price). */
   flatFee: number;
+};
+
+export type PlayerFee = {
+  /** Base price: 0 for a queue master on duty. */
+  flatFee: number;
+  perGameFee: number;
+  /** ₱10 for applicants and Plus 1 guests. */
+  surcharge: number;
+  /** Discount taken off, never more than the fee itself. */
+  voucher: number;
+  /** Base price + games × per-game rate + surcharge − voucher. Extras are added separately. */
+  total: number;
 };
 
 export type FeeSchedule = {
@@ -107,7 +149,8 @@ export type FeeSchedule = {
   feeFor: (
     category: PlayerCategory,
     gamesPlayed: number,
-  ) => { flatFee: number; perGameFee: number; total: number };
+    options?: { queueMaster?: boolean; voucher?: number },
+  ) => PlayerFee;
 };
 
 /**
@@ -133,12 +176,15 @@ export function effectiveCourtRate(
 }
 
 /**
- * One place that decides what a player owes.
+ * One place that decides what a player owes, following the finance team's Gameday Finance
+ * Tracker sheet (the standard):
  *
- * The court cost (rate × hours × courts, summed over blocks) is divided evenly among
- * everyone who checked in and rounded up; that share is the flat fee for all. The rate is
+ *   total = base price + games × shuttle rate + ₱10 (applicants and Plus 1s) − voucher
+ *
+ * The base price is the court cost (rate × hours × courts, summed over blocks) divided among
+ * everyone who checked in, rounded up to the next ₱5. A queue master on duty pays no base
+ * price and ₱20 per game. Shuttle rates are by category (`SPLIT_SHUTTLE_RATES`). The rate is
  * the game day's own, or the venue's default (DASC ₱300, KBC ₱250 per court per hour).
- * Shuttles are charged per game by category.
  */
 export function buildFeeSchedule(input: {
   courtPlan: Array<Pick<CourtSlot, "start" | "end" | "courts">>;
@@ -149,7 +195,8 @@ export function buildFeeSchedule(input: {
 }): FeeSchedule {
   const rate = effectiveCourtRate(input.ratePerCourtHour, input.venueShortName);
   const cost = courtCost(input.courtPlan, rate);
-  const flatFee = input.attendees > 0 ? Math.ceil(cost / input.attendees) : 0;
+  const flatFee =
+    input.attendees > 0 ? Math.ceil(cost / input.attendees / BASE_PRICE_STEP) * BASE_PRICE_STEP : 0;
   const split: FeeSplit = {
     ratePerCourtHour: rate,
     courtHours: courtHours(input.courtPlan),
@@ -159,9 +206,13 @@ export function buildFeeSchedule(input: {
   };
   return {
     split,
-    feeFor: (category, games) => {
-      const perGameFee = SPLIT_SHUTTLE_RATES[category];
-      return { flatFee, perGameFee, total: computeFee({ flatFee, perGameFee }, games) };
+    feeFor: (category, games, options = {}) => {
+      const base = options.queueMaster ? 0 : flatFee;
+      const perGameFee = options.queueMaster ? QUEUE_MASTER_PER_GAME : SPLIT_SHUTTLE_RATES[category];
+      const surcharge = options.queueMaster ? 0 : NON_MEMBER_SURCHARGE[category];
+      const before = computeFee({ flatFee: base, perGameFee }, games) + surcharge;
+      const voucher = Math.min(before, Math.max(0, Math.round(options.voucher ?? 0)));
+      return { flatFee: base, perGameFee, surcharge, voucher, total: before - voucher };
     },
   };
 }

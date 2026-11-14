@@ -284,7 +284,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       [
         row.nickname,
         levelLabel(row.level),
-        CATEGORY_LABELS[row.category],
+        row.queueMaster ? "Queue master" : CATEGORY_LABELS[row.category],
         String(row.gamesPlayed),
         formatPesoPdf(row.perGameFee),
         row.extras ? formatPesoPdf(row.extras) : "-",

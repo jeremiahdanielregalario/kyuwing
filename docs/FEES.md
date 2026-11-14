@@ -4,13 +4,18 @@ Kyuwing records what each player owes for a session and whether they have paid. 
 
 ## How fees are calculated
 
-Fees are fixed and the same for every game-day type (Regular, Tipid, MEGA):
+Fees follow the finance team's **Gameday Finance Tracker** sheet, which is the standard, and are the same for every game-day type (Regular, Tipid, MEGA):
 
 ```
 court rent = court rate × hours × courts   (summed over every court block)
-flat fee   = court rent ÷ players who checked in, rounded up to the next peso
-total      = flat fee + shuttle rate × games played
+base price = court rent ÷ players who checked in, rounded up to the next ₱5
+total      = base price + shuttle rate × games played + ₱10 (applicants and Plus 1s) − voucher
+           + extras (grips, other charges)
 ```
+
+- **Queue masters on duty** (the nicknames in the game day's queue master field, e.g. "Roniel & Jgops") pay no base price, ₱20 a game whatever their category, and no surcharge. They still count as players when the rent is divided, as in the sheet. Matching is by nickname, ignoring case, so the queue master field must use the same nicknames as the roster (`isQueueMasterOnDuty`).
+- **₱10 surcharge** for Applicants and Non-affiliates ("Plus 1"), once per game day (`NON_MEMBER_SURCHARGE`).
+- **Voucher**: a discount in pesos entered in the Record payment dialog (`SessionPlayer.voucher`). It never takes the fee below ₱0; grips and other charges are added after it.
 
 **Default court rate**, per court per hour:
 
@@ -29,7 +34,7 @@ The rates live in `DEFAULT_COURT_RATES` (`lib/fees.ts`). A venue without a defau
 | Inactive, Alumni, Applicant | ₱25 |
 | Non-affiliate | ₱30 |
 
-Example: 3 courts 10:00–12:00 and 4 courts 12:00–14:00 is 14 court-hours. At KBC (₱250) the rent is ₱3,500; with 28 players the flat fee is ₱125 each. An Active player who played 3 games owes ₱125 + 3 × ₱20 = ₱185.
+Example: 3 courts 10:00–12:00 and 4 courts 12:00–14:00 is 14 court-hours. At KBC (₱250) the rent is ₱3,500; with 28 players the base price is ₱125. An Active player who played 3 games owes ₱125 + 3 × ₱20 = ₱185; an Applicant with 3 games owes ₱125 + 3 × ₱25 + ₱10 = ₱210; a queue master with 3 games owes 3 × ₱20 = ₱60. With 30 players the share is ₱116.67, so the base price is ₱120.
 
 Key properties:
 
@@ -38,7 +43,8 @@ Key properties:
 - **Free games** do not increment `gamesPlayed`, so they add nothing to anyone's fee. A free game is offered when a game starts within 15 minutes of the reservation's end and is played with a used shuttle (`Match.free`).
 - Cancelled matches do not count. Suggested matches do not count until completed.
 - The share is recalculated from who is checked in, so it drops as more players arrive. Settle after the game day is complete; a player marked paid earlier keeps the amount recorded at that moment.
-- With nobody checked in there is no flat fee yet.
+- With nobody checked in there is no base price yet.
+- Totals are worked out when the Fees tab or a report is opened, so these rules also apply to earlier game days.
 - Negative game counts are clamped to 0.
 
 ### Retired: the per-venue fee matrix
@@ -55,7 +61,7 @@ Earlier versions had a **Venues → Fee table** with a flat + per-game fee for e
 | Category | player's permanent category |
 | Games | `SessionPlayer.gamesPlayed` |
 | W / L | derived from completed matches |
-| Total | `flat share + shuttle rate × games` + extras |
+| Total | `base price + shuttle rate × games + surcharge − voucher` + extras |
 | Paid | settlement state |
 | Balance | `max(0, total - amountPaid)` |
 
@@ -65,6 +71,7 @@ Totals across the session (billed, collected, outstanding) are shown at the top.
 
 - **Mark paid** defaults the amount to the full total and the method to cash.
 - The amount can be overridden — useful for partial payments or discounts. The balance is clamped at zero, so overpayment does not produce a negative balance.
+- **Voucher** takes a discount off the fee; the row's note shows it, with "QM on duty" and "+₱10" where they apply.
 - **Clear** sets `paid = false`, keeps the recorded amount only up to the total, and clears the method.
 - **Mark all paid** applies the full computed total to every unpaid player with method `CASH`. Use it at the end of a clean session, not as a substitute for reconciliation.
 - Methods: `CASH`, `GCASH`, `BANK`, `OTHER`.

@@ -52,6 +52,7 @@ export const chargesSchema = z.object({
   gripCount: z.coerce.number().int("Grips must be a whole number").min(0).max(50),
   otherCharge: z.coerce.number().int("Enter a whole-peso amount").min(0).max(100000),
   otherNote: z.string().trim().max(60).optional().nullable(),
+  voucher: z.coerce.number().int("Enter a whole-peso voucher").min(0).max(100000).optional(),
 });
 
 export const courtSlotSchema = z.object({

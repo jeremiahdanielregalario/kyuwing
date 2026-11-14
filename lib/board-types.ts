@@ -116,7 +116,13 @@ export type FeeRow = {
   gamesPlayed: number;
   flatFee: number;
   perGameFee: number;
-  /** Court + shuttle fees plus extras. */
+  /** ₱10 for applicants and Plus 1 guests. */
+  surcharge: number;
+  /** Discount taken off the fee. */
+  voucher: number;
+  /** One of the game day's queue masters: no base price, ₱20 per game. */
+  queueMaster: boolean;
+  /** Court + shuttle fees, surcharge and extras, less the voucher. */
   total: number;
   gripCount: number;
   otherCharge: number;

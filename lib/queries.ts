@@ -13,7 +13,7 @@ import type {
   FeeRow,
 } from "./board-types";
 import { currentSlotIndex, elapsedMinutes, parseCourtPlan, QUEUED_COURT, type CourtSlot } from "./datetime";
-import { buildFeeSchedule, changeDue, extrasTotal } from "./fees";
+import { buildFeeSchedule, changeDue, extrasTotal, isQueueMasterOnDuty } from "./fees";
 import { awardsByPlayer, type AwardRow, type PlayerAward } from "./awards";
 import { levelLabel } from "./levels";
 import { toPublicRoster, type PublicRoster } from "./public-roster";
@@ -426,9 +426,10 @@ async function loadFeeReport(gameDayId: string): Promise<FeeReport | null> {
     attendees: gameDay.players.filter((row) => row.status !== "EXPECTED").length,
   });
   const rows: FeeRow[] = gameDay.players.map((row) => {
-    const fee = schedule.feeFor(row.player.category, row.gamesPlayed);
+    const queueMaster = isQueueMasterOnDuty(row.player.nickname, gameDay.queueMasterName);
+    const fee = schedule.feeFor(row.player.category, row.gamesPlayed, { queueMaster, voucher: row.voucher });
     const extras = extrasTotal(row);
-    const { flatFee, perGameFee } = fee;
+    const { flatFee, perGameFee, surcharge, voucher } = fee;
     const total = fee.total + extras;
     return {
       sessionPlayerId: row.id,
@@ -440,6 +441,9 @@ async function loadFeeReport(gameDayId: string): Promise<FeeReport | null> {
       gamesPlayed: row.gamesPlayed,
       flatFee,
       perGameFee,
+      surcharge,
+      voucher,
+      queueMaster,
       total,
       gripCount: row.gripCount,
       otherCharge: row.otherCharge,

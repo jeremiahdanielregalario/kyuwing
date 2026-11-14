@@ -7,6 +7,7 @@ import {
   defaultCourtRate,
   extrasTotal,
   GRIP_PRICE,
+  isQueueMasterOnDuty,
 } from "./fees";
 
 const plan = [
@@ -29,18 +30,49 @@ describe("split fee schedule", () => {
   const split = (attendees: number) =>
     buildFeeSchedule({ courtPlan: plan, ratePerCourtHour: 200, venueShortName: "KBC", attendees });
 
-  it("divides the court cost among players, rounded up to the next peso", () => {
-    expect(split(30).split?.flatFee).toBe(94); // 2800 / 30 = 93.33
+  it("divides the court cost among players, rounded up to the next ₱5 like the sheet", () => {
+    expect(split(30).split?.flatFee).toBe(95); // 2800 / 30 = 93.33
+    expect(split(29).split?.flatFee).toBe(100); // 96.55
     expect(split(28).split?.flatFee).toBe(100);
   });
 
-  it("charges shuttles per game by category on top of the same flat share", () => {
+  it("charges shuttles per game by category on top of the same base price", () => {
     const schedule = split(28);
-    expect(schedule.feeFor("ACTIVE", 3)).toEqual({ flatFee: 100, perGameFee: 20, total: 160 });
+    expect(schedule.feeFor("ACTIVE", 3)).toEqual({
+      flatFee: 100,
+      perGameFee: 20,
+      surcharge: 0,
+      voucher: 0,
+      total: 160,
+    });
     expect(schedule.feeFor("ALUMNI", 2).total).toBe(150);
     expect(schedule.feeFor("INACTIVE", 2).total).toBe(150);
-    expect(schedule.feeFor("APPLICANT", 2).total).toBe(150);
-    expect(schedule.feeFor("NON_AFFILIATE", 2).total).toBe(160);
+  });
+
+  it("adds ₱10 for applicants and Plus 1 guests", () => {
+    const schedule = split(28);
+    expect(schedule.feeFor("APPLICANT", 2)).toMatchObject({ surcharge: 10, total: 160 });
+    expect(schedule.feeFor("NON_AFFILIATE", 2)).toMatchObject({ surcharge: 10, total: 170 });
+  });
+
+  it("charges a queue master on duty no base price, ₱20 a game and no surcharge", () => {
+    const schedule = split(28);
+    expect(schedule.feeFor("ACTIVE", 4, { queueMaster: true })).toEqual({
+      flatFee: 0,
+      perGameFee: 20,
+      surcharge: 0,
+      voucher: 0,
+      total: 80,
+    });
+    expect(schedule.feeFor("ALUMNI", 3, { queueMaster: true }).total).toBe(60);
+    expect(schedule.feeFor("APPLICANT", 3, { queueMaster: true }).total).toBe(60);
+  });
+
+  it("takes a voucher off, never below zero", () => {
+    const schedule = split(28);
+    expect(schedule.feeFor("ACTIVE", 3, { voucher: 100 })).toMatchObject({ voucher: 100, total: 60 });
+    expect(schedule.feeFor("ACTIVE", 3, { voucher: 500 })).toMatchObject({ voucher: 160, total: 0 });
+    expect(schedule.feeFor("ACTIVE", 3, { voucher: -20 }).total).toBe(160);
   });
 
   it("charges only the flat share to someone who has not played a game", () => {
@@ -108,7 +140,24 @@ describe("default court rates", () => {
       venueShortName: "KBC",
       attendees: 20,
     });
-    expect(schedule.feeFor("ALUMNI", 2)).toEqual({ flatFee: 175, perGameFee: 25, total: 225 });
+    expect(schedule.feeFor("ALUMNI", 2)).toEqual({
+      flatFee: 175,
+      perGameFee: 25,
+      surcharge: 0,
+      voucher: 0,
+      total: 225,
+    });
+  });
+});
+
+describe("queue master on duty", () => {
+  it("matches a nickname against one or more stored queue masters", () => {
+    expect(isQueueMasterOnDuty("Roniel", "Roniel & Jgops")).toBe(true);
+    expect(isQueueMasterOnDuty("jgops", "Roniel & Jgops")).toBe(true);
+    expect(isQueueMasterOnDuty("Ana", "Bo, Cy and Ana")).toBe(true);
+    expect(isQueueMasterOnDuty("Ron", "Roniel & Jgops")).toBe(false);
+    expect(isQueueMasterOnDuty("Roniel", null)).toBe(false);
+    expect(isQueueMasterOnDuty("", "Roniel")).toBe(false);
   });
 });
 

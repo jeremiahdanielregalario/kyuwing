@@ -10,6 +10,7 @@ import {
   CATEGORY_SHORT,
   GRIP_PRICE,
   PAYMENT_METHOD_LABELS,
+  QUEUE_MASTER_PER_GAME,
   changeDue,
   extrasTotal,
   formatPeso,
@@ -39,22 +40,32 @@ export function FeeLedger({ report }: { report: FeeReport }) {
   const [grips, setGrips] = React.useState("0");
   const [otherCharge, setOtherCharge] = React.useState("");
   const [otherNote, setOtherNote] = React.useState("");
+  const [voucher, setVoucher] = React.useState("");
   /** Until the finance member types an amount received, it follows the total. */
   const [amountTouched, setAmountTouched] = React.useState(false);
 
-  // What this player owes with the charges typed in the dialog.
-  const dialogExtras = extrasTotal({ gripCount: Number(grips) || 0, otherCharge: Number(otherCharge) || 0 });
-  const dialogTotal = selected ? selected.total - selected.extras + dialogExtras : 0;
+  // What this player owes with the charges and voucher typed in the dialog. The voucher comes
+  // off the fee (never below zero); grips and other charges are added after it.
+  const totalWith = (row: FeeRow, nextGrips: string, nextOther: string, nextVoucher: string) => {
+    const feeBeforeVoucher = row.total - row.extras + row.voucher;
+    const off = Math.min(feeBeforeVoucher, Math.max(0, Math.round(Number(nextVoucher) || 0)));
+    const extras = extrasTotal({ gripCount: Number(nextGrips) || 0, otherCharge: Number(nextOther) || 0 });
+    return feeBeforeVoucher - off + extras;
+  };
+  const dialogTotal = selected ? totalWith(selected, grips, otherCharge, voucher) : 0;
   const received = Number(amount) || 0;
   const dialogChange = changeDue(dialogTotal, received);
   const dialogBalance = Math.max(0, dialogTotal - received);
 
-  const changeCharges = (nextGrips: string, nextOther: string) => {
+  const changeCharges = (next: { grips?: string; other?: string; voucher?: string }) => {
+    const nextGrips = next.grips ?? grips;
+    const nextOther = next.other ?? otherCharge;
+    const nextVoucher = next.voucher ?? voucher;
     setGrips(nextGrips);
     setOtherCharge(nextOther);
+    setVoucher(nextVoucher);
     if (selected && !amountTouched) {
-      const extras = extrasTotal({ gripCount: Number(nextGrips) || 0, otherCharge: Number(nextOther) || 0 });
-      setAmount(String(selected.total - selected.extras + extras));
+      setAmount(String(totalWith(selected, nextGrips, nextOther, nextVoucher)));
     }
   };
 
@@ -87,6 +98,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
     setGrips(String(row.gripCount));
     setOtherCharge(row.otherCharge ? String(row.otherCharge) : "");
     setOtherNote(row.otherNote ?? "");
+    setVoucher(row.voucher ? String(row.voucher) : "");
     setAmountTouched(row.amountPaid > 0);
   };
 
@@ -103,7 +115,12 @@ export function FeeLedger({ report }: { report: FeeReport }) {
           paid: value >= dialogTotal,
           amountPaid: value,
           method,
-          charges: { gripCount: Number(grips) || 0, otherCharge: Number(otherCharge) || 0, otherNote },
+          charges: {
+            gripCount: Number(grips) || 0,
+            otherCharge: Number(otherCharge) || 0,
+            otherNote,
+            voucher: Math.max(0, Math.round(Number(voucher) || 0)),
+          },
         }),
       () => setSelected(null),
     );
@@ -117,8 +134,10 @@ export function FeeLedger({ report }: { report: FeeReport }) {
           {report.scheme.split.courtHours} court-hours × {formatPeso(report.scheme.split.ratePerCourtHour)} ={" "}
           <span className="font-semibold">{formatPeso(report.scheme.split.courtCost)}</span> ÷{" "}
           {report.scheme.split.players} players ={" "}
-          <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} each</span>, plus shuttles
-          per game. The share changes if more players check in.
+          <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} base price</span> (rounded
+          up to the next ₱5), plus shuttles per game. Applicants and Plus 1s add {formatPeso(10)}. Queue
+          masters on duty pay no base price and {formatPeso(QUEUE_MASTER_PER_GAME)} a game. The base price
+          changes if more players check in.
         </p>
       </div>
 
@@ -221,7 +240,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
           <div>
             <h2 className="font-display text-base font-bold">Fee ledger</h2>
             <p data-trim-id="fees.formula" className="text-muted text-[11px]">
-              Total = court share + (games × shuttle rate). Court cost split among players.
+              Total = base price + (games × shuttle rate) + ₱10 for App/Plus 1 − voucher, plus extras.
             </p>
           </div>
           <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
@@ -250,7 +269,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                       <FeeStatus row={row} />
                     </span>
                     <span className="text-muted block text-[10px]">
-                      {CATEGORY_SHORT[row.category]} · {row.gamesPlayed} games
+                      {feeNote(row)} · {row.gamesPlayed} games
                       {row.extras ? ` · extras ${formatPeso(row.extras)}` : ""}
                     </span>
                   </span>
@@ -323,7 +342,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                         <LevelBadge level={row.level} />
                         <div>
                           <p className="font-semibold">{row.nickname}</p>
-                          <p className="text-muted text-[9px]">{CATEGORY_SHORT[row.category]}</p>
+                          <p className="text-muted text-[9px]">{feeNote(row)}</p>
                         </div>
                       </div>
                     </td>
@@ -451,7 +470,7 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                   max={50}
                   inputMode="numeric"
                   value={grips}
-                  onChange={(event) => changeCharges(event.target.value, otherCharge)}
+                  onChange={(event) => changeCharges({ grips: event.target.value })}
                 />
               </Field>
               <Field label="Other charge" hint="Any extra amount, in pesos">
@@ -461,10 +480,20 @@ export function FeeLedger({ report }: { report: FeeReport }) {
                   inputMode="numeric"
                   value={otherCharge}
                   placeholder="0"
-                  onChange={(event) => changeCharges(grips, event.target.value)}
+                  onChange={(event) => changeCharges({ other: event.target.value })}
                 />
               </Field>
             </div>
+            <Field label="Voucher" hint="Discount taken off the fee, in pesos">
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={voucher}
+                placeholder="0"
+                onChange={(event) => changeCharges({ voucher: event.target.value })}
+              />
+            </Field>
             {(Number(otherCharge) || 0) > 0 && (
               <Field label="What is it for?" hint="Shown on hover in the ledger.">
                 <Input
@@ -534,4 +563,15 @@ function FeeStatus({ row }: { row: FeeRow }) {
   if (row.paid) return <Badge tone="green">Paid</Badge>;
   if (row.amountPaid > 0) return <Badge tone="amber">Partial</Badge>;
   return <Badge tone="neutral">Due</Badge>;
+}
+
+/** Category, plus how the sheet's rules touched this player's fee (QM, +₱10, voucher). */
+function feeNote(row: FeeRow): string {
+  return [
+    row.queueMaster ? "QM on duty" : CATEGORY_SHORT[row.category],
+    row.surcharge ? `+${formatPeso(row.surcharge)}` : "",
+    row.voucher ? `voucher −${formatPeso(row.voucher)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
