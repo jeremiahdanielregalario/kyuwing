@@ -88,6 +88,11 @@
 
   html {
     scroll-behavior: smooth;
+    /* Keep text the same size when the phone rotates. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Quick taps on buttons are taps, not a double-tap zoom. Pinch-to-zoom still works. */
+    touch-action: manipulation;
   }
 
   body {
@@ -433,5 +438,17 @@
 
   .print-break {
     break-inside: avoid;
+  }
+}
+
+/*
+ * Phones zoom the page in when a text box under 16px is focused, and don't zoom back out.
+ * On touch screens every text box and menu is 16px. Unlayered, so it wins over utility classes.
+ */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }

@@ -66,6 +66,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **No more surprise zoom on phones** — the board no longer gets stuck zoomed in. Text boxes and menus are 16px on touch screens, so iPhones stop zooming in when you type in them. Quick taps on buttons no longer count as a double-tap zoom, and rotating the phone no longer enlarges the text. Pinch-to-zoom still works.
 - **Bigger cancel button on matches** — the ⊗ that cancels a match is larger and tinted red so it stands out on the court card.
 - **Edit from the start review** — the review pop-up now has **Edit details** (opens the game day's Settings) and **Edit sign-ups** (opens Sign-ups). Going to edit doesn't dismiss the automatic review: when you come back to the board it opens again so you can start.
 - **Start review at the start time** — when the clock reaches a draft game day's first court time, the board opens a review pop-up by itself (once per device). It lists every detail: name, date, game time, venue, type, court rent, queue master and finance member, every signed-up player (checked in and not here yet, flagging anyone without a level), and the courts reserved per block with their names, which you can still fix. Press **Everything's right, start** to start the game day. **Start game day** opens the same review any time.
