@@ -4,7 +4,7 @@
 // payments) lives in the page's own on-device store (lib/offline), which catches up with the
 // server in the background, so a slightly old page copy is fine.
 
-const VERSION = "kyuwing-v2";
+const VERSION = "kyuwing-v3";
 /** The app's build files. Their names change with every deploy, so they never go stale. */
 const STATIC_CACHE = "kyuwing-static";
 /** Sounds and icons. */
@@ -14,6 +14,11 @@ const PAGE_CACHE = "kyuwing-pages";
 const KEEP = [VERSION, STATIC_CACHE, ASSET_CACHE, PAGE_CACHE];
 /** How long to wait for the network before showing the copy on the device. */
 const PAGE_TIMEOUT_MS = 3500;
+/** In PAGE_CACHE: the path of the last game day board opened, where /app goes without signal. */
+const LAST_BOARD_KEY = "/__kyuwing/last-board";
+/** A page the board asks to keep is fetched again at most this often. */
+const PREFETCH_EVERY_MS = 10 * 60 * 1000;
+const prefetchedAt = new Map();
 
 const OFFLINE_HTML = `<!doctype html>
 <html lang="en">
@@ -66,6 +71,98 @@ function isOfflinePage(url) {
   return /^\/app\/gamedays\/[^/]+(\/(fees|signups))?\/?$/.test(url.pathname);
 }
 
+function isBoard(pathname) {
+  return /^\/app\/gamedays\/[^/]+\/?$/.test(pathname);
+}
+
+/** Keeps a copy of a game day page; remembers the board as the one /app opens offline. */
+async function keepPage(cache, response) {
+  const url = new URL(response.url);
+  url.search = "";
+  if (!isOfflinePage(url)) return;
+  prefetchedAt.set(url.pathname, Date.now());
+  await cache.put(url.href, response.clone());
+  if (isBoard(url.pathname)) {
+    await cache.put(
+      LAST_BOARD_KEY,
+      new Response(url.pathname, { headers: { "Content-Type": "text/plain" } }),
+    );
+  }
+}
+
+/** Build files a page needs, so a page saved ahead of time also works when opened offline. */
+async function keepBuildFiles(html) {
+  const paths = new Set(html.match(/\/_next\/static\/[^"'\s)\\<>]+/g) ?? []);
+  if (!paths.size) return;
+  const cache = await caches.open(STATIC_CACHE);
+  await Promise.all(
+    [...paths].map(async (path) => {
+      if (await cache.match(path)) return;
+      try {
+        const response = await fetch(path);
+        if (response.ok && response.type === "basic") await cache.put(path, response);
+      } catch {
+        // Weak signal: the next save tries again.
+      }
+    }),
+  );
+}
+
+/** Saves game day pages on the device before they're opened (asked by the board). */
+async function prefetchPages(paths) {
+  const cache = await caches.open(PAGE_CACHE);
+  for (const path of paths) {
+    const url = new URL(path, self.location.origin);
+    url.search = "";
+    if (url.origin !== self.location.origin || !isOfflinePage(url)) continue;
+    const last = prefetchedAt.get(url.pathname) ?? 0;
+    if (Date.now() - last < PREFETCH_EVERY_MS && (await cache.match(url.href))) continue;
+    try {
+      const response = await fetch(url.href, { credentials: "same-origin" });
+      // A redirect means signed out (to /login) or no such game day: keep nothing.
+      if (!response.ok || response.type !== "basic" || response.redirected) continue;
+      await keepPage(cache, response.clone());
+      await keepBuildFiles(await response.text());
+    } catch {
+      // Weak signal: tried again next time the board opens.
+    }
+  }
+}
+
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "keep-pages" || !Array.isArray(data.paths)) return;
+  const paths = data.paths.filter((path) => typeof path === "string").slice(0, 10);
+  event.waitUntil(prefetchPages(paths));
+});
+
+/**
+ * /app (where the installed app opens) goes to the current game day. Without signal, go to the
+ * last board opened on this device instead of the offline page.
+ */
+async function appHome(event) {
+  const cache = await caches.open(PAGE_CACHE);
+  const network = fetch(event.request);
+  event.waitUntil(network.catch(() => undefined));
+  const last = await cache.match(LAST_BOARD_KEY);
+  if (!last) return network.catch(offlinePage);
+  const target = new URL(await last.text(), self.location.origin).href;
+
+  let timer;
+  const slow = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), PAGE_TIMEOUT_MS);
+  });
+  try {
+    const response = await Promise.race([network, slow]);
+    if (response) return response;
+  } catch {
+    // Offline.
+  } finally {
+    clearTimeout(timer);
+  }
+  return Response.redirect(target, 302);
+}
+
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const hit = await cache.match(request);
@@ -90,7 +187,7 @@ async function pageNetworkFirst(event) {
   key.search = "";
   const network = fetch(request).then(async (response) => {
     if (response.ok && response.type === "basic" && !response.redirected) {
-      await cache.put(key.href, response.clone());
+      await keepPage(cache, response.clone());
     }
     return response;
   });
@@ -131,6 +228,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (request.mode !== "navigate") return;
+  if (url.pathname === "/app" || url.pathname === "/app/") {
+    event.respondWith(appHome(event));
+    return;
+  }
   if (isOfflinePage(url)) {
     event.respondWith(pageNetworkFirst(event));
     return;

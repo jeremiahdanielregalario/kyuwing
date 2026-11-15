@@ -1,24 +1,28 @@
 "use client";
 
 import * as React from "react";
-import { toast } from "sonner";
 import { makeGameDayActions } from "@/lib/offline/actions";
 import { useGameDaySync, type GameDayBootstrap, type SyncStatus } from "@/lib/offline/game-day-sync";
 
 /**
  * A game day page (board, Fees, Sign-ups) working on this device's copy, so presses answer at
- * once and keep working on weak or no signal. Changes the server later refuses are reported.
+ * once and keep working on weak or no signal. Changes the server later refuses are listed in
+ * `status.rejected`; show them with <RejectedChanges> and clear them with `dismissRejected`.
  */
 export function useOfflineGameDay(bootstrap: GameDayBootstrap) {
-  const sync = useGameDaySync(bootstrap, ({ error }) => {
-    toast.error(`A change wasn't saved: ${error}`, { duration: 10_000 });
-  });
+  const sync = useGameDaySync(bootstrap);
   const { run, current } = sync;
   const actions = React.useMemo(
     () => makeGameDayActions(bootstrap.state.gameDay.id, run, current),
     [bootstrap.state.gameDay.id, run, current],
   );
-  return { state: sync.state, status: sync.status, actions, refresh: sync.refresh };
+  return {
+    state: sync.state,
+    status: sync.status,
+    actions,
+    refresh: sync.refresh,
+    dismissRejected: sync.dismissRejected,
+  };
 }
 
 /** A short line about saving: offline, changes waiting, or saved. */

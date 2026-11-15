@@ -1,6 +1,7 @@
 import * as React from "react";
 import { applyOp, applyOps, type BoardOp, type BoardOpBody, type OpResult } from "@/lib/board-engine/ops";
 import type { EngineState, RosterEntry } from "@/lib/board-engine/types";
+import { describeOp } from "./describe-op";
 import { readGameDay, writeGameDay, type StoredGameDay } from "./idb";
 
 /** What a page hands the board on load: the game day as the server has it right now. */
@@ -21,11 +22,30 @@ export type SyncStatus = {
   syncedAt: number | null;
   /** Set when saving needs the queue master (signed out). */
   problem: string | null;
+  /** Changes the device accepted but the server refused, until the queue master dismisses them. */
+  rejected: RejectedChange[];
 };
+
+export type RejectedChange = { id: string; label: string; error: string; at: number };
 
 export type SyncSnapshot = { state: EngineState; status: SyncStatus };
 
 type Rejection = { op: BoardOp; error: string };
+
+/** The refused-changes list keeps the newest few. */
+const MAX_REJECTED = 20;
+let askedPersist = false;
+
+/** Asks the browser not to clear this site's storage when space runs low (unsent changes live there). */
+function askPersistentStorage() {
+  if (askedPersist || typeof navigator === "undefined") return;
+  askedPersist = true;
+  try {
+    void navigator.storage?.persist?.().catch(() => undefined);
+  } catch {
+    // Not supported here.
+  }
+}
 
 const POLL_MS = 5_000;
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -81,7 +101,7 @@ export class GameDaySync {
     this.loadedAt = initial.loadedAt;
     this.roster = initial.roster;
     this.view = this.compute();
-    this.status = { online: true, pending: 0, sending: false, syncedAt: null, problem: null };
+    this.status = { online: true, pending: 0, sending: false, syncedAt: null, problem: null, rejected: [] };
     this.snapshot = { state: this.view, status: this.status };
   }
 
@@ -101,6 +121,11 @@ export class GameDaySync {
     this.rejectionListeners.add(listener);
     return () => this.rejectionListeners.delete(listener);
   }
+
+  /** Clears the list of refused changes (the queue master has read it). */
+  dismissRejected = () => {
+    if (this.status.rejected.length) this.publish({ rejected: [] });
+  };
 
   /** A newer page load: take its game day if it is newer than what this device has. */
   adopt(initial: GameDayBootstrap) {
@@ -200,6 +225,7 @@ export class GameDaySync {
 
   private start() {
     if (typeof window === "undefined") return;
+    askPersistentStorage();
     void this.hydrate().then(() => {
       if (this.pending.length) void this.send();
       else void this.poll(true);
@@ -273,9 +299,12 @@ export class GameDaySync {
     }
     this.failures = 0;
     const sent = new Set(batch.map((op) => op.id));
+    const refused: RejectedChange[] = [];
     body.results.forEach((result, index) => {
-      if (!result.ok && batch[index]) {
-        const rejection = { op: batch[index], error: result.error };
+      const op = batch[index];
+      if (!result.ok && op) {
+        refused.push({ id: op.id, label: describeOp(op, this.view), error: result.error, at: op.at });
+        const rejection = { op, error: result.error };
         this.rejectionListeners.forEach((listener) => listener(rejection));
       }
     });
@@ -283,7 +312,10 @@ export class GameDaySync {
     this.pending = this.pending.filter((op) => !sent.has(op.id));
     this.version += 1;
     this.refreshView();
-    this.publish({ online: true, syncedAt: Date.now(), problem: null });
+    const rejected = refused.length
+      ? [...this.status.rejected, ...refused].slice(-MAX_REJECTED)
+      : this.status.rejected;
+    this.publish({ online: true, syncedAt: Date.now(), problem: null, rejected });
     this.persist();
     if (this.pending.length) void this.send();
   }
@@ -353,5 +385,12 @@ export function useGameDaySync(initial: GameDayBootstrap, onRejected?: (rejectio
   const run = React.useCallback((body: BoardOpBody) => keeper.run(body), [keeper]);
   const refresh = React.useCallback(() => keeper.refresh(), [keeper]);
   const current = React.useCallback(() => keeper.getSnapshot().state, [keeper]);
-  return { state: snapshot.state, status: snapshot.status, run, refresh, current };
+  return {
+    state: snapshot.state,
+    status: snapshot.status,
+    run,
+    refresh,
+    current,
+    dismissRejected: keeper.dismissRejected,
+  };
 }

@@ -128,10 +128,37 @@ describe("GameDaySync", () => {
     expect(sync.getSnapshot().state.players[0].status).toBe("EXPECTED");
     expect(sync.getSnapshot().status.pending).toBe(0);
   });
+
+  it("keeps refused changes listed, named by player, until dismissed", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeServer(fixture(), (op) => (op.type === "checkIn" ? "Changed on another device." : null)),
+    );
+    const sync = keeper();
+    sync.run({ type: "checkIn", sessionPlayerId: "sp0" });
+    await vi.waitFor(() => expect(sync.getSnapshot().status.rejected).toHaveLength(1));
+    sync.run({ type: "setPriority", sessionPlayerId: "sp1", priority: true });
+    await vi.waitFor(() => expect(sync.getSnapshot().status.pending).toBe(0));
+
+    const [change] = sync.getSnapshot().status.rejected;
+    expect(change.label).toBe("Check in · A");
+    expect(change.error).toBe("Changed on another device.");
+    expect(sync.getSnapshot().status.rejected).toHaveLength(1);
+
+    sync.dismissRejected();
+    expect(sync.getSnapshot().status.rejected).toEqual([]);
+  });
 });
 
 describe("syncLabel", () => {
-  const base: SyncStatus = { online: true, pending: 0, sending: false, syncedAt: 1, problem: null };
+  const base: SyncStatus = {
+    online: true,
+    pending: 0,
+    sending: false,
+    syncedAt: 1,
+    problem: null,
+    rejected: [],
+  };
   it("says saved, saving, offline or signed out", () => {
     expect(syncLabel(base)).toEqual({ text: "Saved · live on all devices", tone: "ok" });
     expect(syncLabel({ ...base, pending: 2 }).text).toBe("Saving 2 changes…");

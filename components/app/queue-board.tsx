@@ -67,6 +67,8 @@ import {
   Zap,
   ArrowRightToLine,
 } from "lucide-react";
+import { RejectedChanges } from "@/components/app/rejected-changes";
+import { keepGameDayPages } from "@/lib/offline/keep-pages";
 import { syncLabel, useOfflineGameDay } from "@/components/app/use-offline-game-day";
 import { toBoardData } from "@/lib/board-engine/view";
 import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
@@ -329,7 +331,7 @@ export function QueueBoard({
 }) {
   // The game day lives on this device: presses apply at once and are sent in the background,
   // so the board keeps working on weak or no signal (see lib/offline/game-day-sync.ts).
-  const { state, status: syncStatus, actions, refresh } = useOfflineGameDay(bootstrap);
+  const { state, status: syncStatus, actions, refresh, dismissRejected } = useOfflineGameDay(bootstrap);
   const {
     addCourt,
     endGameDay,
@@ -374,6 +376,9 @@ export function QueueBoard({
   );
   const slotIndex = data.activeSlotIndex;
   const sync = syncLabel(syncStatus);
+  // Save Fees and Sign-ups on the tablet too, so they open later even with no signal.
+  const gameDayId = bootstrap.state.gameDay.id;
+  React.useEffect(() => keepGameDayPages(gameDayId), [gameDayId]);
   const [pending, startTransition] = React.useTransition();
 
   const [tab, setTab] = React.useState<QueueTab>("waiting");
@@ -1249,6 +1254,7 @@ export function QueueBoard({
   return (
     <TapMoveContext value={tapMove}>
       <SavingPill show={pending} />
+      <RejectedChanges changes={syncStatus.rejected} onDismiss={dismissRejected} />
       <DndContext
         sensors={sensors}
         collisionDetection={collisionFor}

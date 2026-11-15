@@ -67,6 +67,17 @@ export function writeGameDay(id: string, value: StoredGameDay): Promise<void> {
   return next;
 }
 
+/** How many changes on this device haven't reached the server yet, across all game days. */
+export async function countUnsentChanges(): Promise<number> {
+  try {
+    const db = await open();
+    const all = await done<StoredGameDay[]>(db.transaction(STORE).objectStore(STORE).getAll());
+    return all.reduce((sum, day) => sum + (day.pending?.length ?? 0), 0);
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Forgets saved game days on this device, except ones with changes not sent yet (those go up
  * the next time the board opens). Used on the sign-in page.

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { History, LogOut } from "lucide-react";
 import { AppNav, FooterLinks, MobileNav } from "@/components/app/app-nav";
 import { Logo, OrgBadge } from "@/components/logo";
-import { logoutAction } from "@/lib/actions/auth";
+import { SignOutButton } from "@/components/app/sign-out-button";
 import { InstallAppButton, InstallReminder } from "@/components/install-app";
 import { SoundToggle } from "@/components/app/sound-toggle";
 
@@ -54,14 +54,12 @@ export function AppShell({
               </p>
               <InstallAppButton variant="sidebar" className="mt-3" />
               <SoundToggle variant="sidebar" className="mt-2" />
-              <form action={logoutAction} className="mt-2">
-                <button
-                  type="submit"
-                  className="border-cream/15 text-cream/70 hover:border-lime/50 hover:bg-lime/10 hover:text-lime inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-semibold transition"
-                >
-                  <LogOut className="h-3.5 w-3.5" /> Sign out
-                </button>
-              </form>
+              <SignOutButton
+                formClassName="mt-2"
+                className="border-cream/15 text-cream/70 hover:border-lime/50 hover:bg-lime/10 hover:text-lime inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-semibold transition"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Sign out
+              </SignOutButton>
             </div>
             <div data-trim-id="shell.footer-links">
               <FooterLinks />
@@ -91,15 +89,12 @@ export function AppShell({
             <span className="border-cream/15 bg-cream/5 text-cream/70 max-w-[11rem] truncate rounded-full border px-3 py-1.5 text-[11px] font-semibold">
               {name}
             </span>
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="press border-cream/15 bg-cream/5 text-cream/60 hover:text-lime grid h-9 w-9 place-items-center rounded-full border"
-                aria-label="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </form>
+            <SignOutButton
+              label="Sign out"
+              className="press border-cream/15 bg-cream/5 text-cream/60 hover:text-lime grid h-9 w-9 place-items-center rounded-full border"
+            >
+              <LogOut className="h-4 w-4" />
+            </SignOutButton>
           </div>
         </header>
 
