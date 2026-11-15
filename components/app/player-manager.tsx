@@ -463,7 +463,6 @@ export function PlayerManager({
                       {player.fullName || !readOnly ? " · " : null}
                       {CATEGORY_SHORT[player.category]}
                     </p>
-                    <AliasLine aliases={player.aliases} />
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <RecencyBadge snapshot={recency[player.id]} />
                       {recencyCaption(recency[player.id]) && (
@@ -570,7 +569,6 @@ export function PlayerManager({
                             <p className="text-muted truncate text-[10px]">
                               {player.fullName ?? (readOnly ? "" : "No full name")}
                             </p>
-                            <AliasLine aliases={player.aliases} />
                           </div>
                         </div>
                       </td>
@@ -1075,10 +1073,4 @@ function PlayerActions({
       )}
     </div>
   );
-}
-
-/** "Also goes by LA, Chris" under a player's name, when they have other names. */
-function AliasLine({ aliases }: { aliases?: string[] }) {
-  if (!aliases || aliases.length === 0) return null;
-  return <p className="text-muted truncate text-[10px] italic">Also goes by {aliases.join(", ")}</p>;
 }
