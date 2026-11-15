@@ -28,11 +28,14 @@ pnpm db:reset       # drop + recreate + migrate + seed
 
 ```
 app/                      Routes (App Router). Marketing `/`, auth `/login`, product `/app/**`
-app/api/gamedays/[id]/    Board polling JSON + Excel/PDF exports
+app/api/gamedays/[id]/    Offline sync (sync, state) + Excel/PDF exports
 components/app/           Client UI for the product
 components/marketing/     Landing-page-only client UI
 components/ui/            Small design-system primitives
 lib/pairing.ts            The pairing engine — pure, no DB
+lib/board-engine/         Board/Fees/Sign-ups rules as ops — pure, runs on tablet and server
+lib/board-store.ts        Engine state load/save, runOps (server)
+lib/offline/              On-device game day: IndexedDB, outbox, sync loop
 lib/queries.ts            Read-side DTO mapping (Prisma → board/report shapes)
 lib/actions/              Server actions, one file per domain
 lib/auth.ts               PIN check + signed JWT cookie
@@ -57,8 +60,9 @@ docs/                     Long-form documentation
 - Guard authenticated actions with the local `guard()` helper (or `isQueueMaster()` for new files). Return `fail(...)` / `ok(...)` from `lib/action-result.ts`; do not throw for expected validation failures.
 - Validate external input with Zod from `lib/validation.ts`.
 - After a mutation that changes the board, call `refreshGameDay(gameDayId)` so polling clients update.
-- `revalidatePath` in an action sends the redrawn current page back in the same response. Do **not** call `router.refresh()` after an action (that is a second full round trip), and on the board do not `await mutate()` after one: `QueueBoard` copies the redrawn `initialData` into SWR.
-- For presses that should feel instant, apply an optimistic update first: `lib/board-optimistic.ts` on the board (via `act(fn, onSuccess, optimistic)`), `useOptimistic` on Sign-ups. Roll back by refetching if the action fails.
+- `revalidatePath` in an action sends the redrawn current page back in the same response. Do **not** call `router.refresh()` after an action (that is a second full round trip). The board, Fees and Sign-ups don't wait for the server at all (see ops below); after a server action that changes their game day some other way (e.g. `addPlayersFromText`), call the hook's `refresh()`.
+- Board, Fees and Sign-ups changes are **ops** in `lib/board-engine/ops.ts`. The pages call them through `useOfflineGameDay` (`lib/offline/actions.ts` mirrors the server action signatures); the server actions in `lib/actions/gamedays.ts` are thin wrappers over `runOps`. To add or change one of these behaviours, change the engine, not a server action, and add a test in `lib/board-engine/engine.test.ts`.
+- Engine rules: ops must be deterministic. Ids of created rows come from `createdId(ctx, suffix)`, randomness from the op id, time from `ctx.at` (never `Date.now()`), and an op that sets something carries the value (not a toggle), so a resend is harmless. `applyOp` hands each op a clone and keeps the original when the op is refused, so a refused op may leave its copy half-changed but must return `fail(...)`.
 - Server actions are called from client components inside `startTransition`; surface the result with Sonner toasts.
 
 ### Pairing
@@ -74,8 +78,8 @@ docs/                     Long-form documentation
 
 ### Read side
 
-- `lib/queries.ts` owns Prisma includes and DTO mapping. Keep the board DTO (`lib/board-types.ts`) stable — the client and the polling route share it.
-- Board polling is a single route: `GET /api/gamedays/[id]/board`. It is authenticated; do not expose player contact details there.
+- `lib/queries.ts` owns read queries; board and fee DTOs come from `toBoardData` / `toFeeReport` in `lib/board-engine/view.ts`. Keep the board DTO (`lib/board-types.ts`) stable.
+- The offline routes `POST /api/gamedays/[id]/sync` and `GET /api/gamedays/[id]/state` are authenticated. Engine state never carries contacts or the player database's notes; keep it that way, since it is stored on the tablet.
 - The public live view (`/live/[id]/[key]`, `GET /api/live/[id]/[key]`) is unauthenticated. It must only ever return `getPublicBoard()` / `toPublicBoard()` output (fees appear only once the game day is COMPLETED, as nickname, games, total, balance); add fields there deliberately and keep the leak test in `lib/public-board.test.ts` passing.
 - The public roster (`/roster`) is unauthenticated and read-only. It must only render `getPublicRoster()` / `toPublicRoster()` output (nickname, full name, level, category, recency, history and awards; never contacts or notes. Archived players are included with `archived: true` and stay hidden until the visitor presses **Show archived**, and they are left out of the counts and bracket chart). Keep `lib/public-roster.test.ts` passing and pass `readOnly` to the shared Players components there.
 - The one public write is `POST /api/live/[id]/[key]/leave` (a player's "I'm leaving" request). It needs the link's key, creates a `LeaveRequest` only, and changes nothing on the board until the queue master confirms. Keep it that way, and never return full names or other private fields from it.

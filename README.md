@@ -34,7 +34,8 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 | Fees          | Venue/type/category fee rules, per-player ledger, cash/GCash/bank/other                                         |
 | Reports       | Session summary, player breakdown, Excel (`.xlsx`) and PDF export                                               |
 | Ops guide     | In-app queue-master playbook with checklists and FAQs                                                           |
-| Install       | Installable web app (manifest + service worker): its own window and home-screen icon; offline fallback page     |
+| Install       | Installable web app (manifest + service worker): its own window and home-screen icon                            |
+| Offline       | Board, Fees and Sign-ups keep working on weak or no signal once opened; changes sync in the background          |
 
 ### Player levels
 
@@ -191,7 +192,7 @@ app/
     gamedays/                    List, create, board, sign-ups, fees, reports, settings
     players/  venues/  guide/    Roster, fee rules, playbook
   api/gamedays/[id]/
-    board/                       Polling endpoint for the live board
+    sync/  state/                Offline board: send presses, catch up
     export/xlsx/  export/pdf/    Report downloads
 components/
   app/                           Board, sign-ups, fees, settings, nav
@@ -199,6 +200,9 @@ components/
   ui/                            Buttons, cards, badges, modals, inputs
 lib/
   pairing.ts                     Weighted foursome + team-split engine
+  board-engine/                  Board, Fees and Sign-ups rules (pure; runs on tablet and server)
+  board-store.ts                 Loads/saves engine state, runs synced presses
+  offline/                       On-device game day: IndexedDB, outbox, background sync
   queries.ts                     Board and report DTOs
   actions/                       Server actions (game days, players, venues, auth)
   fees.ts  datetime.ts  levels.ts

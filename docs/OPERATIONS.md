@@ -201,7 +201,10 @@ Runner-up: Baby & JCB
 
 | Symptom | Likely cause | What to do |
 | --- | --- | --- |
-| Board is stale | Poll failed or device asleep | Pull to refresh / reload the page |
+| Board is stale | Poll failed or device asleep | Check the status line under the game day name; reload the page |
+| Status line says **Offline** | No signal | Keep going: presses are saved on the tablet and sent when the signal is back |
+| Status line says **Signed out** | Session expired (14 hours) | Sign in again on the same tablet, then open the board: unsent changes go up |
+| Toast “A change wasn't saved: …” | Something changed on another device first | Look at the board and redo the change if it's still needed |
 | “At least four players need to be checked in” | Fewer than four Waiting | Check in more arrivals |
 | “All N courts are assigned” | Every court has a suggestion or live match | Start, finish, or cancel a match |
 | “Add at least one court block in Settings first” | Empty court plan | Add a block in Settings |
@@ -225,7 +228,8 @@ If something looks broken:
   - **Android (Chrome, Samsung Internet), or Chrome / Edge on a computer:** tap **Install app** (the download icon in the phone header, the button in the sidebar, or on the sign-in page) and confirm. The browser's own menu (**Install app** / **Add to Home screen**) works too.
   - **iPhone / iPad:** open Kyuwing in Safari, tap **Share**, then **Add to Home Screen**. The Install app button shows these steps.
   - Right after you sign in in the browser, a **Get the Kyuwing app** pop-up offers the same install. **Not now** hides it until your next sign-in; it doesn't show once the app is installed.
-  - The installed app opens straight to the board and updates itself whenever a new version is deployed. It still needs the internet; without it you get a "You're offline" page with **Try again**.
+  - The installed app opens straight to the board and updates itself whenever a new version is deployed.
+- **Weak or no signal:** open the game day's board (and Fees / Sign-ups if the finance member uses the same tablet) once with signal, before play starts. After that they work on the tablet: every press shows at once, is saved on the tablet, and is sent in the background. The status line under the game day name says **Saved · live on all devices**, **Saving n changes…**, or **Offline · n changes saved on this tablet**. Don't sign out or clear the browser while it says changes are waiting. The live link players watch only updates once the changes reach the server. Pages you haven't opened with signal show "You're offline".
 - Keep the device plugged in or on a power bank.
-- Use one device as the source of truth. Multiple queue masters is fine for viewing, but avoid two people pressing pair at the same time.
+- Use one device as the source of truth. Other devices can watch, but run the board from one tablet: changes made offline on two devices are applied in the order they reach the server.
 - Screen brightness up; the board is designed to be readable across a court.

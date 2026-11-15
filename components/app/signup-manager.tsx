@@ -19,22 +19,13 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  addAllActivePlayers,
-  addPlayerToGameDay,
-  checkInPlayer,
-  undoCheckIn,
-  createPairingRequest,
-  createQuickPlayer,
-  deletePairingRequest,
-  markPlayerDone,
-  removePlayerFromGameDay,
-  requeuePlayer,
-  setPermanentPartner,
-} from "@/lib/actions/gamedays";
+import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
+import { toBoardData } from "@/lib/board-engine/view";
+import type { GameDayActions } from "@/lib/offline/actions";
+import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
 import type { BoardPlayer } from "@/lib/board-types";
 import { CATEGORY_SHORT } from "@/lib/fees";
-import { LEVEL_OPTIONS, type LevelKey } from "@/lib/levels";
+import { LEVEL_OPTIONS } from "@/lib/levels";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,23 +52,23 @@ type DatabasePlayer = {
 };
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
-type Act = (
-  fn: () => Promise<AnyResult>,
-  onSuccess?: () => void,
-  optimistic?: { sessionPlayerId: string; status: BoardPlayer["status"] },
-) => void;
+type Act = (fn: () => Promise<AnyResult>, onSuccess?: () => void) => void;
 
 export function SignupManager({
-  gameDayId,
-  gameDayName,
-  players: serverPlayers,
+  bootstrap,
   database,
 }: {
-  gameDayId: string;
-  gameDayName: string;
-  players: BoardPlayer[];
+  bootstrap: GameDayBootstrap;
   database: DatabasePlayer[];
 }) {
+  // Sign-ups work on this device's copy of the game day, like the board, so they keep working
+  // on weak signal (see lib/offline/game-day-sync.ts).
+  const { state, actions, refresh } = useOfflineGameDay(bootstrap);
+  const { addAllActivePlayers, addPlayerToGameDay, addWalkIn, removePlayerFromGameDay } = actions;
+  const gameDayId = state.gameDay.id;
+  const gameDayName = state.gameDay.name;
+  const [loadedAt] = React.useState(() => bootstrap.loadedAt);
+  const players = React.useMemo(() => toBoardData(state, { now: loadedAt }).players, [state, loadedAt]);
   const [pending, startTransition] = React.useTransition();
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [search, setSearch] = React.useState("");
@@ -89,19 +80,8 @@ export function SignupManager({
   const [quick, setQuick] = React.useState({ nickname: "", level: "C", category: "ACTIVE" });
   const [addQuery, setAddQuery] = React.useState("");
 
-  // The row moves to its new status the moment it is pressed; the page the server sends back
-  // with the action's answer takes over (or puts it back if the server refused).
-  const [players, showStatus] = React.useOptimistic(
-    serverPlayers,
-    (list, change: { sessionPlayerId: string; status: BoardPlayer["status"] }) =>
-      list.map((player) =>
-        player.sessionPlayerId === change.sessionPlayerId ? { ...player, status: change.status } : player,
-      ),
-  );
-
-  const act: Act = (fn, onSuccess, optimistic) => {
+  const act: Act = (fn, onSuccess) => {
     startTransition(async () => {
-      if (optimistic) showStatus(optimistic);
       const result = await fn();
       if (result.ok) {
         haptic("success");
@@ -142,27 +122,20 @@ export function SignupManager({
       toast.error("Enter a nickname.");
       return;
     }
+    const nickname = quick.nickname.trim();
+    if (database.some((player) => player.nickname === nickname)) {
+      toast.error("That nickname already exists. Pick them from the database instead.");
+      return;
+    }
     startTransition(async () => {
-      const created = await createQuickPlayer({
-        nickname: quick.nickname,
-        level: quick.level as LevelKey,
-        category: quick.category as "ACTIVE",
-        fullName: null,
-        contact: null,
-        notes: null,
-      });
-      if (!created.ok) {
-        haptic("warning");
-        toast.error(created.error);
-        return;
-      }
-      const added = await addPlayerToGameDay(gameDayId, created.data!.id, true);
+      const added = await addWalkIn(gameDayId, { nickname, level: quick.level, category: quick.category });
       if (added.ok) {
         haptic("success");
-        toast.success(`${quick.nickname} added and checked in.`);
+        toast.success(`${nickname} added and checked in.`);
         setQuickOpen(false);
         setQuick({ nickname: "", level: "C", category: "ACTIVE" });
       } else {
+        haptic("warning");
         toast.error(added.error);
       }
     });
@@ -248,6 +221,7 @@ export function SignupManager({
                   gameDayId={gameDayId}
                   pending={pending}
                   act={act}
+                  actions={actions}
                   onRemove={() =>
                     setConfirmSpec({
                       title: `Remove ${player.nickname} from this game day?`,
@@ -379,6 +353,7 @@ export function SignupManager({
                 act(
                   () => addPlayersFromText(gameDayId, pasteTexts),
                   () => {
+                    refresh();
                     setPasteOpen(false);
                     setPasteTexts(EMPTY_SIGNUP_TEXTS);
                   },
@@ -477,6 +452,7 @@ function PlayerRow({
   gameDayId,
   pending,
   act,
+  actions,
   onRemove,
 }: {
   player: BoardPlayer;
@@ -484,8 +460,18 @@ function PlayerRow({
   gameDayId: string;
   pending: boolean;
   act: Act;
+  actions: GameDayActions;
   onRemove: () => void;
 }) {
+  const {
+    checkInPlayer,
+    createPairingRequest,
+    deletePairingRequest,
+    markPlayerDone,
+    requeuePlayer,
+    setPermanentPartner,
+    undoCheckIn,
+  } = actions;
   const [requestType, setRequestType] = React.useState<"PAIR_WITH" | "PLAY_AGAINST">("PAIR_WITH");
   const [requestTarget, setRequestTarget] = React.useState("");
   // Shows the partner just picked until the saved value comes back.
@@ -558,12 +544,7 @@ function PlayerRow({
             <Button
               size="sm"
               variant="accent"
-              onClick={() =>
-                act(() => checkInPlayer(player.sessionPlayerId), undefined, {
-                  sessionPlayerId: player.sessionPlayerId,
-                  status: "WAITING",
-                })
-              }
+              onClick={() => act(() => checkInPlayer(player.sessionPlayerId))}
               disabled={pending}
               className="px-3"
             >
@@ -574,12 +555,7 @@ function PlayerRow({
             <Button
               size="sm"
               variant="paper"
-              onClick={() =>
-                act(() => markPlayerDone(player.sessionPlayerId), undefined, {
-                  sessionPlayerId: player.sessionPlayerId,
-                  status: "DONE",
-                })
-              }
+              onClick={() => act(() => markPlayerDone(player.sessionPlayerId))}
               disabled={pending}
               className="px-3"
             >
@@ -590,12 +566,7 @@ function PlayerRow({
             <Button
               size="sm"
               variant="paper"
-              onClick={() =>
-                act(() => requeuePlayer(player.sessionPlayerId), undefined, {
-                  sessionPlayerId: player.sessionPlayerId,
-                  status: "WAITING",
-                })
-              }
+              onClick={() => act(() => requeuePlayer(player.sessionPlayerId))}
               disabled={pending}
               className="px-3"
             >
@@ -629,12 +600,7 @@ function PlayerRow({
             <Button
               size="sm"
               variant="paper"
-              onClick={() =>
-                act(() => undoCheckIn(player.sessionPlayerId), undefined, {
-                  sessionPlayerId: player.sessionPlayerId,
-                  status: "EXPECTED",
-                })
-              }
+              onClick={() => act(() => undoCheckIn(player.sessionPlayerId))}
               disabled={pending}
             >
               <Undo2 className="h-3.5 w-3.5" /> Undo check-in

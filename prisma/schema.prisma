@@ -263,6 +263,7 @@ model GameDay {
   requests      PairingRequest[]
   leaveRequests LeaveRequest[]
   attendance    AttendanceEvent?
+  boardOps      BoardOp[]
 
   @@index([date])
   @@index([status])
@@ -395,4 +396,22 @@ model SignInLog {
   endReason   String?
 
   @@index([signedInAt])
+}
+
+/// A change pressed on the board (or Fees, Sign-ups) and saved through the engine. The id comes
+/// from the device, so a change sent twice over a weak connection is only applied once.
+model BoardOp {
+  id        String   @id
+  gameDayId String
+  type      String
+  ok        Boolean
+  /// The answer shown for it: the success message, or why it was refused.
+  message   String?
+  /// When it was pressed on the device.
+  pressedAt DateTime
+  appliedAt DateTime @default(now())
+
+  gameDay GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+
+  @@index([gameDayId, appliedAt])
 }

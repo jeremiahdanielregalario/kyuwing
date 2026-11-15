@@ -13,8 +13,10 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
-import { markAllPaid, setCourtHours, setPayment, setSettled } from "@/lib/actions/gamedays";
-import type { FeeReport, FeeRow } from "@/lib/board-types";
+import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
+import { toFeeReport } from "@/lib/board-engine/view";
+import type { FeeRow } from "@/lib/board-types";
+import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
 import {
   CATEGORY_SHORT,
   GRIP_PRICE,
@@ -38,7 +40,13 @@ import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
-export function FeeLedger({ report }: { report: FeeReport }) {
+export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
+  // Payments are recorded on this device's copy of the game day, like the board, so the finance
+  // member can keep going on weak signal (see lib/offline/game-day-sync.ts).
+  const { state, actions } = useOfflineGameDay(bootstrap);
+  const { markAllPaid, setCourtHours, setPayment, setSettled } = actions;
+  const [loadedAt] = React.useState(() => bootstrap.loadedAt);
+  const report = React.useMemo(() => toFeeReport(state, loadedAt), [state, loadedAt]);
   const [pending, startTransition] = React.useTransition();
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [filter, setFilter] = React.useState<"all" | "unpaid" | "paid">("all");

@@ -8,6 +8,7 @@ import { loginAction, type LoginMode } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { queueInstallReminder } from "@/components/install-app";
+import { clearOfflineCopies } from "@/lib/offline/idb";
 
 export function LoginForm({
   next,
@@ -27,6 +28,10 @@ export function LoginForm({
   const [showPin, setShowPin] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
+  // Whoever signs in next shouldn't open the last queue master's saved pages offline.
+  React.useEffect(() => {
+    void clearOfflineCopies();
+  }, []);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();

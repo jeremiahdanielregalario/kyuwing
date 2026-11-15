@@ -7,7 +7,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { formatGameDate } from "@/lib/datetime";
 import { GAMEDAY_TYPE_LABELS } from "@/lib/fees";
-import { getFeeReport } from "@/lib/queries";
+import { toFeeReport } from "@/lib/board-engine/view";
+import { getFeeReport, getGameDayBootstrap } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function FeesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const report = await getFeeReport(id);
-  if (!report) notFound();
+  const bootstrap = await getGameDayBootstrap(id);
+  if (!bootstrap) notFound();
+  const report = toFeeReport(bootstrap.state, bootstrap.loadedAt);
 
   const due = report.rows.filter((row) => !row.paid).length;
 
@@ -42,7 +44,7 @@ export default async function FeesPage({ params }: { params: Promise<{ id: strin
             </Link>
           }
         />
-        <FeeLedger report={report} />
+        <FeeLedger bootstrap={bootstrap} />
       </div>
     </>
   );

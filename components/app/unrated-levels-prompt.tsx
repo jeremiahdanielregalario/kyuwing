@@ -24,12 +24,15 @@ export function UnratedLevelsPrompt({
   gameDayId,
   players,
   onSaved,
+  saveLevels = setPlayerLevels,
 }: {
   open: boolean;
   onClose: () => void;
   gameDayId: string;
   players: BoardPlayer[];
   onSaved: () => void;
+  /** Where levels are saved; the board passes its on-device action. */
+  saveLevels?: typeof setPlayerLevels;
 }) {
   const [levels, setLevels] = React.useState<Record<string, string>>({});
   const [pending, startTransition] = React.useTransition();
@@ -37,7 +40,7 @@ export function UnratedLevelsPrompt({
 
   const save = () => {
     startTransition(async () => {
-      const result = await setPlayerLevels(
+      const result = await saveLevels(
         gameDayId,
         chosen.map((player) => ({ playerId: player.playerId, level: levels[player.playerId] })),
       );
