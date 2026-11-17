@@ -1409,7 +1409,6 @@ export function QueueBoard({
               className="text-muted col-span-full flex items-baseline gap-2 px-1 pt-2 first:pt-0"
             >
               <span className="text-ink font-display text-[13px] font-bold">{group.bracket}</span>
-              <span className="text-[10px] font-semibold tracking-[0.12em] uppercase">{group.label}</span>
               <span className="font-mono text-[10px]">{group.players.length}</span>
             </div>
           ) : null,
