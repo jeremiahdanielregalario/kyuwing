@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { BracketSpread } from "@/components/app/bracket-spread";
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
 import { toBoardData } from "@/lib/board-engine/view";
@@ -95,6 +96,10 @@ export function SignupManager({
     });
   };
 
+  const spread = React.useMemo(
+    () => players.map((player) => ({ level: player.level, active: true })),
+    [players],
+  );
   const sessionIds = new Set(players.map((player) => player.playerId));
   const available = database
     .filter((player) => !sessionIds.has(player.id))
@@ -147,6 +152,12 @@ export function SignupManager({
       <RejectedChanges changes={syncStatus.rejected} onDismiss={dismissRejected} />
       <SavingPill show={pending} />
       <div className="space-y-4">
+        <BracketSpread
+          players={spread}
+          note="Everyone on this game day's list per broad bracket, checked in or not."
+          noun="on the list"
+          trimId="signups.bracket-note"
+        />
         <div className="glass border-line bg-paper/85 sticky top-17 z-20 flex flex-wrap items-center gap-2 rounded-2xl border p-2 sm:p-3 lg:top-2">
           <div className="-mx-1 flex w-full [scrollbar-width:none] gap-1 overflow-x-auto px-1 sm:w-auto">
             {(

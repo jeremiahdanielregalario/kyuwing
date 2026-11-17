@@ -1,8 +1,21 @@
 import { LEVELS, bracketOf, isUnrated, levelTone } from "@/lib/levels";
 import { cn } from "@/lib/utils";
 
-/** Active players per broad bracket (E to A), shared by the Players tab and the public roster. */
-export function BracketSpread({ players }: { players: Array<{ level: string; active: boolean }> }) {
+/**
+ * Active players per broad bracket (E to A), shared by the Players tab, the public roster and a
+ * game day's Sign-ups (where every sign-up counts as active and `noun` reads "on the list").
+ */
+export function BracketSpread({
+  players,
+  note = "Active players per broad bracket. The pairing engine uses the full 19-level ladder.",
+  noun = "active",
+  trimId = "players.bracket-note",
+}: {
+  players: Array<{ level: string; active: boolean }>;
+  note?: string;
+  noun?: string;
+  trimId?: string;
+}) {
   const active = players.filter((player) => player.active).length;
   const byBracket = ["E", "D", "C", "B", "A"].map((bracket) => ({
     bracket,
@@ -18,12 +31,12 @@ export function BracketSpread({ players }: { players: Array<{ level: string; act
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="font-display text-base font-bold">Bracket spread</h2>
-          <p data-trim-id="players.bracket-note" className="text-muted text-[11px]">
-            Active players per broad bracket. The pairing engine uses the full 19-level ladder.
+          <p data-trim-id={trimId} className="text-muted text-[11px]">
+            {note}
           </p>
         </div>
         <span className="text-muted font-mono text-[10px]">
-          {LEVELS.length} levels · {active} active
+          {LEVELS.length} levels · {active} {noun}
           {unrated > 0 ? ` · ${unrated} not rated yet (X)` : ""}
         </span>
       </div>

@@ -22,7 +22,7 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 | Area          | What it does                                                                                                    |
 | ------------- | --------------------------------------------------------------------------------------------------------------- |
 | Game days     | Draft → Live → Completed lifecycle, venue, date, type, court blocks                                             |
-| Sign-ups      | Add from the player database, add all active players, CSV/JSON import, walk-ins                                 |
+| Sign-ups      | Add from the player database, add all active players, CSV/JSON import, walk-ins, bracket spread of the list     |
 | Live board    | Expected / Waiting / Playing / Done lanes, live wait timers, court-surface cards                                |
 | Court control | Tap or drag: move a match to another court, swap players between slots, place four players on an open court     |
 | Pairing       | Multi-court auto-pair, single-court suggestions, drag-and-drop edits, requests                                  |
