@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UNRATED_LEVEL, levelLabel, LEVELS } from "./levels";
-import { byBracket, waitingList, type QueueState } from "./queue-view";
+import { byBracket, shortPlace, waitingList, type QueueState } from "./queue-view";
 
 const key = (label: string) => LEVELS.find((level) => level.label === label)!.key as string;
 
@@ -42,5 +42,13 @@ describe("byBracket", () => {
       ["E", "Beginner", ["Ram", "Mika"]],
     ]);
     expect(levelLabel(players[1].level)).toBe("A+");
+  });
+});
+
+describe("shortPlace", () => {
+  it("shortens numbered courts and waiting games, and keeps typed names", () => {
+    expect(shortPlace("Court 12")).toBe("12");
+    expect(shortPlace("Waiting 2")).toBe("W2");
+    expect(shortPlace("Main Hall")).toBe("Main Hall");
   });
 });

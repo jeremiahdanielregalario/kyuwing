@@ -97,7 +97,7 @@ import {
 } from "@/lib/court-drafts";
 import { canDropOn, canTapOn, dropVerb, eventPoint, samePick, type DropVerbData } from "@/lib/drag-targets";
 import { mismatchWarning } from "@/lib/mismatch";
-import { byBracket, waitingList } from "@/lib/queue-view";
+import { byBracket, shortPlace, waitingList } from "@/lib/queue-view";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
@@ -3840,7 +3840,7 @@ function QueueRow({
             <p className="truncate text-[12px] leading-tight font-semibold">{player.nickname}</p>
             {player.priority && <Star className="fill-lime-deep text-lime-deep h-3 w-3 shrink-0" />}
           </div>
-          <div className="text-muted flex items-center gap-1.5 overflow-hidden text-[10px] leading-tight whitespace-nowrap">
+          <div className="text-muted flex items-center gap-1 overflow-hidden text-[10px] leading-tight whitespace-nowrap">
             <span
               className="inline-flex shrink-0 items-center gap-0.5 font-mono font-bold"
               title={`${player.gamesPlayed} ${player.gamesPlayed === 1 ? "game" : "games"} played`}
@@ -3850,24 +3850,24 @@ function QueueRow({
             </span>
             {onCourt && place?.court && (
               <span
-                className="bg-forest text-cream inline-flex max-w-[7rem] shrink-0 items-center gap-1 rounded-full px-1.5 font-bold"
+                className="bg-forest text-cream inline-flex max-w-[7rem] min-w-0 items-center gap-1 rounded-full px-1.5 font-bold"
                 title={`Playing on ${place.court}`}
               >
                 <span
                   className="bg-lime h-1.5 w-1.5 shrink-0 animate-pulse rounded-full"
                   aria-hidden="true"
                 />
-                <span className="truncate">{place.court}</span>
+                <span className="truncate">{shortPlace(place.court)}</span>
               </span>
             )}
             {upNext && (
               <span
-                className="bg-gold/40 text-ink inline-flex max-w-[7rem] shrink-0 items-center gap-0.5 rounded-full px-1.5 font-bold"
+                className="bg-gold/40 text-ink inline-flex max-w-[7rem] min-w-0 items-center gap-0.5 rounded-full px-1.5 font-bold"
                 title={onCourt ? `Next game: ${upNext}` : `In a paired game: ${upNext}`}
               >
                 <span className="truncate">
-                  {onCourt ? "Next: " : ""}
-                  {upNext}
+                  {onCourt ? "→ " : ""}
+                  {shortPlace(upNext)}
                 </span>
               </span>
             )}

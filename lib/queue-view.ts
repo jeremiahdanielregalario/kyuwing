@@ -37,3 +37,13 @@ export function byBracket<T extends { level: string }>(players: T[]): BracketGro
     }))
     .filter((group) => group.players.length > 0);
 }
+
+/**
+ * A court or waiting-game name short enough for the pill on a queue block, which has room for
+ * about four characters on the narrowest grid: "Court 12" → "12" (the green pill with its live
+ * dot already says "on court"), "Waiting 2" → "W2". Names typed out for the venue ("Main Hall")
+ * are kept and end in "…" when too long; the pill's tooltip has the full name.
+ */
+export function shortPlace(name: string): string {
+  return name.replace(/^Court\s+/i, "").replace(/^Waiting\s+/i, "W");
+}

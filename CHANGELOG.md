@@ -156,6 +156,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- **Court pill on queue blocks** — the green "on court" and gold "in a paired game" pills on queue blocks were cut off mid-word ("Cour"). They now show just the court number beside the live dot (**● 5**) and **W2** for a waiting game (**→ W1** for an on-court player planned next), with the full name on hover; a long venue name ends with "…".
 - **Cancelling a game no longer resets waits** — cancelling a game in progress (or taking a player off one) used to restart those players' wait at zero, as if they had just played. They now keep their place in line and their wait carries on.
 - **Level shown once per player** — the Players list and the board's check-in list showed each level twice (a small tag on the initials circle and the coloured badge by the name). Only the coloured badge is shown now.
 - **Court plan row no longer jumps** — the small dot that flashed inside the court block button while the board synced is gone (the header already says "Syncing board…"), so the button keeps its width. On phones the "Court plan" label is hidden so the block and the Manila clock fit on one line.
