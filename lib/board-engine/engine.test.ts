@@ -4,7 +4,7 @@ import { diffStates, isEmptyChange } from "./diff";
 import { applyOp, applyOps, type BoardOp, type BoardOpBody } from "./ops";
 import { blankSignup } from "./players";
 import type { EngineState } from "./types";
-import { toBoardData, toFeeReport } from "./view";
+import { playerMatches, toBoardData, toFeeReport } from "./view";
 
 // 2026-11-14 is a Saturday; the plan runs 8:00 to 12:00 Manila (00:00 to 04:00 UTC).
 const DAY = Date.UTC(2026, 10, 14);
@@ -92,6 +92,22 @@ describe("board engine", () => {
     expect(twice.state.matches).toHaveLength(2);
   });
 
+  it("auto-pairs in arrival order: a player who just checked in waits behind those already in line", () => {
+    // Five C players (one court's worth plus one); the fifth arrives at 9:00, the rest at 8:30.
+    const start = fixture(5);
+    start.gameDay.courtPlan = [{ id: "s1", label: "Morning", start: "08:00", end: "12:00", courts: 1 }];
+    for (const row of start.players) row.level = "C";
+    let state = applyOps(
+      start,
+      start.players.map((row, index) =>
+        op({ type: "checkIn", sessionPlayerId: row.id }, index === 4 ? AT_9 : AT_9 - 30 * 60_000),
+      ),
+    );
+    state = applyOp(state, op({ type: "generate" }, AT_9 + 60_000)).state;
+    const picked = state.matches[0].players.map((row) => row.playerId).sort();
+    expect(picked).toEqual(["p0", "p1", "p2", "p3"]);
+  });
+
   it("gives the same answer on the tablet and the server for the same presses", () => {
     const ready = checkInAll(fixture(10));
     const presses = [op({ type: "generate" })];
@@ -121,6 +137,30 @@ describe("board engine", () => {
     expect(
       state.players.filter((row) => onCourt.includes(row.playerId)).every((row) => row.gamesPlayed === 0),
     ).toBe(true);
+  });
+
+  it("lists a player's games: the one on court first, then finished ones newest first", () => {
+    let state = checkInAll(fixture(8));
+    state = applyOp(state, op({ type: "generate" })).state;
+    const [a, b] = state.matches;
+    const shared = a.players[0].playerId;
+    state = applyOp(state, op({ type: "startMatch", matchId: a.id })).state;
+    state = applyOp(state, op({ type: "completeMatch", matchId: a.id }, AT_9 + 20 * 60_000)).state;
+    expect(playerMatches(state, shared).map((match) => match.id)).toEqual([a.id]);
+    // Put the same player into the other game and start it: it is listed first.
+    const team1 = [shared, b.players.find((row) => row.team === 1)!.playerId];
+    const team2 = b.players.filter((row) => row.team === 2).map((row) => row.playerId);
+    state = applyOp(state, op({ type: "updateLineup", matchId: b.id, team1, team2 })).state;
+    state = applyOp(state, op({ type: "startMatch", matchId: b.id }, AT_9 + 25 * 60_000)).state;
+    const history = playerMatches(state, shared);
+    expect(history.map((match) => [match.id, match.status])).toEqual([
+      [b.id, "LIVE"],
+      [a.id, "COMPLETED"],
+    ]);
+    // Paired games that have not started are not history.
+    expect(playerMatches(state, b.players[3].playerId).every((match) => match.status !== "SUGGESTED")).toBe(
+      true,
+    );
   });
 
   it("won't pull a player from another court into a line-up", () => {

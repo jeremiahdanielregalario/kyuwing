@@ -11,7 +11,7 @@ suggestMatches(players, history, { courts }) → PairingSuggestion[]
 
 ## The short version
 
-1. Sort the queue by priority, then longest wait, then fewest games (games missed by arriving late count as played).
+1. Sort the queue like a line: priority first, then longest wait (since check-in, or since the end of their last game), then earliest arrival, then fewest games.
 2. Take a candidate pool (max 14 by default), pulling in the partner of any permanent pair so it is never half-included.
 3. Build “units”: a mutual permanent pair is one unit of two; everyone else is a unit of one.
 4. Enumerate every combination of units that totals exactly four players.
@@ -36,7 +36,8 @@ Lower is better. Penalties add; bonuses subtract (negative cost).
 | Repeated exact foursome (every prior time) | ×260 each | penalty |
 | Same foursome within the last 3 rounds | +130 | penalty |
 | Wait time | −1.15 per minute, capped at 120 min | bonus |
-| Games already played | +17 per game | penalty |
+| Arrival (minutes since check-in) | −0.02 per minute, capped at 300 min | bonus |
+| Games already played | +3 per game | penalty |
 | Priority player | −90 | bonus |
 | `PAIR_WITH` honored (teammates) | −135 | bonus |
 | `PLAY_AGAINST` honored (opponents) | −115 | bonus |
@@ -105,11 +106,14 @@ Permanent partners are a stronger rule than a `PAIR_WITH` request and are enforc
 
 ## Wait time and fairness
 
-- Wait is measured from `queuedAt` (check-in), never from sign-up.
+Auto-pair works like a line, by arrival:
+
+- Wait is measured from `queuedAt`: check-in for the first game, then the end of each game (never from sign-up). Finishing a game puts a player at the back of the line, and checking in late puts them at the back too, so a late arrival waits behind everyone already in line instead of being picked at once.
+- Earlier arrivals edge ahead (`arrivedMinutes`, minutes since check-in): they go first when waits are equal, and get up to 6 points (about 5 minutes of wait) over someone who arrived 5 hours later.
+- Games played is a nudge, +3 per game (about 2.6 minutes of wait): it decides between players who have waited about as long, and cannot put a player who just checked in ahead of people who have been waiting.
 - The wait bonus is capped at 120 minutes so a single very long wait cannot dominate team balance.
-- Games played adds 17 per game, which is why someone on their fourth game loses to someone on their first when other factors are close.
-- Late arrivals count the games they missed as played (`missedGames`, from `lib/late-arrival.ts`). A player who checks in more than 10 minutes after the first court time gets `minutes late × min(1, 4 × courts ÷ checked-in players) ÷ 15` extra games (one decimal). With 4 courts and 32 players, an hour late counts as 2 games. So a late player is not put first for having fewer games, and the later they came the more games they lose. Their wait time is unchanged: it starts when they check in, like everyone else's. Tests: "late arrivals" in `lib/pairing.test.ts` and `lib/late-arrival.test.ts`.
-- Priority subtracts 90 — roughly five games’ worth — which is enough to pull someone forward without letting them jump repeatedly.
+- Late arrivals used to be counted as having played the games they missed (`missedGames`); that is gone. Their games played are never adjusted; they simply join the back of the line. Tests: "arrival order" in `lib/pairing.test.ts` and the arrival-order test in `lib/board-engine/engine.test.ts`.
+- Priority subtracts 90, about 78 minutes of wait, which is enough to pull someone forward without letting them jump repeatedly.
 
 Tie-break: if two candidates have exactly equal cost, the one with the higher average wait wins.
 

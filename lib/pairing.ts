@@ -14,10 +14,10 @@ export type PairingPlayer = {
   waitMinutes: number;
   gamesPlayed: number;
   /**
-   * Games missed by arriving late (see `lib/late-arrival.ts`). Counted as if played, so a late
-   * player is not put ahead for having fewer games; the later they came, the more they lose.
+   * Minutes since the player checked in for the day. Earlier arrivals go first when waits are
+   * equal, and get a small edge otherwise, so a late arrival joins the back of the line.
    */
-  missedGames?: number;
+  arrivedMinutes?: number;
   priority?: boolean;
   permanentPartnerId?: string | null;
   requests?: PairingRequest[];
@@ -97,7 +97,11 @@ function shake(seed: number, label: string): number {
   h = Math.imul(h ^ (h >>> 16), 0xc2b2ae35) >>> 0;
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
-const GAMES_WEIGHT = 17;
+/** A nudge, not a jump: one game played weighs about 2.6 minutes of waiting. */
+const GAMES_WEIGHT = 3;
+/** Per minute since check-in, capped at `ARRIVAL_CAP` minutes: earlier arrivals edge ahead. */
+const ARRIVAL_WEIGHT = 0.02;
+const ARRIVAL_CAP = 300;
 const PRIORITY_WEIGHT = 90;
 const HONOR_PAIR_WEIGHT = 135;
 const HONOR_AGAINST_WEIGHT = 115;
@@ -112,16 +116,13 @@ function unitKey(ids: string[]) {
   return [...ids].sort().join("|");
 }
 
-/** Games played plus games missed by arriving late: what fairness compares. */
-export function gamesCounted(player: PairingPlayer): number {
-  return player.gamesPlayed + (player.missedGames ?? 0);
-}
-
 function sortPlayers(players: PairingPlayer[]) {
   return [...players].sort((a, b) => {
     if (Boolean(a.priority) !== Boolean(b.priority)) return a.priority ? -1 : 1;
     if (b.waitMinutes !== a.waitMinutes) return b.waitMinutes - a.waitMinutes;
-    if (gamesCounted(a) !== gamesCounted(b)) return gamesCounted(a) - gamesCounted(b);
+    const arrived = (b.arrivedMinutes ?? 0) - (a.arrivedMinutes ?? 0);
+    if (arrived !== 0) return arrived;
+    if (a.gamesPlayed !== b.gamesPlayed) return a.gamesPlayed - b.gamesPlayed;
     return a.nickname.localeCompare(b.nickname);
   });
 }
@@ -343,10 +344,11 @@ function evaluateMatch(
     if (pairEdges.has(key)) cost += VIOLATE_PAIR_WEIGHT;
   }
 
-  // Wait + games fairness.
+  // The line: time waiting (since check-in or the last game) leads; arrival and games nudge.
   for (const player of all) {
     cost -= Math.min(120, player.waitMinutes) * WAIT_WEIGHT;
-    cost += gamesCounted(player) * GAMES_WEIGHT;
+    cost -= Math.min(ARRIVAL_CAP, player.arrivedMinutes ?? 0) * ARRIVAL_WEIGHT;
+    cost += player.gamesPlayed * GAMES_WEIGHT;
     if (player.priority) cost -= PRIORITY_WEIGHT;
   }
 

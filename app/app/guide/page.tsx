@@ -97,7 +97,7 @@ const rules = [
   {
     icon: Timer,
     title: "Wait time matters",
-    body: "Longer waits are pushed forward, priority players jump ahead, and players with fewer games are preferred. Everyone gets a turn.",
+    body: "It works like a line: players join the back when they check in and after each game, and the longest wait goes first. Late arrivals wait their turn; priority players jump ahead.",
   },
   {
     icon: Link2,
@@ -320,7 +320,8 @@ export default function GuidePage() {
           </ul>
           <div className="border-line bg-cream/40 text-muted mt-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed">
             <span className="text-ink font-semibold">Tip:</span> if the same player keeps getting picked
-            first, check that their games count is rising. The engine prefers fewer games played.
+            first, check that their games count is rising and their wait timer resets after each game. The
+            engine goes by time waiting, then arrival, then fewer games.
           </div>
         </Card>
       </section>

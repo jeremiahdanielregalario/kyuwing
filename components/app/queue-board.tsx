@@ -38,6 +38,7 @@ import {
   Flag,
   Gamepad2,
   GripVertical,
+  History,
   HeartHandshake,
   LayoutGrid,
   ListOrdered,
@@ -70,7 +71,8 @@ import {
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { keepGameDayPages } from "@/lib/offline/keep-pages";
 import { syncLabel, useOfflineGameDay } from "@/components/app/use-offline-game-day";
-import { toBoardData } from "@/lib/board-engine/view";
+import { playerMatches, toBoardData } from "@/lib/board-engine/view";
+import { PlayerHistoryDialog } from "@/components/app/player-history";
 import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
 import type { BoardMatch, BoardPlayer } from "@/lib/board-types";
 import {
@@ -131,7 +133,10 @@ import { StartGameDayDialog } from "@/components/app/start-game-day-dialog";
 import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string; code?: ActionFailureCode };
-type QueueTab = "waiting" | "playing" | "expected" | "done";
+type QueueTab = "all" | "waiting" | "queued" | "playing" | "expected" | "done";
+
+/** Where a player is on the board: the court they are playing on, and the paired game they are in next. */
+type BoardPlace = { court?: string; upNext?: string };
 
 /** Whether this device already closed the automatic start review for a game day. */
 function reviewSeen(key: string): boolean {
@@ -382,6 +387,11 @@ export function QueueBoard({
   const [pending, startTransition] = React.useTransition();
 
   const [tab, setTab] = React.useState<QueueTab>("waiting");
+  const [historyFor, setHistoryFor] = React.useState<BoardPlayer | null>(null);
+  const history = React.useMemo(
+    () => (historyFor ? playerMatches(state, historyFor.playerId) : []),
+    [state, historyFor],
+  );
   const [query, setQuery] = React.useState("");
   const [checkOpen, setCheckOpen] = React.useState(false);
   const [checkQuery, setCheckQuery] = React.useState("");
@@ -887,15 +897,42 @@ export function QueueBoard({
     });
   }, [data.players]);
 
+  // Who is on which court, and who is already in a paired game (on a court or a waiting court).
+  const places = new Map<string, BoardPlace>();
+  for (const match of data.activeMatches) {
+    const label =
+      match.courtNumber === QUEUED_COURT
+        ? `Waiting ${queued.findIndex((row) => row.id === match.id) + 1}`
+        : courtName(slot, match.courtNumber);
+    for (const row of [...match.team1, ...match.team2]) {
+      const place = places.get(row.playerId) ?? {};
+      if (match.status === "LIVE") place.court = label;
+      else place.upNext ??= label;
+      places.set(row.playerId, place);
+    }
+  }
+  const tabOf = (player: BoardPlayer): Exclude<QueueTab, "all"> =>
+    player.status === "WAITING"
+      ? places.get(player.playerId)?.upNext
+        ? "queued"
+        : "waiting"
+      : player.status === "PLAYING"
+        ? "playing"
+        : player.status === "EXPECTED"
+          ? "expected"
+          : "done";
   const tabCounts: Record<QueueTab, number> = {
-    waiting: data.players.filter((player) => player.status === "WAITING").length,
-    playing: data.players.filter((player) => player.status === "PLAYING").length,
-    expected: data.players.filter((player) => player.status === "EXPECTED").length,
-    done: data.players.filter((player) => player.status === "DONE").length,
+    all: data.players.length,
+    waiting: 0,
+    queued: 0,
+    playing: 0,
+    expected: 0,
+    done: 0,
   };
+  for (const player of data.players) tabCounts[tabOf(player)] += 1;
 
   const visible = sortedQueue
-    .filter((player) => player.status === tab.toUpperCase())
+    .filter((player) => tab === "all" || tabOf(player) === tab)
     .filter((player) => player.nickname.toLowerCase().includes(query.toLowerCase()));
 
   const expected = data.players
@@ -1178,15 +1215,18 @@ export function QueueBoard({
     <>
       {(
         [
-          ["waiting", "Waiting"],
-          ["playing", "On court"],
-          ["expected", "Expected"],
-          ["done", "Done"],
-        ] as Array<[QueueTab, string]>
-      ).map(([value, label]) => (
+          ["all", "All", "Everyone on today's list"],
+          ["waiting", "Waiting", "Checked in and not in a paired game yet"],
+          ["queued", "Queued", "In a paired game, waiting for a court or to start"],
+          ["playing", "On court", "Playing now"],
+          ["expected", "Expected", "Signed up, not checked in"],
+          ["done", "Done", "Done for the day"],
+        ] as Array<[QueueTab, string, string]>
+      ).map(([value, label, hint]) => (
         <button
           key={value}
           type="button"
+          title={hint}
           onClick={() => setTab(value)}
           className={cn(
             "press shrink-0 rounded-full px-3 py-2 text-[11px] font-semibold",
@@ -1215,7 +1255,16 @@ export function QueueBoard({
   const queueList =
     visible.length === 0 ? (
       <div className="text-muted px-3 py-10 text-center text-[12px]">
-        {query ? "No player matches that search." : `No players ${tab === "waiting" ? "waiting" : tab}.`}
+        {query
+          ? "No player matches that search."
+          : {
+              all: "No players on the list yet.",
+              waiting: "Nobody waiting without a game.",
+              queued: "Nobody in a paired game.",
+              playing: "Nobody on court.",
+              expected: "Nobody else expected.",
+              done: "Nobody done yet.",
+            }[tab]}
       </div>
     ) : (
       // Blocks glide to their new places when the order changes.
@@ -1229,6 +1278,8 @@ export function QueueBoard({
             // Not tied to `pending`: the blocks keep their outline and stay draggable while a move saves.
             draggable={(player.status === "WAITING" || player.status === "PLAYING") && !isCompleted}
             drafted={draftedIds.has(player.playerId)}
+            place={places.get(player.playerId)}
+            onHistory={() => setHistoryFor(player)}
             onQuickAdd={isCompleted || pairedIds.has(player.playerId) ? undefined : () => quickAdd(player)}
             onReturn={() => setDrafts((prev) => removeFromDrafts(prev, player.playerId))}
             player={player}
@@ -1973,6 +2024,15 @@ export function QueueBoard({
           </div>
 
           <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
+
+          <PlayerHistoryDialog
+            open={historyFor !== null}
+            onClose={() => setHistoryFor(null)}
+            playerId={historyFor?.playerId ?? ""}
+            nickname={historyFor?.nickname ?? ""}
+            matches={history}
+            courtLabel={(court) => courtName(slot, court)}
+          />
 
           {/* Start reminder: paired games on a court that nobody has started yet. */}
           <Modal
@@ -3534,6 +3594,7 @@ function QueueRow({
   player,
   draggable,
   drafted,
+  place,
   pending,
   onQuickAdd,
   onReturn,
@@ -3542,12 +3603,16 @@ function QueueRow({
   onDone,
   onRequeue,
   onPriority,
+  onHistory,
 }: {
   player: BoardPlayer;
   /** Waiting players can be dragged onto a court or waiting court; players on court only into a waiting court, to plan ahead. */
   draggable: boolean;
   /** Already dropped into a court place that is still being filled by hand. */
   drafted: boolean;
+  /** The court they are on and the paired game they are in next, if any. */
+  place?: BoardPlace;
+  onHistory: () => void;
   pending: boolean;
   /** Puts the player in the next free court place. Absent when they are already in a paired game. */
   onQuickAdd?: () => void;
@@ -3587,7 +3652,13 @@ function QueueRow({
       ? [{ label: "Undo check-in", icon: <Undo2 className="h-4 w-4" />, onSelect: onUndoCheckIn }]
       : []),
     { label: "Done for the day", icon: <Check className="h-4 w-4" />, onSelect: onDone },
+    { label: "Match history", icon: <History className="h-4 w-4" />, onSelect: onHistory },
   ];
+  const historyOnly: BlockMenuItem[] = [
+    { label: "Match history", icon: <History className="h-4 w-4" />, onSelect: onHistory },
+  ];
+  const onCourt = player.status === "PLAYING";
+  const upNext = player.status === "WAITING" || onCourt ? place?.upNext : undefined;
 
   return (
     <div
@@ -3596,6 +3667,10 @@ function QueueRow({
         "bg-paper animate-pop-in flex h-11 min-w-0 items-center rounded-full border-2 pr-1 shadow-sm transition",
         draggable ? "border-forest/30 hover:border-forest/60" : "border-line",
         player.priority && "border-lime-deep/60 bg-lime/10",
+        // State at a glance: green on court, gold in a paired game, plain while waiting for one.
+        onCourt && "border-forest/60 bg-lime/25",
+        !onCourt && upNext && "border-gold/70 bg-gold/15",
+        player.status === "DONE" && "opacity-70",
         drafted && "border-gold bg-gold/25",
         isDragging && "opacity-50",
         isPicked && "border-gold bg-gold/30 ring-gold ring-2",
@@ -3634,6 +3709,29 @@ function QueueRow({
               {player.gamesPlayed}
               <Gamepad2 className="h-3 w-3" aria-hidden="true" />
             </span>
+            {onCourt && place?.court && (
+              <span
+                className="bg-forest text-cream inline-flex max-w-[7rem] shrink-0 items-center gap-1 rounded-full px-1.5 font-bold"
+                title={`Playing on ${place.court}`}
+              >
+                <span
+                  className="bg-lime h-1.5 w-1.5 shrink-0 animate-pulse rounded-full"
+                  aria-hidden="true"
+                />
+                <span className="truncate">{place.court}</span>
+              </span>
+            )}
+            {upNext && (
+              <span
+                className="bg-gold/40 text-ink inline-flex max-w-[7rem] shrink-0 items-center gap-0.5 rounded-full px-1.5 font-bold"
+                title={onCourt ? `Next game: ${upNext}` : `In a paired game: ${upNext}`}
+              >
+                <span className="truncate">
+                  {onCourt ? "Next: " : ""}
+                  {upNext}
+                </span>
+              </span>
+            )}
             {player.status === "WAITING" && <WaitTimer queuedAt={player.queuedAt} />}
             {player.permanentPartnerNickname && (
               <span
@@ -3695,6 +3793,9 @@ function QueueRow({
 
       {player.status === "WAITING" && (
         <BlockMenu label={`More for ${player.nickname}`} items={menu} disabled={pending} />
+      )}
+      {(player.status === "PLAYING" || player.status === "DONE") && (
+        <BlockMenu label={`More for ${player.nickname}`} items={historyOnly} disabled={false} />
       )}
 
       {player.status === "EXPECTED" && (

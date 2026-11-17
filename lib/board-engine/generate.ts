@@ -6,9 +6,7 @@ import {
   formatClock,
   openCourts,
   QUEUED_COURT,
-  timeToMinutes,
 } from "@/lib/datetime";
-import { gameStartInstant, missedGames } from "@/lib/late-arrival";
 import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
 import { isFreeBy, planTimeline, playerAvailableAt } from "@/lib/planning";
 import {
@@ -199,10 +197,8 @@ export function generateMatches(
     requestsByPlayer.set(request.playerId, current);
   }
 
-  // Late arrivals are treated as having played the games they missed (see lib/late-arrival.ts).
-  const firstCourtTime = [...plan].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))[0].start;
-  const gameStartAt = gameStartInstant(gameDay.date, firstCourtTime);
-  const checkedIn = state.players.filter((row) => row.status !== "EXPECTED").length;
+  // Auto-pair is a line: whoever has waited longest (since check-in or their last game) goes
+  // first, and earlier arrivals edge ahead, so a late arrival joins the back (see docs/PAIRING.md).
   const now = new Date(nowMs);
   const pairingPlayers: PairingPlayer[] = waiting.map((row) => ({
     id: row.playerId,
@@ -221,12 +217,7 @@ export function generateMatches(
           )
         : 0,
     gamesPlayed: row.gamesPlayed,
-    missedGames: missedGames({
-      joinedAt: row.joinedAt !== null ? new Date(row.joinedAt) : null,
-      gameStart: gameStartAt,
-      courts: slot.courts,
-      players: checkedIn,
-    }),
+    arrivedMinutes: elapsedMinutes(row.joinedAt !== null ? new Date(row.joinedAt) : null, now),
     priority: row.priority,
     permanentPartnerId: row.permanentPartnerId,
     requests: requestsByPlayer.get(row.playerId) ?? [],

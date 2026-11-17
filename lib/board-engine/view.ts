@@ -109,6 +109,24 @@ export function completedMatches(state: EngineState): EngineMatch[] {
     .sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0) || byId(a, b));
 }
 
+/** A player's games today, the one on court first, then finished games newest first. */
+export function playerMatches(state: EngineState, playerId: string): BoardMatch[] {
+  return state.matches
+    .filter(
+      (match) =>
+        (match.status === "LIVE" || match.status === "COMPLETED") &&
+        match.players.some((row) => row.playerId === playerId),
+    )
+    .sort(
+      (a, b) =>
+        Number(b.status === "LIVE") - Number(a.status === "LIVE") ||
+        (b.endedAt ?? 0) - (a.endedAt ?? 0) ||
+        (b.startedAt ?? 0) - (a.startedAt ?? 0) ||
+        byId(a, b),
+    )
+    .map((match) => toBoardMatch(state, match));
+}
+
 /**
  * The board as the queue board draws it, for the court block `slot` (the one in play at `now`
  * when not given or out of range).
