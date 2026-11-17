@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { Settings2 } from "lucide-react";
 import { GameDayTabs } from "@/components/app/game-day-tabs";
 import { FeeLedger } from "@/components/app/fee-ledger";
+import { ShareFeesButton } from "@/components/app/share-fees-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { formatGameDate } from "@/lib/datetime";
 import { GAMEDAY_TYPE_LABELS } from "@/lib/fees";
 import { toFeeReport } from "@/lib/board-engine/view";
 import { getFeeReport, getGameDayBootstrap } from "@/lib/queries";
+import { feesViewPath } from "@/lib/share";
 
 export const dynamic = "force-dynamic";
 
@@ -36,12 +38,15 @@ export default async function FeesPage({ params }: { params: Promise<{ id: strin
           description="Games are counted automatically when a match is finished. Record payments here as players settle up."
           descriptionTrimId="fees.description"
           actions={
-            <Link
-              href={`/app/gamedays/${id}/settings`}
-              className={buttonVariants({ variant: "paper", size: "sm" })}
-            >
-              <Settings2 className="h-3.5 w-3.5" /> Change court / fees
-            </Link>
+            <>
+              <ShareFeesButton gameDay={report.gameDay} feesPath={feesViewPath(id)} />
+              <Link
+                href={`/app/gamedays/${id}/settings`}
+                className={buttonVariants({ variant: "paper", size: "sm" })}
+              >
+                <Settings2 className="h-3.5 w-3.5" /> Change court / fees
+              </Link>
+            </>
           }
         />
         <FeeLedger bootstrap={bootstrap} />

@@ -19,8 +19,25 @@ export function liveShareMessage(
   ].join("\n");
 }
 
+/**
+ * The message for the finance member with the game day's view-only fees link. Sent privately,
+ * not to the players' group chat: it lists every player's balance.
+ */
+export function feesShareMessage(
+  gameDay: { name: string; date: string; venue: string },
+  url: string,
+): string {
+  return [
+    `💰 Fees: ${gameDay.name}`,
+    `${formatGameDate(gameDay.date, { weekday: true, year: false })} · ${gameDay.venue}`,
+    "",
+    "What each player owes and has paid, updated as payments are recorded (view only):",
+    url,
+  ].join("\n");
+}
+
 /** A safe file name for the downloaded QR code, e.g. `kyuwing-live-monday-night-lights-2026-11-11.png`. */
-export function liveQrFileName(gameDay: { name: string; date: string }): string {
+export function liveQrFileName(gameDay: { name: string; date: string }, kind = "live"): string {
   const slug = gameDay.name
     .toLowerCase()
     .normalize("NFKD")
@@ -28,5 +45,5 @@ export function liveQrFileName(gameDay: { name: string; date: string }): string 
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
   const day = gameDay.date.slice(0, 10);
-  return `kyuwing-live-${slug ? `${slug}-` : ""}${day}.png`;
+  return `kyuwing-${kind}-${slug ? `${slug}-` : ""}${day}.png`;
 }

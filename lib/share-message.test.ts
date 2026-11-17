@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { liveQrFileName, liveShareMessage } from "@/lib/share-message";
+import { feesShareMessage, liveQrFileName, liveShareMessage } from "@/lib/share-message";
 
 const gameDay = { name: "Monday Night Lights", date: "2026-11-11T00:00:00.000Z", venue: "KBC" };
 
@@ -33,5 +33,18 @@ describe("liveQrFileName", () => {
     expect(liveQrFileName({ name: "🏸🏸", date: "2026-11-11T00:00:00.000Z" })).toBe(
       "kyuwing-live-2026-11-11.png",
     );
+  });
+});
+
+describe("feesShareMessage", () => {
+  it("names the game day and puts the link on its own line", () => {
+    const lines = feesShareMessage(gameDay, "https://example.com/fees/abc/key").split("\n");
+    expect(lines[0]).toBe("💰 Fees: Monday Night Lights");
+    expect(lines[1]).toBe("Wednesday, Nov 11 · KBC");
+    expect(lines).toContain("https://example.com/fees/abc/key");
+  });
+
+  it("gives the QR file a fees name", () => {
+    expect(liveQrFileName(gameDay, "fees")).toBe("kyuwing-fees-monday-night-lights-2026-11-11.png");
   });
 });

@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Fees link for the finance officer** — the first time you open **Fees** for a game day on a device, a pop-up shows a QR code and a link to a view-only fees sheet the finance officer can open on their phone (later, from **Share with finance**). It lists every player's nickname, games, fee, extras, total, amount paid, balance and payment method with the day's totals, filters to **Not paid** or **Paid**, searches by nickname and refreshes on its own every 10 seconds. No full names, contacts, categories or notes, and it uses a different key from the live queue link, so the players' link can't open it.
 - **Queue by bracket** — **By bracket** at the end of the queue tabs groups the list under A, B, C, D and E (strongest first, with a count each), keeping the line order inside each bracket.
 - **Player states at a glance, and a Queued tab** — queue blocks are now coloured by where the player is: green with the court's name when on court, gold with "Waiting 1" (or the court) when already in a paired game, plain while still waiting for one. A player on court who is planned into a waiting game also shows "Next: Waiting 1". The queue has new **All** and **Queued** tabs.
 - **Match history for each player** — **⋮ → Match history** on any waiting, on-court or done player shows their games today: partner and opponents, court, start and end time and length, with the game on court now first.

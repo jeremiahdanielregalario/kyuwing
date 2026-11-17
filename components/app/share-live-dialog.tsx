@@ -15,7 +15,6 @@ const emptySubscribe = () => () => {};
 
 /* ---------- "Shared this game day's link" memory (per device) ---------- */
 
-const sharedKey = (gameDayId: string) => `kyuwing.live-shared.${gameDayId}`;
 const sharedListeners = new Set<() => void>();
 
 /**
@@ -23,6 +22,11 @@ const sharedListeners = new Set<() => void>();
  * device. The board only reminds the queue master while this is false.
  */
 export function useLiveLinkShared(gameDayId: string): [boolean, () => void] {
+  return useDeviceFlag(`kyuwing.live-shared.${gameDayId}`);
+}
+
+/** A per-device yes/no remembered in localStorage; reads as true during server render. */
+export function useDeviceFlag(storageKey: string): [boolean, () => void] {
   const shared = React.useSyncExternalStore(
     (onChange) => {
       sharedListeners.add(onChange);
@@ -34,7 +38,7 @@ export function useLiveLinkShared(gameDayId: string): [boolean, () => void] {
     },
     () => {
       try {
-        return window.localStorage.getItem(sharedKey(gameDayId)) === "1";
+        return window.localStorage.getItem(storageKey) === "1";
       } catch {
         return false;
       }
@@ -44,12 +48,12 @@ export function useLiveLinkShared(gameDayId: string): [boolean, () => void] {
   );
   const markShared = React.useCallback(() => {
     try {
-      window.localStorage.setItem(sharedKey(gameDayId), "1");
+      window.localStorage.setItem(storageKey, "1");
     } catch {
       // Private mode: the reminder may come back next time; harmless.
     }
     sharedListeners.forEach((listener) => listener());
-  }, [gameDayId]);
+  }, [storageKey]);
   return [shared, markShared];
 }
 
@@ -84,7 +88,12 @@ function fitText(context: CanvasRenderingContext2D, text: string, maxWidth: numb
  * A printable, shareable PNG: the QR code (high error correction, so the Kyuwing icon can sit
  * in the middle and it still scans), with the game day's name and date underneath.
  */
-async function drawLiveQr(url: string, title: string, subtitle: string): Promise<string> {
+export async function drawLiveQr(
+  url: string,
+  title: string,
+  subtitle: string,
+  heading = "Scan for the live queue",
+): Promise<string> {
   const width = 1080;
   const height = 1270;
   const canvas = document.createElement("canvas");
@@ -136,7 +145,7 @@ async function drawLiveQr(url: string, title: string, subtitle: string): Promise
 
   context.fillStyle = "#0a0a0a";
   context.font = `800 58px ${display}`;
-  context.fillText("Scan for the live queue", width / 2, textTop);
+  context.fillText(heading, width / 2, textTop);
 
   context.font = `700 42px ${display}`;
   context.fillText(fitText(context, title, width - 140), width / 2, textTop + 72);
@@ -153,7 +162,7 @@ async function drawLiveQr(url: string, title: string, subtitle: string): Promise
 }
 
 /** Clipboard API first; the old select-and-copy for browsers that refuse it (e.g. plain http). */
-async function copyText(text: string): Promise<boolean> {
+export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;

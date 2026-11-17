@@ -132,6 +132,10 @@ Cancel the match if it is still live. If it is completed, the game count already
 
 Requests are soft. The board shows a badge when one was honored. If a request is not honored, it is because honoring it would have produced a lopsided game. Explain that rather than overriding the pairing; players generally accept “the engine kept it fair.”
 
+### Sharing the fees with the finance officer
+
+The first time you open **Fees** for a game day on a tablet, a pop-up shows a QR code: let the finance officer scan it with their phone camera (or **Copy** the link and send it to them directly). It opens a view-only **fees sheet**: each player's nickname, games, fee, extras, total, what they paid and how (Cash, GCash, …) and what's left, with Billed, Collected and Outstanding at the top, **Not paid** / **Paid** filters and a nickname search. It refreshes every 10 seconds, so payments you record on Fees show up there; payments taken on a tablet without signal show once it reconnects. Press **Share with finance** on Fees to open the pop-up again. The sheet can't change anything, but anyone with the link sees every player's balance, so don't post it in the players' group chat. It is a different link from the live queue.
+
 ## Closing the day
 
 When the reservation runs out (the end of the last block, on the game day itself), the board asks **Reservation time is up**:

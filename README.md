@@ -31,7 +31,7 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 | Public roster | View-only `/roster` for players: levels, type, recency, attendance and awards; no contacts, edits or exports    |
 | Recency       | Log and edit game-day and tournament chat lists; each player is scored and banded by how recently they play     |
 | Awards        | Paste tournament results; podium players get a trophy showing each title and their doubles partner or teammates |
-| Fees          | Venue/type/category fee rules, per-player ledger, cash/GCash/bank/other                                         |
+| Fees          | Fee rules, per-player ledger, cash/GCash/bank/other, view-only fees link (QR) for finance                       |
 | Reports       | Session summary, player breakdown, Excel (`.xlsx`) and PDF export                                               |
 | Ops guide     | In-app queue-master playbook with checklists and FAQs                                                           |
 | Install       | Installable web app (manifest + service worker): its own window and home-screen icon                            |
