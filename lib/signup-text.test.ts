@@ -152,6 +152,25 @@ describe("resolveSignup", () => {
     ]);
   });
 
+  it("reads a written-out middle name against a stored initial, in order", () => {
+    const players: KnownPlayer[] = [
+      { nickname: "Odin", fullName: "PASCUAL, Odin Paul Ray D." },
+      { nickname: "Ody", fullName: "PASCUAL, Odessa" },
+    ];
+    const read = (name: string) => resolveSignup(parseSignupText(`G\n1. ${name}`).lines, players)[0];
+    expect(read("Odin Paul Dizon Pascual")).toMatchObject({ status: "ok", nickname: "Odin" });
+    expect(read("Odin P. Pascual")).toMatchObject({ status: "ok", nickname: "Odin" });
+    // Out of order, or a first name that differs, is not taken.
+    expect(read("Odin Dizon Paul Pascual").status).not.toBe("ok");
+    expect(read("Odie Paul Pascual").status).not.toBe("ok");
+  });
+
+  it("drops a tag the chat adds to a name, like [Batch O]", () => {
+    const lines = parseSignupText("G\n1. [Batch O] Lou\n2. @[Batch O] Carl\n3. Randolf [Batch O]").lines;
+    expect(lines.map((line) => line.name)).toEqual(["Lou", "Carl", "Randolf"]);
+    expect(resolveSignup(lines, PLAYERS).map((line) => line.status)).toEqual(["ok", "ok", "ok"]);
+  });
+
   it("offers, but does not take, a full name with a spelling slip", () => {
     const players: KnownPlayer[] = [{ nickname: "Mae", fullName: "TORRES, Maegan Lim" }];
     const [line] = resolveSignup(parseSignupText("G\n1. Megan Torres").lines, players);

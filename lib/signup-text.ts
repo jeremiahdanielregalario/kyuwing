@@ -138,6 +138,11 @@ export function parseSignupText(input: string, list: SignupList = "members"): Pa
       }
       const mention = text.startsWith("@");
       text = text.replace(/^@+\s*/, "").trim();
+      // A tag the chat adds to a name, like "[Batch O] Ethan" for this semester's applicants.
+      text = text
+        .replace(/^(?:\[[^\]]*\]\s*)+|(?:\s*\[[^\]]*\])+$/g, "")
+        .replace(/^@+\s*/, "")
+        .trim();
       // An open place ("2." with no name) under the waitlist.
       if (!text) return;
       lines.push({
@@ -258,6 +263,35 @@ export function fullNameVariants(fullName: string | null): string[] {
   return [...keys];
 }
 
+/**
+ * Whether a written full name fits a stored one word by word: the same surname and first given
+ * name, and every other written name one of the stored given names, in order, where an initial
+ * on either side fits a name starting with that letter. "Ildren Josh Vergara Brosoto" fits
+ * "BROSOTO, Ildren Josh Lee V.".
+ */
+export function fitsFullName(written: string, fullName: string | null): boolean {
+  if (!fullName) return false;
+  const [last, first] = fullName.split(",").map((part) => part.trim());
+  if (!last || !first) return false;
+  const surname = looseKey(last).split(" ");
+  const given = looseKey(first).split(" ");
+  const words = looseKey(written).split(" ");
+  if (words.length < surname.length + 1) return false;
+  const tail = words.slice(-surname.length);
+  if (tail.join(" ") !== surname.join(" ")) return false;
+  const rest = words.slice(0, -surname.length);
+  if (rest[0] !== given[0]) return false;
+  const fits = (a: string, b: string) =>
+    a === b || (a.length === 1 && b.startsWith(a)) || (b.length === 1 && a.startsWith(b));
+  let at = 1;
+  for (const word of rest.slice(1)) {
+    while (at < given.length && !fits(word, given[at])) at += 1;
+    if (at >= given.length) return false;
+    at += 1;
+  }
+  return true;
+}
+
 function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, index) => index);
   for (let i = 1; i <= a.length; i += 1) {
@@ -293,7 +327,11 @@ export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): Reso
   return lines.map((line) => {
     const key = nameKey(line.name);
     const viaAlias = !byNickname.has(key) && byAlias.has(key);
-    const named = byNickname.has(key) || viaAlias ? [] : (byName.get(looseKey(line.name)) ?? []);
+    const exact = byNickname.has(key) || viaAlias;
+    let named = exact ? [] : (byName.get(looseKey(line.name)) ?? []);
+    if (!exact && named.length === 0 && looseKey(line.name).includes(" ")) {
+      named = players.filter((player) => fitsFullName(line.name, player.fullName)).map((p) => p.nickname);
+    }
     // A full name or "Nickname Surname" that fits exactly one player is read as their nickname.
     const viaSurname = named.length === 1;
     const official = byNickname.get(key) ?? byAlias.get(key) ?? (viaSurname ? named[0] : undefined);
