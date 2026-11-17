@@ -4,7 +4,7 @@ import { diffStates, isEmptyChange } from "./diff";
 import { applyOp, applyOps, type BoardOp, type BoardOpBody } from "./ops";
 import { blankSignup } from "./players";
 import type { EngineState } from "./types";
-import { playerMatches, toBoardData, toFeeReport } from "./view";
+import { gameHistory, playerMatches, toBoardData, toFeeReport } from "./view";
 
 // 2026-11-14 is a Saturday; the plan runs 8:00 to 12:00 Manila (00:00 to 04:00 UTC).
 const DAY = Date.UTC(2026, 10, 14);
@@ -137,6 +137,159 @@ describe("board engine", () => {
     expect(
       state.players.filter((row) => onCourt.includes(row.playerId)).every((row) => row.gamesPlayed === 0),
     ).toBe(true);
+  });
+
+  describe("finished games in the match history", () => {
+    /** Eight checked in, one game played and finished on court 1 at 9:20. */
+    function played() {
+      let state = checkInAll(fixture(8));
+      state = applyOp(state, op({ type: "generate" })).state;
+      const match = state.matches[0];
+      state = applyOp(state, op({ type: "startMatch", matchId: match.id })).state;
+      state = applyOp(state, op({ type: "completeMatch", matchId: match.id }, AT_9 + 20 * 60_000)).state;
+      const four = match.players.map((row) => row.playerId);
+      const games = (current: EngineState, ids = four) =>
+        ids.map((id) => current.players.find((row) => row.playerId === id)!.gamesPlayed);
+      return { state, match, four, games };
+    }
+
+    it("makes a counted game free, takes it off the record, and counts it again", () => {
+      const { state: start, match, games } = played();
+      expect(games(start)).toEqual([1, 1, 1, 1]);
+      const fee = (state: EngineState) => toFeeReport(state, AT_9).summary.totalBilled;
+      const counted = fee(start);
+
+      let state = applyOp(start, op({ type: "setMatchRecord", matchId: match.id, record: "free" })).state;
+      expect(games(state)).toEqual([0, 0, 0, 0]);
+      expect(state.matches[0]).toMatchObject({ status: "COMPLETED", free: true });
+      expect(fee(state)).toBeLessThan(counted);
+
+      state = applyOp(state, op({ type: "setMatchRecord", matchId: match.id, record: "unrecorded" })).state;
+      expect(games(state)).toEqual([0, 0, 0, 0]);
+      expect(state.matches[0]).toMatchObject({ status: "CANCELLED", free: false });
+      // Off the record: gone from the finished list and reports, still in the history to undo.
+      expect(toBoardData(state, { now: AT_9 + 21 * 60_000 }).recentMatches).toEqual([]);
+      expect(toFeeReport(state, AT_9).matches).toEqual([]);
+      expect(gameHistory(state).map((row) => [row.id, row.status])).toEqual([[match.id, "CANCELLED"]]);
+
+      state = applyOp(state, op({ type: "setMatchRecord", matchId: match.id, record: "counted" })).state;
+      expect(games(state)).toEqual([1, 1, 1, 1]);
+      expect(state.matches[0]).toMatchObject({ status: "COMPLETED", free: false });
+      expect(fee(state)).toBe(counted);
+    });
+
+    it("sets the record rather than toggling it, so a resend changes nothing", () => {
+      const { state: start, match, games } = played();
+      const press = op({ type: "setMatchRecord", matchId: match.id, record: "unrecorded" });
+      let state = applyOp(start, press).state;
+      state = applyOp(state, { ...press, id: `${press.id}-again` }).state;
+      expect(games(state)).toEqual([0, 0, 0, 0]);
+    });
+
+    it("swaps who played a counted game and moves the game count with them", () => {
+      const { state: start, match, four } = played();
+      const bench = start.players.find((row) => !four.includes(row.playerId))!.playerId;
+      const [out, ...stay] = four;
+      const team1 = [bench, stay[0]];
+      const team2 = [stay[1], stay[2]];
+      const { state, result } = applyOp(
+        start,
+        op({ type: "editFinishedMatch", matchId: match.id, team1, team2 }),
+      );
+      expect(result.ok).toBe(true);
+      const gamesOf = (id: string) => state.players.find((row) => row.playerId === id)!.gamesPlayed;
+      expect(gamesOf(out)).toBe(0);
+      expect(gamesOf(bench)).toBe(1);
+      expect(stay.map(gamesOf)).toEqual([1, 1, 1]);
+      expect(gameHistory(state)[0].team1.map((row) => row.playerId)).toEqual(team1);
+    });
+
+    it("leaves game counts alone when fixing the players of a free game", () => {
+      const game = played();
+      const { match, four } = game;
+      let state = game.state;
+      state = applyOp(state, op({ type: "setMatchRecord", matchId: match.id, record: "free" })).state;
+      const bench = state.players.find((row) => !four.includes(row.playerId))!.playerId;
+      state = applyOp(
+        state,
+        op({
+          type: "editFinishedMatch",
+          matchId: match.id,
+          team1: [bench, four[1]],
+          team2: [four[2], four[3]],
+        }),
+      ).state;
+      expect(state.players.every((row) => row.gamesPlayed === 0)).toBe(true);
+    });
+
+    it("refuses players not checked in, repeats, unfinished games and a closed game day", () => {
+      const { state, match, four } = played();
+      const extra = checkInAll(fixture(9), 8);
+      expect(extra.players[8].status).toBe("EXPECTED");
+      const withExpected = { ...state, players: [...state.players, extra.players[8]] };
+      const refused = (from: EngineState, body: BoardOpBody) => applyOp(from, op(body)).result;
+      expect(
+        refused(withExpected, {
+          type: "editFinishedMatch",
+          matchId: match.id,
+          team1: ["p8", four[1]],
+          team2: [four[2], four[3]],
+        }),
+      ).toMatchObject({ ok: false, error: "P8 hasn't checked in today." });
+      expect(
+        refused(state, {
+          type: "editFinishedMatch",
+          matchId: match.id,
+          team1: [four[0], four[0]],
+          team2: [four[2], four[3]],
+        }).ok,
+      ).toBe(false);
+      const planned = state.matches.find((row) => row.status === "SUGGESTED")!;
+      expect(refused(state, { type: "setMatchRecord", matchId: planned.id, record: "free" }).ok).toBe(false);
+      expect(
+        refused(state, {
+          type: "setMatchRecord",
+          matchId: match.id,
+          record: "toString" as "free",
+        }).ok,
+      ).toBe(false);
+      const closed = { ...state, gameDay: { ...state.gameDay, status: "COMPLETED" as const } };
+      expect(refused(closed, { type: "setMatchRecord", matchId: match.id, record: "free" })).toMatchObject({
+        ok: false,
+        error: "This game day is closed. Reopen it in Settings to change its games.",
+      });
+    });
+
+    it("keeps a player already in the game even if they are no longer checked in", () => {
+      const { state: start, match, four } = played();
+      const state = {
+        ...start,
+        players: start.players.map((row) =>
+          row.playerId === four[0] ? { ...row, status: "EXPECTED" as const } : row,
+        ),
+      };
+      const bench = state.players.find((row) => !four.includes(row.playerId))!.playerId;
+      const { result } = applyOp(
+        state,
+        op({
+          type: "editFinishedMatch",
+          matchId: match.id,
+          team1: [four[0], bench],
+          team2: [four[2], four[3]],
+        }),
+      );
+      expect(result.ok).toBe(true);
+    });
+
+    it("lists a game cancelled on court as not recorded, but not a plan that never started", () => {
+      let state = checkInAll(fixture(8));
+      state = applyOp(state, op({ type: "generate" })).state;
+      const [a, b] = state.matches;
+      state = applyOp(state, op({ type: "startMatch", matchId: a.id })).state;
+      state = applyOp(state, op({ type: "cancelMatch", matchId: a.id }, AT_9 + 5 * 60_000)).state;
+      state = applyOp(state, op({ type: "cancelMatch", matchId: b.id })).state;
+      expect(gameHistory(state).map((row) => row.id)).toEqual([a.id]);
+    });
   });
 
   it("lists a player's games: the one on court first, then finished ones newest first", () => {

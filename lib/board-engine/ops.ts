@@ -17,14 +17,17 @@ import {
   clearSuggestedMatches,
   completeMatch,
   createManualMatch,
+  editFinishedMatch,
   moveMatchToCourt,
   reorderQueuedGame,
   restoreMatch,
+  setMatchRecord,
   startAllSuggested,
   startMatch,
   swapMatchPlayers,
   updateMatchCourt,
   updateMatchPlayers,
+  type MatchRecord,
 } from "./matches";
 import {
   addWalkIn,
@@ -74,6 +77,8 @@ export type BoardOpBody =
   | { type: "completeMatch"; matchId: string }
   | { type: "restoreMatch"; matchId: string }
   | { type: "cancelMatch"; matchId: string }
+  | { type: "setMatchRecord"; matchId: string; record: MatchRecord }
+  | { type: "editFinishedMatch"; matchId: string; team1: string[]; team2: string[] }
   | { type: "updateLineup"; matchId: string; team1: string[]; team2: string[] }
   | { type: "updateCourt"; matchId: string; courtNumber: number }
   | { type: "manualMatch"; courtNumber: number; playerIds: string[] }
@@ -156,6 +161,10 @@ function run(state: EngineState, ctx: OpContext, op: BoardOpBody): OpResult {
       return restoreMatch(state, ctx, op.matchId);
     case "cancelMatch":
       return cancelMatch(state, ctx, op.matchId);
+    case "setMatchRecord":
+      return setMatchRecord(state, ctx, op.matchId, op.record);
+    case "editFinishedMatch":
+      return editFinishedMatch(state, ctx, op.matchId, op.team1, op.team2);
     case "updateLineup":
       return updateMatchPlayers(state, ctx, op.matchId, op.team1, op.team2);
     case "updateCourt":

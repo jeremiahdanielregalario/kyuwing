@@ -11,7 +11,7 @@ import { currentSlotIndex, elapsedMinutes, QUEUED_COURT } from "@/lib/datetime";
 import { changeDue, extrasTotal } from "@/lib/fees";
 import { levelLabel } from "@/lib/levels";
 import { feeOf, feeSchedule } from "./fees";
-import { isActive } from "./helpers";
+import { isActive, isFinishedGame } from "./helpers";
 import type { EngineMatch, EngineState } from "./types";
 
 const iso = (value: number | null) => (value === null ? null : new Date(value).toISOString());
@@ -101,6 +101,17 @@ export function toBoardMatch(state: EngineState, match: EngineMatch): BoardMatch
 }
 
 const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/**
+ * Every game played today and over, newest first, including ones taken off the record (status
+ * CANCELLED), for the board's match history.
+ */
+export function gameHistory(state: EngineState): BoardMatch[] {
+  return state.matches
+    .filter(isFinishedGame)
+    .sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0) || byId(a, b))
+    .map((match) => toBoardMatch(state, match));
+}
 
 /** Finished games, newest first. */
 export function completedMatches(state: EngineState): EngineMatch[] {
