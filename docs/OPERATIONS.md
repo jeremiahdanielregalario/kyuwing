@@ -48,7 +48,7 @@ Player arrives → Check in → Auto-pair → Start → End game → Requeue
 
 ### Reading the board
 
-The queue list has tabs, each with a count: **All**, **Waiting**, **Queued**, **On court**, **Expected** and **Done**. **Waiting** is everyone checked in: players still needing a game first, then the gold ones in a paired game, then the green ones on court. **Queued** and **On court** show just those. **By bracket**, at the end of the tabs, groups the list under A, B, C, D and E (strongest first, with a count each), keeping the line order inside each bracket; press it again for one line. Each block is coloured by where the player is: **green** with a live dot and the court number (**● 5**) when on court, **gold** with the game's place (**W1** for Waiting 1, or the court number when the game is paired there but not started) when in a paired game, and plain while waiting for one. A player on court who is already planned into a waiting game also shows **→ W1**. Hover or long-press a pill for the full name. The wait timer turns amber after 5 minutes and coral after 15.
+The queue list has tabs, each with a count: **All**, **Waiting**, **Queued**, **On court**, **Expected** and **Done**. **Waiting** is everyone checked in: players still needing a game first, then the gold ones in a paired game, then the green ones on court. **Queued** and **On court** show just those. **By bracket**, at the right of **The queue** title (beside search in the phone panel), groups the list under A, B, C, D and E (strongest first, with a count each), keeping the line order inside each bracket; press it again for one line. Each block is coloured by where the player is: **green** with a live dot and the court number (**● 5**) when on court, **gold** with the game's place (**W1** for Waiting 1, or the court number when the game is paired there but not started) when in a paired game, and plain while waiting for one. A player on court who is already planned into a waiting game also shows **→ W1**. Hover or long-press a pill for the full name. The wait timer turns amber after 5 minutes and coral after 15.
 
 To see a player's games, press **⋮** on their block and choose **Match history**: each game with partner and opponents, the court, the start and end time and how long it took (the game on court now first, then newest first; free games are marked). It works on waiting, on-court and done players.
 
@@ -100,6 +100,15 @@ Tap a court's name on its card (it is underlined) to rename it. Type the number 
 
 **A game was ended by mistake.**
 Press **Undo** on the "Court … finished" message (it stays up for about ten seconds), or **Restore** next to the game under **Recently finished**. The game goes back on its court as live with its original timer, the four players go back on court, and their game counts drop back so fees stay right. If the next waiting game had already moved onto that court, it goes back to the front of the waiting line. Restoring is refused, with the reason, when that court now has another game in progress or one of the four has been put in another game or marked done.
+
+**A finished game should not count, or the wrong players are on it.**
+Press **Match history (N)** in the **Recently finished** panel, or **Edit** next to a game there. Every game played today is listed, newest first. Choose how each one counts:
+
+- **Counted**: a game for all four, and toward their fees.
+- **Free**: played (for example with a used shuttle) but not counted or charged.
+- **Not recorded**: did not really happen. It is not counted, and it is left out of the reports and the pairing history. It stays in Match history, crossed out, so you can count it again.
+
+**Edit players** changes who played. On a counted game, a player taken off loses that game and a player put on gains it; on a free or not-recorded game nobody's count changes. Only players who checked in today can be chosen. A game cancelled while it was on court also shows as **Not recorded**, so it can be counted if it was really played. Once the game day is closed, Match history is read-only; reopen the game day in Settings to change a game.
 
 **It is near closing time.**
 A game takes about 15 minutes. When you start a game within 15 minutes of the reservation's end, the board asks whether it is a **free game**. Free games are played with a used shuttle, show a violet **Free** tag, and do not count as a game played, so they are not added to anyone's fees.

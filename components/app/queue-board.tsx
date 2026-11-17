@@ -73,7 +73,8 @@ import {
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { keepGameDayPages } from "@/lib/offline/keep-pages";
 import { syncLabel, useOfflineGameDay } from "@/components/app/use-offline-game-day";
-import { playerMatches, toBoardData } from "@/lib/board-engine/view";
+import { gameHistory, playerMatches, toBoardData } from "@/lib/board-engine/view";
+import { MatchHistoryDialog } from "@/components/app/match-history-dialog";
 import { PlayerHistoryDialog } from "@/components/app/player-history";
 import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
 import type { BoardMatch, BoardPlayer } from "@/lib/board-types";
@@ -377,6 +378,8 @@ export function QueueBoard({
     renameCourt,
     restoreMatch,
     cancelMatch,
+    setMatchRecord,
+    editFinishedMatch,
     checkInPlayer,
     undoCheckIn,
     clearSuggestedMatches,
@@ -426,6 +429,9 @@ export function QueueBoard({
     () => (historyFor ? playerMatches(state, historyFor.playerId) : []),
     [state, historyFor],
   );
+  // Match history: open, and the game to jump to (from a "Recently finished" row).
+  const [matchHistory, setMatchHistory] = React.useState<{ focusId: string | null } | null>(null);
+  const finishedGames = React.useMemo(() => gameHistory(state), [state]);
   const [query, setQuery] = React.useState("");
   const [checkOpen, setCheckOpen] = React.useState(false);
   const [checkQuery, setCheckQuery] = React.useState("");
@@ -1342,7 +1348,11 @@ export function QueueBoard({
           </span>
         </button>
       ))}
-      <span aria-hidden className="bg-line mx-1 my-1.5 w-px shrink-0" />
+    </>
+  );
+  // Next to the queue's title (or beside search in the phone panel), always in view.
+  const bracketToggle = (
+    <>
       <button
         type="button"
         title="Group the list by bracket: A, B, C, D, E"
@@ -2001,19 +2011,23 @@ export function QueueBoard({
                 </>
               )}
 
-              {data.recentMatches.length > 0 && (
+              {finishedGames.length > 0 && (
                 <div data-trim-id="board.recent" className="border-line bg-paper/70 rounded-2xl border p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-muted text-[11px] font-bold tracking-[0.16em] uppercase">
                       Recently finished
                     </h3>
-                    <Link
-                      href={`/app/gamedays/${data.gameDay.id}/reports`}
-                      className="text-forest text-[11px] font-semibold hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => setMatchHistory({ focusId: null })}
+                      className="text-forest inline-flex min-h-9 items-center gap-1 text-[12px] font-semibold hover:underline"
                     >
-                      All matches
-                    </Link>
+                      <History className="h-3.5 w-3.5" /> Match history ({finishedGames.length})
+                    </button>
                   </div>
+                  {data.recentMatches.length === 0 && (
+                    <p className="text-muted text-[12px]">No recorded games yet.</p>
+                  )}
                   <div className="space-y-2">
                     {data.recentMatches.slice(0, 4).map((match) => (
                       <div
@@ -2033,6 +2047,14 @@ export function QueueBoard({
                           <CircleCheck className="text-forest inline h-3 w-3 align-[-2px]" />{" "}
                           {match.endedAt ? formatClock(match.endedAt) : "Done"}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => setMatchHistory({ focusId: match.id })}
+                          title="Make it free or not recorded, or fix who played"
+                          className="border-line text-ink-soft hover:border-forest hover:bg-lime/20 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition"
+                        >
+                          <Pencil className="h-3 w-3" /> Edit
+                        </button>
                         {!isCompleted && (
                           <button
                             type="button"
@@ -2069,6 +2091,7 @@ export function QueueBoard({
                         <div className="hide-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto">
                           {queueTabs}
                         </div>
+                        {!queueMinimized && bracketToggle}
                         {!queueMinimized && (
                           <button
                             type="button"
@@ -2124,9 +2147,12 @@ export function QueueBoard({
                   <div className="border-line/80 border-b px-4 pt-4 pb-3">
                     <div className="flex items-center justify-between">
                       <h2 className="font-display text-lg font-bold tracking-tight">The queue</h2>
-                      <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
-                        <Users className="h-3 w-3" /> {data.players.length}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {bracketToggle}
+                        <span className="bg-cream-deep text-ink-soft inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono text-[10px] font-bold">
+                          <Users className="h-3 w-3" /> {data.players.length}
+                        </span>
+                      </div>
                     </div>
                     <div className="hide-scrollbar mt-3 flex gap-1 overflow-x-auto">{queueTabs}</div>
                     <div className="relative mt-3">{queueSearch}</div>
@@ -2157,6 +2183,20 @@ export function QueueBoard({
           </div>
 
           <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
+
+          <MatchHistoryDialog
+            open={matchHistory !== null}
+            onClose={() => setMatchHistory(null)}
+            focusId={matchHistory?.focusId}
+            matches={finishedGames}
+            players={data.players}
+            courtLabel={(court) => courtName(slot, court)}
+            reportsHref={`/app/gamedays/${data.gameDay.id}/reports`}
+            locked={isCompleted}
+            pending={pending}
+            onSetRecord={(matchId, record) => act(() => setMatchRecord(matchId, record))}
+            onEditPlayers={(matchId, team1, team2) => act(() => editFinishedMatch(matchId, team1, team2))}
+          />
 
           <PlayerHistoryDialog
             open={historyFor !== null}

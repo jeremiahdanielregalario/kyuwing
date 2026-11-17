@@ -20,6 +20,8 @@ const LABELS: Record<BoardOp["type"], string> = {
   completeMatch: "Finish game",
   restoreMatch: "Restore game",
   cancelMatch: "Cancel game",
+  setMatchRecord: "Count a finished game",
+  editFinishedMatch: "Fix a finished game",
   updateLineup: "Change lineup",
   updateCourt: "Change court",
   manualMatch: "Make a game",

@@ -7,6 +7,7 @@ import {
   createdId,
   hasPlayer,
   isActive,
+  isFinishedGame,
   nextRound,
   newMatch,
   playerById,
@@ -498,4 +499,113 @@ export function clearSuggestedMatches(state: EngineState): ActionResult {
   );
   const count = before - state.matches.length;
   return ok(count ? `${count} suggestions cleared.` : "No suggestions to clear.");
+}
+
+/** How a finished game counts: toward games and fees, played free, or left off the record. */
+export type MatchRecord = "counted" | "free" | "unrecorded";
+
+export function recordOf(match: EngineMatch): MatchRecord {
+  if (match.status !== "COMPLETED") return "unrecorded";
+  return match.free ? "free" : "counted";
+}
+
+const RECORD_DONE: Record<MatchRecord, string> = {
+  counted: "counts as a game again",
+  free: "is now a free game, not counted",
+  unrecorded: "is off the record",
+};
+
+function finishedGameEditable(state: EngineState, match: EngineMatch | undefined): ActionResult | null {
+  if (!match) return fail("Match not found.");
+  if (!isFinishedGame(match)) return fail("Only finished games can be changed here.");
+  if (state.gameDay.status === "COMPLETED")
+    return fail("This game day is closed. Reopen it in Settings to change its games.");
+  return null;
+}
+
+/** Adds `delta` games to each of these players, never going below zero. */
+function addGames(state: EngineState, playerIds: string[], delta: number) {
+  if (delta === 0) return;
+  const ids = new Set(playerIds);
+  for (const row of state.players)
+    if (ids.has(row.playerId)) row.gamesPlayed = Math.max(0, row.gamesPlayed + delta);
+}
+
+/**
+ * Change how a finished game counts. Counted adds one game (and its fee) for each of the four,
+ * free and not recorded don't; moving between them adjusts their game counts. A game that's not
+ * recorded also drops out of the match list, the reports and the pairing history.
+ */
+export function setMatchRecord(
+  state: EngineState,
+  ctx: OpContext,
+  matchId: string,
+  record: MatchRecord,
+): ActionResult {
+  if (!Object.hasOwn(RECORD_DONE, record)) return fail("Choose counted, free or not recorded.");
+  const match = findMatch(state, matchId);
+  const refused = finishedGameEditable(state, match);
+  if (refused) return refused;
+  const game = match!;
+  const before = recordOf(game);
+  const name = courtNamer(state, ctx.at)(game.courtNumber);
+  if (before === record) return ok(`The game on ${name} ${RECORD_DONE[record]}.`);
+
+  addGames(
+    state,
+    game.players.map((row) => row.playerId),
+    Number(record === "counted") - Number(before === "counted"),
+  );
+  Object.assign(game, {
+    status: record === "unrecorded" ? "CANCELLED" : "COMPLETED",
+    free: record === "free",
+    updatedAt: ctx.at,
+  });
+  return ok(`The game on ${name} ${RECORD_DONE[record]}.`);
+}
+
+/**
+ * Fix who played a finished game. If it counts, whoever comes off loses that game and whoever
+ * goes on gains it. Only players checked in today can be put in.
+ */
+export function editFinishedMatch(
+  state: EngineState,
+  ctx: OpContext,
+  matchId: string,
+  team1: string[],
+  team2: string[],
+): ActionResult {
+  if (team1.length !== 2 || team2.length !== 2) return fail("Each team needs exactly two players.");
+  const all = [...team1, ...team2];
+  if (new Set(all).size !== 4) return fail("A player cannot appear twice in one match.");
+  const match = findMatch(state, matchId);
+  const refused = finishedGameEditable(state, match);
+  if (refused) return refused;
+  const game = match!;
+
+  // Only the players being put in are checked; whoever already played it can stay.
+  const before = game.players.map((row) => row.playerId);
+  const rows = all.filter((id) => !before.includes(id)).map((id) => playerById(state, id));
+  if (rows.some((row) => row === undefined)) return fail("All four players must be on this game day.");
+  const notHere = rows.find((row) => row!.status === "EXPECTED");
+  if (notHere) return fail(`${notHere.nickname} hasn't checked in today.`);
+
+  if (recordOf(game) === "counted") {
+    addGames(
+      state,
+      before.filter((id) => !all.includes(id)),
+      -1,
+    );
+    addGames(
+      state,
+      all.filter((id) => !before.includes(id)),
+      1,
+    );
+  }
+  game.players = [
+    ...team1.map((playerId, index) => ({ playerId, team: 1, slot: index + 1 })),
+    ...team2.map((playerId, index) => ({ playerId, team: 2, slot: index + 1 })),
+  ];
+  game.updatedAt = ctx.at;
+  return ok(`Players on the ${courtNamer(state, ctx.at)(game.courtNumber)} game updated.`);
 }

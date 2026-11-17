@@ -154,3 +154,15 @@ export function seedFrom(id: string): number {
 export function createdId(ctx: OpContext, suffix: string | number): string {
   return `${ctx.id}-${suffix}`;
 }
+
+/**
+ * A game that was played and is over: finished normally, or taken off the record ("not
+ * recorded", stored as CANCELLED with its start and end times). Cancelled plans that never
+ * started have no start time and are not games.
+ */
+export function isFinishedGame(match: EngineMatch): boolean {
+  return (
+    match.status === "COMPLETED" ||
+    (match.status === "CANCELLED" && match.startedAt !== null && match.endedAt !== null)
+  );
+}

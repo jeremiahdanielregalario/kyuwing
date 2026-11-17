@@ -6,6 +6,7 @@ import { fail, ok } from "@/lib/action-result";
 import type { ActionResult } from "@/lib/action-result";
 import { isQueueMaster } from "@/lib/auth";
 import type { BoardOpBody, OpResult } from "@/lib/board-engine/ops";
+import type { MatchRecord } from "@/lib/board-engine/matches";
 import type { PaymentInput } from "@/lib/board-engine/fees";
 import type { GenerateOptions } from "@/lib/board-engine/generate";
 import { runOps } from "@/lib/board-store";
@@ -365,6 +366,20 @@ export async function restoreMatch(matchId: string): Promise<ActionResult> {
 
 export async function cancelMatch(matchId: string): Promise<ActionResult> {
   return run(await dayOfMatch(matchId), { type: "cancelMatch", matchId });
+}
+
+/** Count a finished game, make it a free game, or take it off the record. */
+export async function setMatchRecord(matchId: string, record: MatchRecord): Promise<ActionResult> {
+  return run(await dayOfMatch(matchId), { type: "setMatchRecord", matchId, record });
+}
+
+/** Fix who played a finished game. */
+export async function editFinishedMatch(
+  matchId: string,
+  team1: string[],
+  team2: string[],
+): Promise<ActionResult> {
+  return run(await dayOfMatch(matchId), { type: "editFinishedMatch", matchId, team1, team2 });
 }
 
 export async function updateMatchPlayers(

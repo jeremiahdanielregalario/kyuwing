@@ -2,6 +2,7 @@ import { fail, type ActionResult } from "@/lib/action-result";
 import type { PaymentInput } from "@/lib/board-engine/fees";
 import type { GenerateOptions } from "@/lib/board-engine/generate";
 import type { BoardOpBody, OpResult } from "@/lib/board-engine/ops";
+import type { MatchRecord } from "@/lib/board-engine/matches";
 import type { EngineState } from "@/lib/board-engine/types";
 import type { CourtSetup } from "@/lib/court-setup";
 
@@ -67,6 +68,9 @@ export function makeGameDayActions(gameDayId: string, run: Run, current: () => E
     completeMatch: (matchId: string) => go({ type: "completeMatch", matchId }),
     restoreMatch: (matchId: string) => go({ type: "restoreMatch", matchId }),
     cancelMatch: (matchId: string) => go({ type: "cancelMatch", matchId }),
+    setMatchRecord: (matchId: string, record: MatchRecord) => go({ type: "setMatchRecord", matchId, record }),
+    editFinishedMatch: (matchId: string, team1: string[], team2: string[]) =>
+      go({ type: "editFinishedMatch", matchId, team1, team2 }),
     updateMatchPlayers: (matchId: string, team1: string[], team2: string[]) =>
       go({ type: "updateLineup", matchId, team1, team2 }),
     updateMatchCourt: (matchId: string, courtNumber: number) =>
