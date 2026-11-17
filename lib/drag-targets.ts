@@ -33,6 +33,22 @@ export function canDropOn(active: DragData | undefined, target: DropData | undef
   }
 }
 
+export type DropVerbData = { kind: string; matchId?: string; live?: boolean };
+
+/**
+ * What dropping on a player's box in game `targetMatchId` does, shown on the box while a player
+ * is held over it: "Replace" (they take the place and the other goes back to the queue) or
+ * "Swap with" (the two trade places: within one game, or out of a game being played).
+ */
+export function dropVerb(
+  active: DropVerbData | undefined,
+  targetMatchId: string,
+): "Replace" | "Swap with" | null {
+  if (active?.kind === "queue-player") return "Replace";
+  if (active?.kind !== "match-player") return null;
+  return active.matchId === targetMatchId || active.live ? "Swap with" : "Replace";
+}
+
 /** A picked item for tap-to-move: the same shape as a drag payload. */
 export type PickData = DragData & { courtNumber?: number; playerId?: string; status?: string };
 export type TapTargetData = DropData & { courtNumber?: number; playerId?: string };

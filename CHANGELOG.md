@@ -6,7 +6,8 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
-- **Player states at a glance, and a Queued tab** — queue blocks are now coloured by where the player is: green with the court's name when on court, gold with "Waiting 1" (or the court) when already in a paired game, plain while still waiting for one. A player on court who is planned into a waiting game also shows "Next: Waiting 1". The queue has new **All** and **Queued** tabs, so **Waiting** lists only players who still need a game.
+- **Queue by bracket** — **By bracket** at the end of the queue tabs groups the list under A, B, C, D and E (strongest first, with a count each), keeping the line order inside each bracket.
+- **Player states at a glance, and a Queued tab** — queue blocks are now coloured by where the player is: green with the court's name when on court, gold with "Waiting 1" (or the court) when already in a paired game, plain while still waiting for one. A player on court who is planned into a waiting game also shows "Next: Waiting 1". The queue has new **All** and **Queued** tabs.
 - **Match history for each player** — **⋮ → Match history** on any waiting, on-court or done player shows their games today: partner and opponents, court, start and end time and length, with the game on court now first.
 - **The Messenger list reads more full names** — a full name is now recognised with only the first given name ("Ian San Miguel"), without the middle name ("Timothy Kyle Arias"), or with the middle name as an initial, with or without the period ("Yanni Jose C. Ella"). A middle name written out also fits one stored as an initial ("Ildren Josh Vergara Brosoto" for "BROSOTO, Ildren Josh Lee V."), and tags the chat adds to a name in square brackets, like "[Batch O] Ethan" for this semester's applicants, are ignored. A full name with a small spelling slip ("Jasmine" for "Jazmine") gets a **Use "…"** button instead of guessing from the first word.
 - **Bracket spread on Sign-ups** — the game day's Sign-ups page now opens with the same bracket chart as Players, counting everyone on that game day's list (checked in or not) per bracket, E to A, with players not rated yet (X) noted beside it. It updates as players are added or removed.
@@ -83,6 +84,9 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Replacing a player by dragging** — dropping a player from a waiting game (or a game that hasn't started) onto someone in another game now replaces them: the replaced player goes back to the queue, keeping their place in line, and the game the player came from keeps its other three for **Fill the rest**. It used to swap the two, sending the court player into the waiting game. While a player is held over a box, the box says **Replace …** or **Swap with …**. A drop in open space no longer jumps to the nearest place across the board (such as the empty waiting court), and press-and-hold to drag on a tablet is a little quicker.
+- **Cancel is easy to see** — the faint ⊗ on court cards is now a solid coral **✕ Cancel** button (a solid ✕ on narrow cards).
+- **Waiting shows everyone checked in** — the **Waiting** tab now lists players still needing a game first, then (highlighted gold) those already in a paired game and (green) those on court, so the whole line is in one place.
 - **Auto-pair goes by arrival** — the queue works like a line: players join the back when they check in and again after each game, and whoever has waited longest is paired first, with earlier arrivals first when waits are equal. A late arrival now waits their turn behind everyone already waiting, instead of having missed games counted as played. Games played now only breaks near-ties.
 
 - **Players list is tidier** — the "Also goes by …" line under each player's name is gone. A player's other names still work the same and are shown and edited under **Also goes by** in the player's edit form.
@@ -152,6 +156,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- **Cancelling a game no longer resets waits** — cancelling a game in progress (or taking a player off one) used to restart those players' wait at zero, as if they had just played. They now keep their place in line and their wait carries on.
 - **Level shown once per player** — the Players list and the board's check-in list showed each level twice (a small tag on the initials circle and the coloured badge by the name). Only the coloured badge is shown now.
 - **Court plan row no longer jumps** — the small dot that flashed inside the court block button while the board synced is gone (the header already says "Syncing board…"), so the button keeps its width. On phones the "Court plan" label is hidden so the block and the Manila clock fit on one line.
 - **Players dropped on a court can be moved again** — a player placed in an open court's slot used to be stuck there (only ⊗ worked). They can now be dragged or tapped to another place, court or game, and two placed players trade places. A player can no longer sit in two court places at once.

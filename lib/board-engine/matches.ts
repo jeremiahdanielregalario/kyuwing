@@ -229,14 +229,15 @@ export function cancelMatch(state: EngineState, ctx: OpContext, matchId: string)
   if (match.status === "COMPLETED") return fail("Completed matches cannot be cancelled.");
   const wasLive = match.status === "LIVE";
   Object.assign(match, { status: "CANCELLED", endedAt: ctx.at, updatedAt: ctx.at });
+  // A cancelled game was not played: everyone keeps their place in line (their wait carries on).
   if (wasLive)
     updatePlayers(
       state,
       match.players.map((row) => row.playerId),
-      { status: "WAITING", queuedAt: ctx.at },
+      { status: "WAITING" },
     );
   const hint = match.courtNumber === QUEUED_COURT ? "" : transferHint(state);
-  return ok(`Match cancelled. Players stay in the queue.${hint}`);
+  return ok(`Match cancelled. Players keep their place in line.${hint}`);
 }
 
 export function updateMatchPlayers(
@@ -276,11 +277,12 @@ export function updateMatchPlayers(
     if (notIn) return fail(`${notIn.nickname} is not on the board (${notIn.status.toLowerCase()}).`);
   }
 
+  // Someone taken off a live game did not play it, so they keep their place in line.
   if (match.status === "LIVE")
     updatePlayers(
       state,
       match.players.map((row) => row.playerId),
-      { status: "WAITING", queuedAt: ctx.at },
+      { status: "WAITING" },
     );
   match.players = [
     ...team1.map((playerId, index) => ({ playerId, team: 1, slot: index + 1 })),

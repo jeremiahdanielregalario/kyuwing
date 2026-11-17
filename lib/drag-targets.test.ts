@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canDropOn, canTapOn, eventPoint, samePick } from "./drag-targets";
+import { canDropOn, canTapOn, dropVerb, eventPoint, samePick } from "./drag-targets";
 
 const court = { kind: "court" };
 const courtWithGame = (matchId: string) => ({ kind: "court", matchId });
@@ -87,6 +87,23 @@ describe("canTapOn", () => {
     expect(canTapOn(waiting, { kind: "court", courtNumber: 0 }, courtOf)).toBe(false);
     const onCourt = { kind: "match", matchId: "m1", courtNumber: 1 };
     expect(canTapOn(onCourt, { kind: "court", courtNumber: 0 }, courtOf)).toBe(false);
+  });
+});
+
+describe("dropVerb", () => {
+  it("replaces when a queue player or a player from an unstarted game lands on someone", () => {
+    expect(dropVerb({ kind: "queue-player" }, "m1")).toBe("Replace");
+    expect(dropVerb({ kind: "match-player", matchId: "m2" }, "m1")).toBe("Replace");
+  });
+
+  it("swaps within one game, or out of a game being played", () => {
+    expect(dropVerb({ kind: "match-player", matchId: "m1" }, "m1")).toBe("Swap with");
+    expect(dropVerb({ kind: "match-player", matchId: "m2", live: true }, "m1")).toBe("Swap with");
+  });
+
+  it("says nothing for a court card", () => {
+    expect(dropVerb({ kind: "match", matchId: "m2" }, "m1")).toBeNull();
+    expect(dropVerb(undefined, "m1")).toBeNull();
   });
 });
 

@@ -163,6 +163,42 @@ describe("board engine", () => {
     );
   });
 
+  it("keeps everyone's place in line when a live game is cancelled or a player is swapped out", () => {
+    let state = checkInAll(fixture(10));
+    state = applyOp(state, op({ type: "generate" })).state;
+    const [a, b] = state.matches;
+    const queuedBefore = new Map(state.players.map((row) => [row.playerId, row.queuedAt]));
+    state = applyOp(state, op({ type: "startMatch", matchId: a.id }, AT_9 + 60_000)).state;
+    state = applyOp(state, op({ type: "startMatch", matchId: b.id }, AT_9 + 60_000)).state;
+
+    // Cancelled: back to waiting with the same queue time, no game counted.
+    state = applyOp(state, op({ type: "cancelMatch", matchId: a.id }, AT_9 + 5 * 60_000)).state;
+    for (const row of a.players) {
+      const player = state.players.find((item) => item.playerId === row.playerId)!;
+      expect(player).toMatchObject({
+        status: "WAITING",
+        gamesPlayed: 0,
+        queuedAt: queuedBefore.get(row.playerId),
+      });
+    }
+
+    // One player on the other court replaced by someone waiting: they keep their queue time too.
+    const out = b.players.find((row) => row.team === 1)!.playerId;
+    const team1 = [
+      a.players[0].playerId,
+      b.players.find((row) => row.team === 1 && row.playerId !== out)!.playerId,
+    ];
+    const team2 = b.players.filter((row) => row.team === 2).map((row) => row.playerId);
+    state = applyOp(
+      state,
+      op({ type: "updateLineup", matchId: b.id, team1, team2 }, AT_9 + 6 * 60_000),
+    ).state;
+    expect(state.players.find((row) => row.playerId === out)).toMatchObject({
+      status: "WAITING",
+      queuedAt: queuedBefore.get(out),
+    });
+  });
+
   it("won't pull a player from another court into a line-up", () => {
     let state = checkInAll(fixture(8));
     state = applyOp(state, op({ type: "generate" })).state;

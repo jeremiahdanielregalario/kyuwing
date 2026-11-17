@@ -40,6 +40,7 @@ import {
   GripVertical,
   History,
   HeartHandshake,
+  Layers,
   LayoutGrid,
   ListOrdered,
   Link2,
@@ -64,6 +65,7 @@ import {
   UserRoundPlus,
   Users,
   Wand2,
+  X,
   XCircle,
   Zap,
   ArrowRightToLine,
@@ -93,8 +95,9 @@ import {
   removeFromDrafts,
   type CourtDrafts,
 } from "@/lib/court-drafts";
-import { canDropOn, canTapOn, eventPoint, samePick } from "@/lib/drag-targets";
+import { canDropOn, canTapOn, dropVerb, eventPoint, samePick, type DropVerbData } from "@/lib/drag-targets";
 import { mismatchWarning } from "@/lib/mismatch";
+import { byBracket, waitingList } from "@/lib/queue-view";
 import { GAME_MINUTES, planTimeline } from "@/lib/planning";
 import {
   courtName,
@@ -182,6 +185,8 @@ type DragPayload =
       slot: number;
       nickname: string;
       level: string;
+      /** The game is being played: moving out of it swaps rather than leaving a gap. */
+      live?: boolean;
     }
   | {
       kind: "queue-player";
@@ -193,9 +198,10 @@ type DragPayload =
       fromDraft?: { courtNumber: number; index: number };
     };
 
+type SlotTarget = { kind: "slot"; matchId: string; team: number; slot: number; playerId: string };
 type DropTarget =
   | { kind: "court"; courtNumber: number; matchId?: string }
-  | { kind: "slot"; matchId: string; team: number; slot: number; playerId: string }
+  | SlotTarget
   | { kind: "draft-slot"; courtNumber: number; index: number }
   /** The queue itself: a player dragged back here leaves the court place or unstarted game. */
   | { kind: "queue" };
@@ -245,13 +251,32 @@ const collisionFor: CollisionDetection = (args) => {
   }
   const under = pointerWithin(scoped);
   if (under.length > 0) return under;
-  // The queue only counts when the pointer is really over it, never as "the nearest thing".
+  // A near miss lands on the nearest box only when it is within a finger's width of the pointer,
+  // so a drop between two places never jumps to something across the board (such as the empty
+  // waiting court). The queue only counts when the pointer is really over it.
+  const near = scoped.droppableContainers.filter((container) => {
+    if (container === queueZone) return false;
+    const rect = args.droppableRects.get(container.id);
+    return !!rect && distanceToRect(point, rect) <= NEAR_MISS_PX;
+  });
+  if (near.length === 0) return [];
   return closestCenter({
     ...scoped,
-    droppableContainers: scoped.droppableContainers.filter((container) => container !== queueZone),
+    droppableContainers: near,
     collisionRect: { top: point.y, left: point.x, bottom: point.y, right: point.x, width: 0, height: 0 },
   });
 };
+
+/** How far outside a drop target a pointer may be let go and still land on it. */
+const NEAR_MISS_PX = 28;
+function distanceToRect(
+  point: { x: number; y: number },
+  rect: { left: number; top: number; width: number; height: number },
+) {
+  const dx = Math.max(rect.left - point.x, 0, point.x - (rect.left + rect.width));
+  const dy = Math.max(rect.top - point.y, 0, point.y - (rect.top + rect.height));
+  return Math.hypot(dx, dy);
+}
 
 const QUEUE_ZONE_ID = "queue-zone";
 
@@ -265,6 +290,13 @@ const overlayAtPointer: Modifier = ({ activatorEvent, activeNodeRect, transform 
     y: transform.y + point.y - activeNodeRect.top,
   };
 };
+
+/**
+ * The court card's Cancel: solid coral, so it reads on the dark card at a glance, labelled when
+ * the card is wide enough (the button row is a size container).
+ */
+const CANCEL_BUTTON =
+  "bg-coral text-paper ring-paper/25 inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-full px-2 @min-[19rem]/actions:px-2.5 text-[12px] font-bold shadow-sm ring-1 transition";
 
 /** Phones and tablets below `lg`, where the queue is not a side column. */
 const NARROW_QUERY = "(max-width: 1023.98px)";
@@ -387,6 +419,8 @@ export function QueueBoard({
   const [pending, startTransition] = React.useTransition();
 
   const [tab, setTab] = React.useState<QueueTab>("waiting");
+  /** Group the queue list by bracket (A to E) instead of one line. */
+  const [queueByBracket, setQueueByBracket] = React.useState(false);
   const [historyFor, setHistoryFor] = React.useState<BoardPlayer | null>(null);
   const history = React.useMemo(
     () => (historyFor ? playerMatches(state, historyFor.playerId) : []),
@@ -456,7 +490,7 @@ export function QueueBoard({
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     // Press and hold to pick up on a tablet, so a quick swipe still scrolls the queue.
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -535,6 +569,57 @@ export function QueueBoard({
    * paired game that hasn't started, the game is taken apart: they go back to the queue and the
    * other three stay on the court as hand-placed players (same sides), ready for Fill the rest.
    */
+  /**
+   * Takes one player out of a game that hasn't started: the game is cancelled and, when the court
+   * can keep them, the other three stay on it as hand-placed players (same sides), ready for Fill
+   * the rest. Returns whether they stayed. `then` runs after the cancel succeeds.
+   */
+  const takeOutOf = (
+    match: BoardMatch,
+    playerId: string,
+    then: (kept: boolean) => Promise<AnyResult | void> | void,
+  ) => {
+    const court = match.courtNumber;
+    const places = [match.team1[0], match.team1[1], match.team2[0], match.team2[1]].map((row) =>
+      row && row.playerId !== playerId ? row.playerId : null,
+    );
+    // The others can only stay if the court stays empty: a waiting game would move onto a freed
+    // court, and the waiting court has one set of places.
+    const keep =
+      court === QUEUED_COURT
+        ? !(drafts[QUEUED_COURT] ?? EMPTY_DRAFT).some(Boolean)
+        : !data.activeMatches.some((item) => item.courtNumber === QUEUED_COURT);
+    if (keep) {
+      setDrafts((prev) => {
+        const cleared = places.reduce<CourtDrafts>(
+          (all, id) => (id ? removeFromDrafts(all, id) : all),
+          removeFromDrafts(prev, playerId),
+        );
+        return { ...cleared, [court]: places };
+      });
+    }
+    startTransition(async () => {
+      const result = await cancelMatch(match.id);
+      if (!result.ok) {
+        refresh();
+        if (keep) setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
+        haptic("warning");
+        toast.error(result.error);
+        return;
+      }
+      const next = await then(keep);
+      if (next && !next.ok) {
+        refresh();
+        haptic("warning");
+        toast.error(next.error);
+      }
+    });
+  };
+
+  /**
+   * A player taken off a court goes back to the queue. From a paired game that hasn't started,
+   * the game is taken apart (see `takeOutOf`).
+   */
   const returnToQueue = (active: DragPayload) => {
     if (active.kind === "queue-player") {
       if (active.fromDraft) setDrafts((prev) => removeFromDrafts(prev, active.playerId));
@@ -547,40 +632,46 @@ export function QueueBoard({
       toast.error(`${active.nickname} is playing. Finish or cancel the game first.`);
       return;
     }
-    const court = match.courtNumber;
-    const places = [match.team1[0], match.team1[1], match.team2[0], match.team2[1]].map((row) =>
-      row && row.playerId !== active.playerId ? row.playerId : null,
-    );
-    // The others can only stay if the court stays empty: a waiting game would move onto a freed
-    // court, and the waiting court has one set of places.
-    const keep =
-      court === QUEUED_COURT
-        ? !(drafts[QUEUED_COURT] ?? EMPTY_DRAFT).some(Boolean)
-        : !data.activeMatches.some((item) => item.courtNumber === QUEUED_COURT);
-    if (keep) {
-      setDrafts((prev) => {
-        const cleared = places.reduce<CourtDrafts>(
-          (all, id) => (id ? removeFromDrafts(all, id) : all),
-          removeFromDrafts(prev, active.playerId),
-        );
-        return { ...cleared, [court]: places };
-      });
+    takeOutOf(match, active.playerId, (keep) => {
+      haptic("success");
+      toast.success(
+        keep
+          ? `${active.nickname} is back in the queue. The other three stay on the court.`
+          : `${active.nickname} is back in the queue. The game was taken apart.`,
+      );
+    });
+  };
+
+  /**
+   * A player from one game dropped on a player in another: they take that place and the player
+   * they replace goes back to the queue (keeping their place in line). The game they came from
+   * keeps its other three, ready for Fill the rest. Games already playing swap instead, so a
+   * running court never drops to three.
+   */
+  const replaceAcross = (active: Extract<DragPayload, { kind: "match-player" }>, over: SlotTarget) => {
+    const from = data.activeMatches.find((item) => item.id === active.matchId);
+    const to = data.activeMatches.find((item) => item.id === over.matchId);
+    if (!from || !to) return;
+    if (from.status === "LIVE") {
+      act(() => swapMatchPlayers(active.matchId, active.playerId, over.matchId, over.playerId));
+      return;
     }
-    startTransition(async () => {
-      const result = await cancelMatch(match.id);
-      if (result.ok) {
-        haptic("success");
-        toast.success(
-          keep
-            ? `${active.nickname} is back in the queue. The other three stay on the court.`
-            : `${active.nickname} is back in the queue. The game was taken apart.`,
-        );
-      } else {
-        refresh();
-        if (keep) setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
-        haptic("warning");
-        toast.error(result.error);
-      }
+    const replaced = playerById.get(over.playerId)?.nickname ?? "They";
+    const lineup = lineupOf(to);
+    const team1 = lineup.team1.map((id) => (id === over.playerId ? active.playerId : id));
+    const team2 = lineup.team2.map((id) => (id === over.playerId ? active.playerId : id));
+    if ([...team1, ...team2].filter((id) => id === active.playerId).length > 1) {
+      toast.error(`${active.nickname} is already in that game.`);
+      return;
+    }
+    takeOutOf(from, active.playerId, async (keep) => {
+      const result = await updateMatchPlayers(to.id, team1, team2);
+      if (!result.ok) return result;
+      haptic("success");
+      toast.success(
+        `${active.nickname} replaces ${replaced}, who is back in the queue.` +
+          (keep ? " The other three wait for Fill the rest." : ""),
+      );
     });
   };
 
@@ -658,7 +749,7 @@ export function QueueBoard({
     if (active.kind === "match-player") {
       if (over.kind !== "slot" || over.playerId === active.playerId) return;
       if (over.matchId !== active.matchId) {
-        act(() => swapMatchPlayers(active.matchId, active.playerId, over.matchId, over.playerId));
+        replaceAcross(active, over);
         return;
       }
 
@@ -930,10 +1021,18 @@ export function QueueBoard({
     done: 0,
   };
   for (const player of data.players) tabCounts[tabOf(player)] += 1;
+  // The Waiting tab is everyone checked in: free players, then (highlighted) those in a paired
+  // game and those on court.
+  tabCounts.waiting += tabCounts.queued + tabCounts.playing;
 
-  const visible = sortedQueue
-    .filter((player) => tab === "all" || tabOf(player) === tab)
-    .filter((player) => player.nickname.toLowerCase().includes(query.toLowerCase()));
+  const visible = (
+    tab === "waiting"
+      ? waitingList(sortedQueue, tabOf)
+      : sortedQueue.filter((player) => tab === "all" || tabOf(player) === tab)
+  ).filter((player) => player.nickname.toLowerCase().includes(query.toLowerCase()));
+  const visibleGroups = queueByBracket
+    ? byBracket(visible)
+    : [{ bracket: null, label: "", players: visible }];
 
   const expected = data.players
     .filter((player) => player.status === "EXPECTED")
@@ -1216,7 +1315,11 @@ export function QueueBoard({
       {(
         [
           ["all", "All", "Everyone on today's list"],
-          ["waiting", "Waiting", "Checked in and not in a paired game yet"],
+          [
+            "waiting",
+            "Waiting",
+            "Everyone checked in: free first, then highlighted ones in a game or on court",
+          ],
           ["queued", "Queued", "In a paired game, waiting for a court or to start"],
           ["playing", "On court", "Playing now"],
           ["expected", "Expected", "Signed up, not checked in"],
@@ -1239,6 +1342,21 @@ export function QueueBoard({
           </span>
         </button>
       ))}
+      <span aria-hidden className="bg-line mx-1 my-1.5 w-px shrink-0" />
+      <button
+        type="button"
+        title="Group the list by bracket: A, B, C, D, E"
+        aria-pressed={queueByBracket}
+        onClick={() => setQueueByBracket((on) => !on)}
+        className={cn(
+          "press inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-2 text-[11px] font-semibold",
+          queueByBracket
+            ? "border-forest bg-forest text-cream"
+            : "border-line text-muted hover:bg-cream-deep",
+        )}
+      >
+        <Layers className="h-3 w-3" /> By bracket
+      </button>
     </>
   );
   const queueSearch = (
@@ -1259,7 +1377,7 @@ export function QueueBoard({
           ? "No player matches that search."
           : {
               all: "No players on the list yet.",
-              waiting: "Nobody waiting without a game.",
+              waiting: "Nobody checked in yet.",
               queued: "Nobody in a paired game.",
               playing: "Nobody on court.",
               expected: "Nobody else expected.",
@@ -1269,36 +1387,50 @@ export function QueueBoard({
     ) : (
       // Blocks glide to their new places when the order changes.
       <FlipList
-        order={visible.map((player) => player.sessionPlayerId).join(" ")}
+        order={visibleGroups
+          .flatMap((group) => group.players.map((player) => player.sessionPlayerId))
+          .join(" ")}
         className="grid grid-cols-[repeat(auto-fill,minmax(10.25rem,1fr))] gap-1.5"
       >
-        {visible.map((player) => (
-          <QueueRow
-            key={player.sessionPlayerId}
-            // Not tied to `pending`: the blocks keep their outline and stay draggable while a move saves.
-            draggable={(player.status === "WAITING" || player.status === "PLAYING") && !isCompleted}
-            drafted={draftedIds.has(player.playerId)}
-            place={places.get(player.playerId)}
-            onHistory={() => setHistoryFor(player)}
-            onQuickAdd={isCompleted || pairedIds.has(player.playerId) ? undefined : () => quickAdd(player)}
-            onReturn={() => setDrafts((prev) => removeFromDrafts(prev, player.playerId))}
-            player={player}
-            pending={pending}
-            onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
-            onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
-            onDone={() =>
-              setConfirmSpec({
-                title: `Mark ${player.nickname} done for the day?`,
-                description: "They leave the board and stop receiving games.",
-                confirmLabel: "Mark done",
-                cancelLabel: "Not yet",
-                onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
-              })
-            }
-            onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
-            onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
-          />
-        ))}
+        {visibleGroups.flatMap((group) => [
+          group.bracket ? (
+            <div
+              key={`bracket-${group.bracket}`}
+              className="text-muted col-span-full flex items-baseline gap-2 px-1 pt-2 first:pt-0"
+            >
+              <span className="text-ink font-display text-[13px] font-bold">{group.bracket}</span>
+              <span className="text-[10px] font-semibold tracking-[0.12em] uppercase">{group.label}</span>
+              <span className="font-mono text-[10px]">{group.players.length}</span>
+            </div>
+          ) : null,
+          ...group.players.map((player) => (
+            <QueueRow
+              key={player.sessionPlayerId}
+              // Not tied to `pending`: the blocks keep their outline and stay draggable while a move saves.
+              draggable={(player.status === "WAITING" || player.status === "PLAYING") && !isCompleted}
+              drafted={draftedIds.has(player.playerId)}
+              place={places.get(player.playerId)}
+              onHistory={() => setHistoryFor(player)}
+              onQuickAdd={isCompleted || pairedIds.has(player.playerId) ? undefined : () => quickAdd(player)}
+              onReturn={() => setDrafts((prev) => removeFromDrafts(prev, player.playerId))}
+              player={player}
+              pending={pending}
+              onCheckIn={() => act(() => checkInPlayer(player.sessionPlayerId))}
+              onUndoCheckIn={() => undoCheckInFor(player.sessionPlayerId)}
+              onDone={() =>
+                setConfirmSpec({
+                  title: `Mark ${player.nickname} done for the day?`,
+                  description: "They leave the board and stop receiving games.",
+                  confirmLabel: "Mark done",
+                  cancelLabel: "Not yet",
+                  onConfirm: () => act(() => markPlayerDone(player.sessionPlayerId)),
+                })
+              }
+              onRequeue={() => act(() => requeuePlayer(player.sessionPlayerId))}
+              onPriority={() => act(() => togglePriority(player.sessionPlayerId))}
+            />
+          )),
+        ])}
       </FlipList>
     );
 
@@ -1713,8 +1845,8 @@ export function QueueBoard({
                     className="border-line bg-paper/70 text-muted flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]"
                   >
                     <GripVertical className="text-forest h-3.5 w-3.5" />
-                    Drag a court card onto another court to swap them. Drag a player block onto a place to
-                    swap players, or fill an open court with four players (drag them in, or press +). Drag a
+                    Drag a court card onto another court to swap them. Drag a player block onto someone to
+                    replace them, or fill an open court with four players (drag them in, or press +). Drag a
                     player from a court back to the queue to take them off, even from a paired game that
                     hasn&apos;t started.
                   </p>
@@ -1740,7 +1872,8 @@ export function QueueBoard({
                           onCancel={(id) =>
                             setConfirmSpec({
                               title: "Cancel this match?",
-                              description: "Players will stay in the queue.",
+                              description:
+                                "Players go back to the queue and keep their place in line. No game is counted.",
                               confirmLabel: "Cancel match",
                               cancelLabel: "Keep match",
                               tone: "danger",
@@ -2999,7 +3132,7 @@ function CourtCard({
             </span>
             <span className="text-cream/40 font-mono text-[9px]">&nbsp;</span>
           </div>
-          <div className="mt-1.5 flex items-center gap-1.5">
+          <div className="@container/actions mt-1.5 flex items-center gap-1.5">
             <Button
               variant="accent"
               size="sm"
@@ -3022,11 +3155,9 @@ function CourtCard({
             >
               <Pencil className="h-3.5 w-3.5" />
             </span>
-            <span
-              aria-hidden
-              className="border-coral/50 bg-coral/15 text-coral grid h-9 w-9 shrink-0 place-items-center rounded-full border opacity-40"
-            >
-              <XCircle className="h-5 w-5" />
+            <span aria-hidden className={cn(CANCEL_BUTTON, "opacity-40")}>
+              <X className="h-4 w-4" strokeWidth={3} />
+              <span className="hidden @min-[19rem]/actions:inline">Cancel</span>
             </span>
           </div>
         </div>
@@ -3153,6 +3284,7 @@ function CourtCard({
               <PlayerChip
                 key={player.playerId}
                 matchId={match.id}
+                live={match.status === "LIVE"}
                 team={1}
                 player={player}
                 disabled={isCompleted}
@@ -3164,6 +3296,7 @@ function CourtCard({
               <PlayerChip
                 key={player.playerId}
                 matchId={match.id}
+                live={match.status === "LIVE"}
                 team={2}
                 player={player}
                 disabled={isCompleted}
@@ -3201,7 +3334,7 @@ function CourtCard({
           </span>
         </div>
 
-        <div className="relative mt-1.5 flex items-center gap-1.5">
+        <div className="@container/actions relative mt-1.5 flex items-center gap-1.5">
           {live ? (
             <Button
               variant="accent"
@@ -3255,10 +3388,11 @@ function CourtCard({
             onClick={() => onCancel(match.id)}
             disabled={pending}
             aria-label="Cancel match"
-            title="Cancel this match"
-            className="border-coral/50 bg-coral/15 text-coral hover:bg-coral/25 press grid h-9 w-9 shrink-0 place-items-center rounded-full border transition disabled:opacity-40"
+            title="Cancel this match (players keep their place in line)"
+            className={cn(CANCEL_BUTTON, "press hover:brightness-110 disabled:opacity-40")}
           >
-            <XCircle className="h-5 w-5" />
+            <X className="h-4 w-4" strokeWidth={3} />
+            <span className="hidden @min-[19rem]/actions:inline">Cancel</span>
           </button>
         </div>
       </div>
@@ -3268,11 +3402,13 @@ function CourtCard({
 
 function PlayerChip({
   matchId,
+  live,
   team,
   player,
   disabled,
 }: {
   matchId: string;
+  live: boolean;
   team: number;
   player: BoardMatch["team1"][number];
   disabled: boolean;
@@ -3286,6 +3422,7 @@ function PlayerChip({
     slot: player.slot,
     nickname: player.nickname,
     level: player.level,
+    live,
   };
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `slot-${matchId}-${team}-${player.slot}`,
@@ -3306,6 +3443,8 @@ function PlayerChip({
   const tap = React.useContext(TapMoveContext);
   const tappable = tap.canTap(target);
   const isPicked = samePick(tap.picked, payload);
+  const { active } = useDndContext();
+  const overVerb = isOver ? dropVerb(active?.data.current as DropVerbData | undefined, matchId) : null;
 
   return (
     <div
@@ -3335,7 +3474,7 @@ function PlayerChip({
       >
         <LevelDot level={player.level} />
         <p className="text-ink min-w-0 flex-1 truncate text-[12px] leading-tight font-semibold">
-          {player.nickname}
+          {overVerb ? `${overVerb} ${player.nickname}` : player.nickname}
         </p>
         <GripVertical className="text-ink/30 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       </div>

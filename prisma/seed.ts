@@ -291,7 +291,8 @@ async function main() {
         gameDayId: gameDay.id,
         playerId: { in: playing.map((n) => byNickname.get(n)!.id) },
       },
-      data: { status: SessionPlayerStatus.PLAYING, queuedAt: null },
+      // They keep their check-in time as their place in line, as on a real game day.
+      data: { status: SessionPlayerStatus.PLAYING },
     });
 
     // Permanent pair + requests for the demo.
