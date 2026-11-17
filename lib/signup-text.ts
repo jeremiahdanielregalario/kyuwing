@@ -230,6 +230,34 @@ export function nicknameSurnameKeys(nickname: string, fullName: string | null): 
   return surnames.filter(Boolean).map((surname) => nameKey(`${nickname} ${surname}`));
 }
 
+/** A name key with periods dropped, so "Yanni Jose C. Ella" and "Yanni Jose C Ella" match. */
+function looseKey(name: string): string {
+  return nameKey(name.replace(/\./g, " "));
+}
+
+/**
+ * The ways chat writes a stored full name ("ELLA, Yanni Jose Calampinay"), beyond the whole
+ * name: the first given name or first few with the surname ("Yanni Ella", "Yanni Jose Ella"),
+ * and with the last given name (the middle name) as an initial ("Yanni Jose C. Ella").
+ */
+export function fullNameVariants(fullName: string | null): string[] {
+  if (!fullName?.trim()) return [];
+  const keys = new Set(fullNameKeys(fullName).map(looseKey));
+  const [last, first] = fullName.split(",").map((part) => part.trim());
+  if (last && first) {
+    const given = looseKey(first).split(" ");
+    const surname = looseKey(last);
+    for (let count = 1; count <= given.length; count += 1) {
+      keys.add(`${given.slice(0, count).join(" ")} ${surname}`);
+    }
+    if (given.length >= 2) {
+      const middle = given[given.length - 1];
+      keys.add(`${given.slice(0, -1).join(" ")} ${middle[0]} ${surname}`);
+    }
+  }
+  return [...keys];
+}
+
 function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, index) => index);
   for (let i = 1; i <= a.length; i += 1) {
@@ -256,15 +284,16 @@ export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): Reso
     if (!current.includes(nickname)) byName.set(key, [...current, nickname]);
   };
   for (const player of players) {
-    if (player.fullName) for (const key of fullNameKeys(player.fullName)) add(key, player.nickname);
-    for (const key of nicknameSurnameKeys(player.nickname, player.fullName)) add(key, player.nickname);
+    for (const key of fullNameVariants(player.fullName)) add(key, player.nickname);
+    for (const key of nicknameSurnameKeys(player.nickname, player.fullName))
+      add(looseKey(key), player.nickname);
   }
 
   const seen = new Set<string>();
   return lines.map((line) => {
     const key = nameKey(line.name);
     const viaAlias = !byNickname.has(key) && byAlias.has(key);
-    const named = byNickname.has(key) || viaAlias ? [] : (byName.get(key) ?? []);
+    const named = byNickname.has(key) || viaAlias ? [] : (byName.get(looseKey(line.name)) ?? []);
     // A full name or "Nickname Surname" that fits exactly one player is read as their nickname.
     const viaSurname = named.length === 1;
     const official = byNickname.get(key) ?? byAlias.get(key) ?? (viaSurname ? named[0] : undefined);
@@ -278,6 +307,26 @@ export function resolveSignup(lines: SignupLine[], players: KnownPlayer[]): Reso
 
     if (named.length > 1) {
       return { ...line, status: "suggest", nickname: null, suggestions: [...named].sort() };
+    }
+
+    // A full name with a spelling slip ("Jasmine Santiago" for "SANTIAGO, Jazmine"): offered,
+    // never read automatically.
+    const loose = looseKey(line.name);
+    if (loose.includes(" ") && loose.length >= 8) {
+      const near = new Map<string, number>();
+      for (const [name, nicknames] of byName) {
+        if (Math.abs(name.length - loose.length) > 2) continue;
+        const d = distance(loose, name);
+        if (d > 2) continue;
+        for (const nickname of nicknames) near.set(nickname, Math.min(d, near.get(nickname) ?? d));
+      }
+      if (near.size) {
+        const suggestions = [...near]
+          .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
+          .slice(0, 3)
+          .map(([nickname]) => nickname);
+        return { ...line, status: "unknown", nickname: null, suggestions };
+      }
     }
 
     const close = players

@@ -132,6 +132,32 @@ describe("resolveSignup", () => {
     expect(line).toMatchObject({ status: "suggest", nickname: null, suggestions: ["Jo", "Joey"] });
   });
 
+  it("reads a full name written with fewer given names, a middle initial, or a two-word surname", () => {
+    const players: KnownPlayer[] = [
+      { nickname: "Rio", fullName: "DEL ROSARIO, Rio MJ Santos" },
+      { nickname: "Rio B", fullName: "BAUTISTA, Rio Benedict" },
+      { nickname: "Nino", fullName: "LUNA, Nino Jose Cabrera" },
+      { nickname: "Mark", fullName: "ABAD, Andrew Mark Reyes" },
+    ];
+    const lines = resolveSignup(
+      parseSignupText("G\n1. Rio Del Rosario\n2. Nino Jose C. Luna\n3. Andrew Mark Abad\n4. Nino Jose C Luna")
+        .lines,
+      players,
+    );
+    expect(lines.map((line) => [line.status, line.nickname])).toEqual([
+      ["ok", "Rio"],
+      ["ok", "Nino"],
+      ["ok", "Mark"],
+      ["duplicate", "Nino"],
+    ]);
+  });
+
+  it("offers, but does not take, a full name with a spelling slip", () => {
+    const players: KnownPlayer[] = [{ nickname: "Mae", fullName: "TORRES, Maegan Lim" }];
+    const [line] = resolveSignup(parseSignupText("G\n1. Megan Torres").lines, players);
+    expect(line).toMatchObject({ status: "unknown", nickname: null, suggestions: ["Mae"] });
+  });
+
   it("flags an unknown name and suggests close official nicknames", () => {
     const line = resolveSignup(parseSignupText("G\n1. Carlo").lines, PLAYERS)[0];
     expect(line.status).toBe("unknown");
