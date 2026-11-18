@@ -212,7 +212,7 @@ export function GameDaySettings({
         </div>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         {/* Details */}
         <Card className="p-5">
           <div className="flex items-center justify-between">

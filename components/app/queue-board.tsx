@@ -1753,7 +1753,7 @@ export function QueueBoard({
             )}
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_370px]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_370px]">
             <div className="@container space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-baseline gap-2">

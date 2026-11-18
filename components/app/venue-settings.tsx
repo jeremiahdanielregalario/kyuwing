@@ -106,7 +106,7 @@ export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
         ))}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[0.8fr_1.2fr]">
         <Card className="h-fit p-5">
           <div className="flex items-center justify-between">
             <div>

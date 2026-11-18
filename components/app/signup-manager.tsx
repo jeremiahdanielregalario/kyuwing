@@ -148,7 +148,7 @@ export function SignupManager({
   };
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px]">
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_350px]">
       <RejectedChanges changes={syncStatus.rejected} onDismiss={dismissRejected} />
       <SavingPill show={pending} />
       <div className="space-y-4">
