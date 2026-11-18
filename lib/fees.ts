@@ -129,6 +129,8 @@ export function courtCost(
 }
 
 export type FeeSplit = {
+  /** How the base price is set: a share of the court cost, or a flat rate the queue master picked. */
+  mode: "SPLIT" | "FLAT";
   ratePerCourtHour: number;
   /** The hours the cost is worked out from: the queue master's if set, otherwise the plan's. */
   courtHours: number;
@@ -139,7 +141,9 @@ export type FeeSplit = {
   courtCost: number;
   /** Players the cost is divided among (everyone who checked in). */
   players: number;
-  /** Each player's share of the court cost, rounded up to the next ₱5 (the base price). */
+  /** Each player's share of the court cost, rounded up to the next ₱5. */
+  splitFee: number;
+  /** The base price players pay: `splitFee`, or the flat rate when `mode` is FLAT. */
   flatFee: number;
 };
 
@@ -186,6 +190,18 @@ export function effectiveCourtRate(
   return override ?? defaultCourtRate(venueShortName) ?? 0;
 }
 
+/** Suggested flat base fee by venue short code, used when a queue master switches to a flat rate. */
+export const DEFAULT_FLAT_BASE_FEES: Record<string, number> = {
+  DASC: 150,
+  KBC: 100,
+};
+
+/** The flat base fee to start from at a venue, or null when the venue has no default. */
+export function defaultFlatBaseFee(venueShortName: string | null | undefined): number | null {
+  if (!venueShortName) return null;
+  return DEFAULT_FLAT_BASE_FEES[venueShortName.trim().toUpperCase()] ?? null;
+}
+
 /**
  * One place that decides what a player owes, following the finance team's Gameday Finance
  * Tracker sheet (the standard):
@@ -197,6 +213,9 @@ export function effectiveCourtRate(
  * everyone who checked in, rounded up to the next ₱5. A queue master on duty pays no base
  * price and ₱20 per game. Shuttle rates are by category (`SPLIT_SHUTTLE_RATES`). The rate is
  * the game day's own, or the venue's default (DASC ₱300, KBC ₱250 per court per hour).
+ *
+ * A queue master can instead set a flat base fee (`flatBaseFee`); then everyone pays that as
+ * the base price, whatever the court cost and turnout. Everything else stays the same.
  */
 export function buildFeeSchedule(input: {
   courtPlan: Array<Pick<CourtSlot, "start" | "end" | "courts">>;
@@ -204,6 +223,8 @@ export function buildFeeSchedule(input: {
   ratePerCourtHour: number | null | undefined;
   /** Court-hours a queue master typed in; replaces the plan's hours when set. */
   courtHoursOverride?: number | null;
+  /** A flat base price chosen by the queue master; replaces the split when set. */
+  flatBaseFee?: number | null;
   venueShortName: string | null | undefined;
   attendees: number;
 }): FeeSchedule {
@@ -212,15 +233,19 @@ export function buildFeeSchedule(input: {
   const overridden = input.courtHoursOverride != null && input.courtHoursOverride > 0;
   const hours = overridden ? input.courtHoursOverride! : planned;
   const cost = Math.round(hours * rate);
-  const flatFee =
+  const splitFee =
     input.attendees > 0 ? Math.ceil(cost / input.attendees / BASE_PRICE_STEP) * BASE_PRICE_STEP : 0;
+  const flat = input.flatBaseFee != null && input.flatBaseFee >= 0;
+  const flatFee = flat ? input.flatBaseFee! : splitFee;
   const split: FeeSplit = {
+    mode: flat ? "FLAT" : "SPLIT",
     ratePerCourtHour: rate,
     courtHours: hours,
     plannedCourtHours: planned,
     courtHoursOverridden: overridden,
     courtCost: cost,
     players: input.attendees,
+    splitFee,
     flatFee,
   };
   return {

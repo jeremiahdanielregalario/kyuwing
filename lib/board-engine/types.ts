@@ -38,6 +38,8 @@ export type EngineGameDay = {
   financeMemberName: string | null;
   courtRatePerHour: number | null;
   courtHoursOverride: number | null;
+  /** Flat base fee chosen on the Fees page; null splits the court cost. Missing on older saved copies. */
+  flatBaseFee?: number | null;
   startedAt: number | null;
   completedAt: number | null;
   venue: { id: string; name: string; shortName: string };

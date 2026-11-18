@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFeeSchedule,
   computeFee,
+  defaultFlatBaseFee,
   formatPeso,
   formatPesoPdf,
   GAMEDAY_TYPE_LABELS,
@@ -107,6 +108,38 @@ describe("buildFeeSchedule court-hours override", () => {
   it("ignores an empty or zero override", () => {
     expect(buildFeeSchedule({ ...base, courtHoursOverride: null }).split.courtHours).toBe(12);
     expect(buildFeeSchedule({ ...base, courtHoursOverride: 0 }).split.courtHours).toBe(12);
+  });
+});
+
+describe("flat base fee", () => {
+  const base = {
+    courtPlan: [{ start: "11:00", end: "15:00", courts: 3 }],
+    ratePerCourtHour: 300,
+    venueShortName: "DASC",
+    attendees: 30,
+  };
+
+  it("defaults to ₱150 at DASC and ₱100 at KBC, and nothing elsewhere", () => {
+    expect(defaultFlatBaseFee("DASC")).toBe(150);
+    expect(defaultFlatBaseFee("kbc")).toBe(100);
+    expect(defaultFlatBaseFee("UPCH")).toBeNull();
+    expect(defaultFlatBaseFee(null)).toBeNull();
+  });
+
+  it("charges the flat amount whatever the turnout, keeping the split for reference", () => {
+    const schedule = buildFeeSchedule({ ...base, flatBaseFee: 150 });
+    // ₱3,600 ÷ 30 = ₱120.
+    expect(schedule.split).toMatchObject({ mode: "FLAT", splitFee: 120, flatFee: 150, courtCost: 3600 });
+    expect(schedule.feeFor("ACTIVE", 2).total).toBe(150 + 2 * 20);
+    expect(schedule.feeFor("APPLICANT", 1).total).toBe(150 + 25 + 10);
+    expect(schedule.feeFor("ACTIVE", 2, { queueMaster: true }).total).toBe(40);
+  });
+
+  it("splits when there is no flat fee", () => {
+    expect(buildFeeSchedule({ ...base, flatBaseFee: null }).split).toMatchObject({
+      mode: "SPLIT",
+      flatFee: 120,
+    });
   });
 });
 

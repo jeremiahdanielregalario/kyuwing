@@ -35,6 +35,7 @@ const LABELS: Record<BoardOp["type"], string> = {
   extendGameDay: "Extend game day",
   endGameDay: "End game day",
   setCourtHours: "Court-hours",
+  setBaseFee: "Base fee",
   setPayment: "Payment",
   setSettled: "Settled",
   markAllPaid: "Mark all paid",

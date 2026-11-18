@@ -34,6 +34,7 @@ export const GAMEDAY_FIELDS = [
   "startedAt",
   "completedAt",
   "courtHoursOverride",
+  "flatBaseFee",
 ] as const satisfies readonly (keyof EngineGameDay)[];
 
 export const MATCH_FIELDS = [

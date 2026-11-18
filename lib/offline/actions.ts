@@ -85,6 +85,7 @@ export function makeGameDayActions(gameDayId: string, run: Run, current: () => E
     renameCourt: (_id: string, slotIndex: number, court: number, label: string, everyBlock: boolean) =>
       go({ type: "renameCourt", slotIndex, court, label, everyBlock }),
     setCourtHours: (_id: string, hours: number | null) => go({ type: "setCourtHours", hours }),
+    setBaseFee: (_id: string, amount: number | null) => go({ type: "setBaseFee", amount }),
     setPayment: (sessionPlayerId: string, input: PaymentInput) =>
       go({ type: "setPayment", sessionPlayerId, input }),
     setSettled: (sessionPlayerId: string, settled: boolean) =>
