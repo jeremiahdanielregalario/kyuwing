@@ -9,6 +9,7 @@ Fees follow the finance team's **Gameday Finance Tracker** sheet, which is the s
 ```
 court rent = court rate × hours × courts   (summed over every court block)
 base price = court rent ÷ players who checked in, rounded up to the next ₱5
+             (or a flat rate the queue master sets, see "Flat base fee" below)
 total      = base price + shuttle rate × games played + ₱10 (applicants and Plus 1s) − voucher
            + extras (grips, other charges)
 ```
@@ -115,6 +116,8 @@ If a player hands over more than they owe (usually cash with no coins), type the
 The Fees tab shows the breakdown (`court-hours × rate = rent ÷ players = share`). The rule lives in `buildFeeSchedule` in `lib/fees.ts`.
 
 **Overriding the court-hours.** When the venue bills a different total than the court plan works out (a court given back early, a free half hour), press **Edit court-hours** on the Split court cost card and type the total court-hours (courts × hours, in whole, half or quarter hours). That number supersedes the plan's for the fee split, the Excel and PDF reports and the payment list; the card shows "(set by the queue master; the plan has 12)". **Use the plan's …** goes back to the calculated hours. It is stored per game day in `GameDay.courtHoursOverride`.
+
+**Flat base fee.** The **Base fee** card at the top of the Fees tab has two choices: **Split court cost** (the default, described above) and **Flat rate**. Choosing **Flat rate** sets the base price to ₱150 at DASC or ₱100 at KBC (`DEFAULT_FLAT_BASE_FEES`; other venues start from the current split share), and **Edit amount** changes it. Every player then pays that base price whatever the rent or turnout; shuttle rates, the ₱10 surcharge, vouchers, extras and the queue master rule (no base price, ₱20 a game) stay the same. The card still shows what the split would have been, for reference. Pressing **Split court cost** goes back to the split. It is stored per game day in `GameDay.flatBaseFee` (null = split) and set with the `setBaseFee` op; the Excel side panel's **Base Price** shows the flat amount and **Rent** still shows the court cost.
 
 ## Tests
 

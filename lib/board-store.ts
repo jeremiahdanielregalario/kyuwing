@@ -64,6 +64,7 @@ export async function loadEngineState(
       financeMemberName: gameDay.financeMemberName,
       courtRatePerHour: gameDay.courtRatePerHour,
       courtHoursOverride: gameDay.courtHoursOverride,
+      flatBaseFee: gameDay.flatBaseFee,
       startedAt: ms(gameDay.startedAt),
       completedAt: ms(gameDay.completedAt),
       venue: { id: gameDay.venue.id, name: gameDay.venue.name, shortName: gameDay.venue.shortName },

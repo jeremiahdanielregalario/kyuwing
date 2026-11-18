@@ -9,7 +9,7 @@ import {
   setGameDayStatus,
   startGameDay,
 } from "./gameday";
-import { markAllPaid, setCourtHours, setPayment, setSettled, type PaymentInput } from "./fees";
+import { markAllPaid, setBaseFee, setCourtHours, setPayment, setSettled, type PaymentInput } from "./fees";
 import { generateMatches, regenerateMatches, type GenerateOptions } from "./generate";
 import type { OpContext } from "./helpers";
 import {
@@ -92,6 +92,7 @@ export type BoardOpBody =
   | { type: "extendGameDay"; until: string; courts: number }
   | { type: "endGameDay"; countLiveGames: boolean }
   | { type: "setCourtHours"; hours: number | null }
+  | { type: "setBaseFee"; amount: number | null }
   | { type: "setPayment"; sessionPlayerId: string; input: PaymentInput }
   | { type: "setSettled"; sessionPlayerId: string; settled: boolean }
   | { type: "markAllPaid" }
@@ -191,6 +192,8 @@ function run(state: EngineState, ctx: OpContext, op: BoardOpBody): OpResult {
       return endGameDay(state, ctx, op.countLiveGames);
     case "setCourtHours":
       return setCourtHours(state, ctx, op.hours);
+    case "setBaseFee":
+      return setBaseFee(state, ctx, op.amount);
     case "setPayment":
       return setPayment(state, ctx, op.sessionPlayerId, op.input);
     case "setSettled":

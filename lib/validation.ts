@@ -109,6 +109,14 @@ export const gameDayCreateSchema = z.object({
 });
 
 /** Court-hours a queue master types in for the fee split, in steps as fine as a quarter hour. */
+/** A flat base fee in whole pesos, or null to split the court cost. */
+export const flatBaseFeeSchema = z
+  .number({ message: "Enter the base fee as a number." })
+  .int("Use whole pesos.")
+  .min(0, "The base fee can't be negative.")
+  .max(5000, "That base fee is too high.")
+  .nullable();
+
 export const courtHoursSchema = z
   .number({ message: "Enter the court-hours as a number." })
   .positive("Court-hours must be more than 0.")

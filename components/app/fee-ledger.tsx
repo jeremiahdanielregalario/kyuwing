@@ -24,6 +24,7 @@ import {
   PAYMENT_METHOD_LABELS,
   QUEUE_MASTER_PER_GAME,
   changeDue,
+  defaultFlatBaseFee,
   extrasTotal,
   formatPeso,
 } from "@/lib/fees";
@@ -45,7 +46,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
   // Payments are recorded on this device's copy of the game day, like the board, so the finance
   // member can keep going on weak signal (see lib/offline/game-day-sync.ts).
   const { state, status: syncStatus, actions, dismissRejected } = useOfflineGameDay(bootstrap);
-  const { markAllPaid, setCourtHours, setPayment, setSettled } = actions;
+  const { markAllPaid, setBaseFee, setCourtHours, setPayment, setSettled } = actions;
   const [loadedAt] = React.useState(() => bootstrap.loadedAt);
   const report = React.useMemo(() => toFeeReport(state, loadedAt), [state, loadedAt]);
   const [pending, startTransition] = React.useTransition();
@@ -61,6 +62,8 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
   const [voucher, setVoucher] = React.useState("");
   /** The court-hours box on the split card: null while closed. */
   const [hoursDraft, setHoursDraft] = React.useState<string | null>(null);
+  /** The flat base fee box: null while closed. */
+  const [feeDraft, setFeeDraft] = React.useState<string | null>(null);
   /** Until the finance member types an amount received, it follows the total. */
   const [amountTouched, setAmountTouched] = React.useState(false);
 
@@ -109,6 +112,21 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
       () => setCourtHours(report.gameDay.id, hours),
       () => setHoursDraft(null),
     );
+  const flat = split.mode === "FLAT";
+  const saveBaseFee = (amount: number | null) =>
+    act(
+      () => setBaseFee(report.gameDay.id, amount),
+      () => setFeeDraft(null),
+    );
+  const chooseMode = (mode: "SPLIT" | "FLAT") => {
+    if (mode === split.mode || pending) return;
+    setHoursDraft(null);
+    setFeeDraft(null);
+    if (mode === "SPLIT") saveBaseFee(null);
+    else saveBaseFee(defaultFlatBaseFee(report.gameDay.venue.shortName) ?? split.splitFee);
+  };
+  const typedFee = feeDraft === null || feeDraft.trim() === "" ? NaN : Number(feeDraft);
+  const feeValid = Number.isInteger(typedFee) && typedFee >= 0 && typedFee <= 5000;
   const typedHours = hoursDraft === null ? NaN : Number(hoursDraft);
   const hoursValid = Number.isFinite(typedHours) && typedHours > 0 && Number.isInteger(typedHours * 4);
 
@@ -159,89 +177,179 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
     <div className="space-y-5">
       <RejectedChanges changes={syncStatus.rejected} onDismiss={dismissRejected} />
       <div className="border-line bg-paper rounded-2xl border px-4 py-3 text-[13px] leading-relaxed">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Split court cost</p>
-          {hoursDraft === null && (
-            <Button
-              size="sm"
-              variant="paper"
-              onClick={() => setHoursDraft(String(split.courtHours))}
-              disabled={pending}
-            >
-              <Pencil className="h-3.5 w-3.5" /> Edit court-hours
-            </Button>
-          )}
-        </div>
-        {hoursDraft !== null && (
-          <form
-            className="border-line mt-2 flex flex-wrap items-end gap-2 rounded-xl border bg-white p-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (hoursValid) saveHours(typedHours);
-            }}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Base fee</p>
+          <div
+            role="radiogroup"
+            aria-label="How the base fee is worked out"
+            className="border-line inline-flex rounded-full border bg-white p-1"
           >
-            <label className="min-w-0 flex-1 basis-40">
-              <span className="block text-[12px] font-semibold">Total court-hours</span>
-              <Input
-                autoFocus
-                value={hoursDraft}
-                onChange={(event) => setHoursDraft(event.target.value.replace(/[^\d.]/g, ""))}
-                inputMode="decimal"
-                placeholder={String(split.plannedCourtHours)}
-                className="mt-1"
-              />
-              <span className="text-muted mt-1 block text-[11px]">
-                Courts × hours, e.g. 3 courts for 4 hours is 12. The court plan works out{" "}
-                {split.plannedCourtHours}.
-              </span>
-            </label>
-            <Button type="submit" size="sm" disabled={pending || !hoursValid} className="h-11">
-              Save
-            </Button>
-            {split.courtHoursOverridden && (
-              <Button
+            {(
+              [
+                ["SPLIT", "Split court cost"],
+                ["FLAT", "Flat rate"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
                 type="button"
-                size="sm"
-                variant="paper"
+                role="radio"
+                aria-checked={split.mode === mode}
                 disabled={pending}
-                onClick={() => saveHours(null)}
-                className="h-11"
+                onClick={() => chooseMode(mode)}
+                className={cn(
+                  "press min-h-9 rounded-full px-3 text-[11px] font-semibold",
+                  split.mode === mode ? "bg-forest text-cream" : "text-muted hover:text-ink",
+                )}
               >
-                Use the plan&apos;s {split.plannedCourtHours}
-              </Button>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {flat ? (
+          <>
+            {feeDraft === null ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p>
+                  Everyone pays a flat{" "}
+                  <span className="font-semibold">{formatPeso(split.flatFee)} base price</span>, plus shuttles
+                  per game. Applicants and Plus 1s add {formatPeso(10)}. Queue masters on duty pay no base
+                  price and {formatPeso(QUEUE_MASTER_PER_GAME)} a game.
+                </p>
+                <Button
+                  size="sm"
+                  variant="paper"
+                  onClick={() => setFeeDraft(String(split.flatFee))}
+                  disabled={pending}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit amount
+                </Button>
+              </div>
+            ) : (
+              <form
+                className="border-line mt-2 flex flex-wrap items-end gap-2 rounded-xl border bg-white p-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (feeValid) saveBaseFee(typedFee);
+                }}
+              >
+                <label className="min-w-0 flex-1 basis-40">
+                  <span className="block text-[12px] font-semibold">Flat base fee (₱)</span>
+                  <Input
+                    autoFocus
+                    value={feeDraft}
+                    onChange={(event) => setFeeDraft(event.target.value.replace(/\D/g, ""))}
+                    inputMode="numeric"
+                    className="mt-1"
+                  />
+                </label>
+                <Button type="submit" size="sm" disabled={pending || !feeValid} className="h-11">
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFeeDraft(null)}
+                  className="h-11"
+                >
+                  Cancel
+                </Button>
+              </form>
             )}
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setHoursDraft(null)}
-              className="h-11"
-            >
-              Cancel
-            </Button>
-            {hoursDraft.trim() !== "" && !hoursValid && (
-              <p className="text-coral w-full text-[11px] font-semibold">
-                Use whole, half or quarter hours, e.g. 7.5.
-              </p>
+            <p className="text-muted mt-1 text-[12px]">
+              For reference, splitting {formatPeso(split.courtCost)} of court cost among {split.players}{" "}
+              players would be {formatPeso(split.splitFee)} each.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-[12px] font-semibold">Court cost</p>
+              {hoursDraft === null && (
+                <Button
+                  size="sm"
+                  variant="paper"
+                  onClick={() => setHoursDraft(String(split.courtHours))}
+                  disabled={pending}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit court-hours
+                </Button>
+              )}
+            </div>
+            {hoursDraft !== null && (
+              <form
+                className="border-line mt-2 flex flex-wrap items-end gap-2 rounded-xl border bg-white p-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (hoursValid) saveHours(typedHours);
+                }}
+              >
+                <label className="min-w-0 flex-1 basis-40">
+                  <span className="block text-[12px] font-semibold">Total court-hours</span>
+                  <Input
+                    autoFocus
+                    value={hoursDraft}
+                    onChange={(event) => setHoursDraft(event.target.value.replace(/[^\d.]/g, ""))}
+                    inputMode="decimal"
+                    placeholder={String(split.plannedCourtHours)}
+                    className="mt-1"
+                  />
+                  <span className="text-muted mt-1 block text-[11px]">
+                    Courts × hours, e.g. 3 courts for 4 hours is 12. The court plan works out{" "}
+                    {split.plannedCourtHours}.
+                  </span>
+                </label>
+                <Button type="submit" size="sm" disabled={pending || !hoursValid} className="h-11">
+                  Save
+                </Button>
+                {split.courtHoursOverridden && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="paper"
+                    disabled={pending}
+                    onClick={() => saveHours(null)}
+                    className="h-11"
+                  >
+                    Use the plan&apos;s {split.plannedCourtHours}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setHoursDraft(null)}
+                  className="h-11"
+                >
+                  Cancel
+                </Button>
+                {hoursDraft.trim() !== "" && !hoursValid && (
+                  <p className="text-coral w-full text-[11px] font-semibold">
+                    Use whole, half or quarter hours, e.g. 7.5.
+                  </p>
+                )}
+              </form>
             )}
-          </form>
+            <p className="mt-1">
+              {report.scheme.split.courtHours} court-hours
+              {split.courtHoursOverridden && (
+                <span className="text-muted">
+                  {" "}
+                  (set by the queue master; the plan has {split.plannedCourtHours})
+                </span>
+              )}{" "}
+              × {formatPeso(report.scheme.split.ratePerCourtHour)} ={" "}
+              <span className="font-semibold">{formatPeso(report.scheme.split.courtCost)}</span> ÷{" "}
+              {report.scheme.split.players} players ={" "}
+              <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} base price</span>{" "}
+              (rounded up to the next ₱5), plus shuttles per game. Applicants and Plus 1s add {formatPeso(10)}
+              . Queue masters on duty pay no base price and {formatPeso(QUEUE_MASTER_PER_GAME)} a game. The
+              base price changes if more players check in.
+            </p>
+          </>
         )}
-        <p className="mt-1">
-          {report.scheme.split.courtHours} court-hours
-          {split.courtHoursOverridden && (
-            <span className="text-muted">
-              {" "}
-              (set by the queue master; the plan has {split.plannedCourtHours})
-            </span>
-          )}{" "}
-          × {formatPeso(report.scheme.split.ratePerCourtHour)} ={" "}
-          <span className="font-semibold">{formatPeso(report.scheme.split.courtCost)}</span> ÷{" "}
-          {report.scheme.split.players} players ={" "}
-          <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} base price</span> (rounded
-          up to the next ₱5), plus shuttles per game. Applicants and Plus 1s add {formatPeso(10)}. Queue
-          masters on duty pay no base price and {formatPeso(QUEUE_MASTER_PER_GAME)} a game. The base price
-          changes if more players check in.
-        </p>
       </div>
 
       <PaymentCard />

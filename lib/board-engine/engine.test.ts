@@ -434,6 +434,41 @@ describe("board engine", () => {
   });
 });
 
+describe("base fee", () => {
+  it("splits the court cost by default, and a flat rate replaces the split for everyone", () => {
+    // 8 court-hours × ₱300 = ₱2,400 ÷ 10 players = ₱240.
+    const state = checkInAll(fixture(10));
+    const split = toFeeReport(state, AT_9);
+    expect(split.scheme.split).toMatchObject({ mode: "SPLIT", splitFee: 240, flatFee: 240 });
+
+    const { state: flat, result } = applyOp(state, op({ type: "setBaseFee", amount: 150 }));
+    expect(result.ok).toBe(true);
+    expect(flat.gameDay.flatBaseFee).toBe(150);
+    const report = toFeeReport(flat, AT_9);
+    expect(report.scheme.split).toMatchObject({ mode: "FLAT", splitFee: 240, flatFee: 150 });
+    // P1 is an active member with no games: just the base price.
+    expect(report.rows.find((row) => row.sessionPlayerId === "sp1")!.total).toBe(150);
+    // P0 is the queue master on duty and still pays no base price.
+    expect(report.rows.find((row) => row.sessionPlayerId === "sp0")!.total).toBe(0);
+    expect(diffStates(state, flat).gameDay).toEqual({ flatBaseFee: 150 });
+
+    const back = applyOp(flat, op({ type: "setBaseFee", amount: null })).state;
+    expect(toFeeReport(back, AT_9).scheme.split).toMatchObject({ mode: "SPLIT", flatFee: 240 });
+  });
+
+  it("refuses a negative or fractional base fee", () => {
+    const state = fixture();
+    expect(applyOp(state, op({ type: "setBaseFee", amount: -5 })).result.ok).toBe(false);
+    expect(applyOp(state, op({ type: "setBaseFee", amount: 99.5 })).result.ok).toBe(false);
+  });
+
+  it("treats an older saved copy without the field as a split", () => {
+    const state = checkInAll(fixture(10));
+    delete state.gameDay.flatBaseFee;
+    expect(toFeeReport(state, AT_9).scheme.split.mode).toBe("SPLIT");
+  });
+});
+
 describe("diffStates", () => {
   it("is empty for no change", () => {
     const state = fixture();

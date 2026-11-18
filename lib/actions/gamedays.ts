@@ -428,6 +428,11 @@ export async function setCourtHours(gameDayId: string, hours: number | null): Pr
   return run(gameDayId, { type: "setCourtHours", hours });
 }
 
+/** A flat base fee for every player, or null to split the court cost again. */
+export async function setBaseFee(gameDayId: string, amount: number | null): Promise<ActionResult> {
+  return run(gameDayId, { type: "setBaseFee", amount });
+}
+
 export async function setPayment(sessionPlayerId: string, input: PaymentInput): Promise<ActionResult> {
   return run(await dayOfSignup(sessionPlayerId), { type: "setPayment", sessionPlayerId, input });
 }

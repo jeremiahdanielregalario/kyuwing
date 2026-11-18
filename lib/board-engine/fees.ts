@@ -1,6 +1,6 @@
 import { fail, ok, type ActionResult } from "@/lib/action-result";
 import { buildFeeSchedule, changeDue, extrasTotal, formatPeso, isQueueMasterOnDuty } from "@/lib/fees";
-import { chargesSchema, courtHoursSchema, PAYMENT_METHOD_KEYS } from "@/lib/validation";
+import { chargesSchema, courtHoursSchema, flatBaseFeeSchema, PAYMENT_METHOD_KEYS } from "@/lib/validation";
 import { playerBySession, type OpContext } from "./helpers";
 import type { EnginePlayer, EngineState, PaymentMethod } from "./types";
 
@@ -9,6 +9,7 @@ export function feeSchedule(state: EngineState) {
     courtPlan: state.gameDay.courtPlan,
     ratePerCourtHour: state.gameDay.courtRatePerHour,
     courtHoursOverride: state.gameDay.courtHoursOverride,
+    flatBaseFee: state.gameDay.flatBaseFee ?? null,
     venueShortName: state.gameDay.venue.shortName,
     attendees: state.players.filter((row) => row.status !== "EXPECTED").length,
   });
@@ -37,6 +38,21 @@ export function setCourtHours(state: EngineState, _ctx: OpContext, hours: number
     parsed.data === null
       ? "Court-hours follow the court plan again."
       : `Court-hours set to ${parsed.data}. Fees are worked out from that now.`,
+  );
+}
+
+/**
+ * Sets how the base price is worked out: a flat amount every player pays, or `null` to split the
+ * court cost among everyone checked in.
+ */
+export function setBaseFee(state: EngineState, _ctx: OpContext, amount: number | null): ActionResult {
+  const parsed = flatBaseFeeSchema.safeParse(amount);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Enter the base fee.");
+  state.gameDay.flatBaseFee = parsed.data;
+  return ok(
+    parsed.data === null
+      ? "Base fee is split from the court cost again."
+      : `Base fee set to a flat ${formatPeso(parsed.data)}.`,
   );
 }
 
