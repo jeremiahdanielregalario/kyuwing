@@ -158,6 +158,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- **Sign-ups no longer runs off the side of a phone** — a long player line (e.g. "Done · Non-affiliate · 4 games · 10:55 AM") with the Requeue button made the whole page wider than the screen, cutting off the chart, tabs and list on the right. The page now fits the screen, and the board, Reports, Settings and Venues pages got the same fix.
 - **Court pill on queue blocks** — the green "on court" and gold "in a paired game" pills on queue blocks were cut off mid-word ("Cour"). They now show just the court number beside the live dot (**● 5**) and **W2** for a waiting game (**→ W1** for an on-court player planned next), with the full name on hover; a long venue name ends with "…".
 - **Cancelling a game no longer resets waits** — cancelling a game in progress (or taking a player off one) used to restart those players' wait at zero, as if they had just played. They now keep their place in line and their wait carries on.
 - **Level shown once per player** — the Players list and the board's check-in list showed each level twice (a small tag on the initials circle and the coloured badge by the name). Only the coloured badge is shown now.

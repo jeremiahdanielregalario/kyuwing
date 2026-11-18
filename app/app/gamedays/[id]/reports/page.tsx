@@ -124,7 +124,7 @@ export default async function ReportsPage({ params }: { params: Promise<{ id: st
           />
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.35fr_1fr]">
           <Card className="overflow-hidden">
             <div className="border-line/80 flex items-center justify-between border-b px-4 py-3">
               <div>
