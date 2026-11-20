@@ -108,6 +108,35 @@ const HONOR_AGAINST_WEIGHT = 115;
 const VIOLATE_PAIR_WEIGHT = 95;
 const VIOLATE_AGAINST_WEIGHT = 80;
 
+/** The weights above, read-only, for the playbook's published formula (`lib/pairing-formula.ts`). */
+export const PAIRING_WEIGHTS = {
+  teamDiff: TEAM_DIFF_WEIGHT,
+  crossBracket: CROSS_BRACKET_WEIGHT,
+  scarcityFactor: 0.2,
+  intraGap: INTRA_GAP_WEIGHT,
+  intraGapFree: 3,
+  repeatTeammate: REPEAT_TEAMMATE_WEIGHT,
+  recentTeammate: RECENT_TEAMMATE_WEIGHT,
+  repeatOpponent: REPEAT_OPPONENT_WEIGHT,
+  recentOpponent: RECENT_OPPONENT_WEIGHT,
+  repeatFoursome: REPEAT_FOURSOME_WEIGHT,
+  recentFoursome: REPEAT_FOURSOME_WEIGHT / 2,
+  repeatWindow: 3,
+  wait: WAIT_WEIGHT,
+  waitCap: 120,
+  arrival: ARRIVAL_WEIGHT,
+  arrivalCap: ARRIVAL_CAP,
+  games: GAMES_WEIGHT,
+  priority: PRIORITY_WEIGHT,
+  honorPair: HONOR_PAIR_WEIGHT,
+  honorAgainst: HONOR_AGAINST_WEIGHT,
+  violatePair: VIOLATE_PAIR_WEIGHT,
+  violateAgainst: VIOLATE_AGAINST_WEIGHT,
+  variety: VARIETY_SHAKE,
+  pool: 14,
+  scarcityBelow: 10,
+} as const;
+
 function pairKey(a: string, b: string) {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
@@ -269,8 +298,11 @@ function evaluateMatch(
         const b = team[j];
         const gap = bracketGap(a.level, b.level);
         const numericGap = Math.abs(levelValue(a.level) - levelValue(b.level));
-        const bracketPenalty = Math.max(0, gap - 1) * CROSS_BRACKET_WEIGHT * (options.scarcity ? 0.2 : 1);
-        const numericPenalty = Math.max(0, numericGap - 3) * INTRA_GAP_WEIGHT;
+        const bracketPenalty =
+          Math.max(0, gap - 1) *
+          CROSS_BRACKET_WEIGHT *
+          (options.scarcity ? PAIRING_WEIGHTS.scarcityFactor : 1);
+        const numericPenalty = Math.max(0, numericGap - PAIRING_WEIGHTS.intraGapFree) * INTRA_GAP_WEIGHT;
         if (gap > 1) crossBracket = true;
         cost += bracketPenalty + numericPenalty;
 
@@ -346,7 +378,7 @@ function evaluateMatch(
 
   // The line: time waiting (since check-in or the last game) leads; arrival and games nudge.
   for (const player of all) {
-    cost -= Math.min(120, player.waitMinutes) * WAIT_WEIGHT;
+    cost -= Math.min(PAIRING_WEIGHTS.waitCap, player.waitMinutes) * WAIT_WEIGHT;
     cost -= Math.min(ARRIVAL_CAP, player.arrivedMinutes ?? 0) * ARRIVAL_WEIGHT;
     cost += player.gamesPlayed * GAMES_WEIGHT;
     if (player.priority) cost -= PRIORITY_WEIGHT;
@@ -417,7 +449,7 @@ export function findBestMatch(
   if (players.length < 4) return null;
 
   const scarcity = options.scarcity ?? players.length < 8;
-  const maxPool = Math.max(4, Math.min(options.maxPool ?? 14, players.length));
+  const maxPool = Math.max(4, Math.min(options.maxPool ?? PAIRING_WEIGHTS.pool, players.length));
   const pool = buildPool(players, maxPool);
   if (pool.length < 4) return null;
 
@@ -429,7 +461,7 @@ export function findBestMatch(
   const round = options.round ?? Math.max(0, ...history.map((match) => match.round)) + 1;
   const evaluationOptions = {
     scarcity,
-    repeatWindow: options.repeatWindow ?? 3,
+    repeatWindow: options.repeatWindow ?? PAIRING_WEIGHTS.repeatWindow,
     round,
   };
 
