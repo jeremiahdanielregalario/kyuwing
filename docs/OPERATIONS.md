@@ -1,6 +1,6 @@
 # Operations
 
-For the person holding the tablet. This is the day-of runbook; the in-app **Playbook** (`/app/guide`) is the same material with fewer words.
+For the person holding the tablet. This is the day-of runbook; the in-app **Playbook** (`/app/guide`) is the same material with fewer words. Its **The math behind the queue** section shows the exact pairing formula, for anyone who asks how the order is decided.
 
 ## Before the session
 

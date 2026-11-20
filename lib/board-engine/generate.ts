@@ -7,7 +7,13 @@ import {
   openCourts,
   QUEUED_COURT,
 } from "@/lib/datetime";
-import { arrangementKey, suggestMatches, type PairingHistoryMatch, type PairingPlayer } from "@/lib/pairing";
+import {
+  arrangementKey,
+  PAIRING_WEIGHTS,
+  suggestMatches,
+  type PairingHistoryMatch,
+  type PairingPlayer,
+} from "@/lib/pairing";
 import { isFreeBy, planTimeline, playerAvailableAt } from "@/lib/planning";
 import {
   createdId,
@@ -247,7 +253,7 @@ export function generateMatches(
   const suggestions = suggestMatches(pairingPlayers, history, {
     courts: queueing ? 1 : Math.max(1, Math.min(targetCourts.length, maxMatches ?? targetCourts.length)),
     round,
-    scarcity: waiting.length < 10,
+    scarcity: waiting.length < PAIRING_WEIGHTS.scarcityBelow,
     // Planning ahead: everyone who is free right now plays first; players still on court only fill the gaps.
     // Players placed by hand are always in the game, on the sides they were put.
     mustInclude:

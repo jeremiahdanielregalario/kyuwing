@@ -201,9 +201,9 @@ Every split crosses at least two brackets. With scarcity, the cross-bracket pena
 
 ## Tuning
 
-Weights are constants at the top of `lib/pairing.ts`. If you change one:
+Weights are constants at the top of `lib/pairing.ts`, gathered read-only in `PAIRING_WEIGHTS`. The playbook's **The math behind the queue** section (`/app/guide#formula`) renders the formula with KaTeX from `lib/pairing-formula.ts`, which reads every number from `PAIRING_WEIGHTS`, so it updates by itself. If you change a weight:
 
-1. Update the table above.
+1. Update the table above, and the wording in `lib/pairing-formula.ts` if a term's shape changes (`lib/pairing-formula.test.ts` checks every number appears and every equation renders).
 2. Add or adjust a test in `lib/pairing.test.ts`.
 3. Run `pnpm test`.
 4. Sanity-check on the demo board (`pnpm db:seed`, then open the live game day) with a realistic queue.

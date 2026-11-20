@@ -1,4 +1,5 @@
 import Link from "next/link";
+import "katex/dist/katex.min.css";
 import {
   ArrowRight,
   CalendarClock,
@@ -11,6 +12,7 @@ import {
   Link2,
   ListOrdered,
   Play,
+  Sigma,
   Sparkles,
   Star,
   Timer,
@@ -24,6 +26,15 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { MathTex } from "@/components/ui/math";
+import {
+  FORMULA_LEGEND,
+  FORMULA_TERMS,
+  LINE_ORDER_TEX,
+  TOTAL_TEX,
+  TRADE_OFFS_TEX,
+} from "@/lib/pairing-formula";
+import { PAIRING_WEIGHTS } from "@/lib/pairing";
 
 export const metadata = { title: "Queue playbook" };
 
@@ -248,6 +259,85 @@ export default function GuidePage() {
             Both teams total the same level. The engine allows the bracket mix because the match stays
             competitive.
           </p>
+        </div>
+      </section>
+
+      {/* The formula, for members who want the numbers */}
+      <section
+        id="formula"
+        data-trim-id="guide.formula"
+        className="border-line bg-paper scroll-mt-6 rounded-3xl border p-5 sm:p-6"
+      >
+        <div className="flex items-center gap-2">
+          <Sigma className="text-forest h-4 w-4" />
+          <h2 className="font-display text-xl font-bold tracking-tight">The math behind the queue</h2>
+        </div>
+        <p className="text-muted mt-1 max-w-2xl text-[12px] leading-relaxed">
+          The exact formula Auto-pair uses, with the same numbers the app runs on. Nothing here is hand-tuned
+          per player: everyone is scored the same way.
+        </p>
+
+        <h3 className="mt-5 text-[13px] font-bold">1 · Who is next in line</h3>
+        <p className="text-muted mt-1 text-[11px] leading-relaxed">
+          Priority players first, then the longest wait, then the earliest arrival, then the fewest games.
+          Auto-pair looks at the first {PAIRING_WEIGHTS.pool} people in this line (plus the permanent partner
+          of anyone in it).
+        </p>
+        <MathTex display tex={LINE_ORDER_TEX} className="text-ink mt-2" />
+
+        <h3 className="mt-5 text-[13px] font-bold">2 · Scoring a possible match</h3>
+        <p className="text-muted mt-1 text-[11px] leading-relaxed">
+          Every group of four from that pool, split into teams every possible way, gets a cost. Lower is
+          better. Teams that would split a permanent pair across the net and unrated (X) players are left out
+          before scoring.
+        </p>
+        <div className="border-lime-deep/30 bg-lime/15 mt-3 rounded-2xl border px-4 py-2">
+          <MathTex display tex={TOTAL_TEX} className="text-forest" />
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {FORMULA_TERMS.map((term) => (
+            <div key={term.symbol} className="border-line/80 bg-cream/30 min-w-0 rounded-2xl border p-4">
+              <p className="text-[12px] font-bold">
+                <MathTex tex={term.symbol} /> · {term.name}
+              </p>
+              <MathTex display tex={term.tex} className="mt-1 text-[13px]" />
+              <p className="text-muted mt-1 text-[11px] leading-relaxed">{term.note}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <h3 className="text-[13px] font-bold">What the letters mean</h3>
+            <dl className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
+              {FORMULA_LEGEND.map((item) => (
+                <div key={item.tex} className="grid grid-cols-[3.5rem_1fr] gap-2">
+                  <dt className="text-ink">
+                    <MathTex tex={item.tex} />
+                  </dt>
+                  <dd className="text-muted">{item.meaning}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <div>
+            <h3 className="text-[13px] font-bold">How the weights trade off</h3>
+            <ul className="mt-2 space-y-2 text-[11px] leading-relaxed">
+              {TRADE_OFFS_TEX.map((item) => (
+                <li key={item.tex} className="grid grid-cols-[6.5rem_1fr] items-center gap-2">
+                  <MathTex tex={item.tex} className="text-ink" />
+                  <span className="text-muted">{item.meaning}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted mt-3 text-[11px] leading-relaxed">
+              With several open courts, the best match takes the first court and the next best is picked from
+              whoever is left. <span className="font-semibold">Regenerate</span> adds a small random shake of
+              up to {PAIRING_WEIGHTS.variety} points, less than one level of imbalance, so it can offer a
+              different but still fair line-up.
+            </p>
+          </div>
         </div>
       </section>
 
