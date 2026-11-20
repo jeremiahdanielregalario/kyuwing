@@ -12,23 +12,19 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+/// The 13-level ladder, lowest to highest. E- / E+ and the border levels DE, CD, BC, AB were
+/// retired (see lib/levels.ts RETIRED_LEVELS).
 enum SkillLevel {
-  E_MINUS
   E
-  E_PLUS
-  DE
   D_MINUS
   D
   D_PLUS
-  CD
   C_MINUS
   C
   C_PLUS
-  BC
   B_MINUS
   B
   B_PLUS
-  AB
   A_MINUS
   A
   A_PLUS

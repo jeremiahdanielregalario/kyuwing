@@ -399,7 +399,7 @@ export function PlayerManager({
           <div className="min-w-0">
             <h2 className="font-display text-base font-bold">{readOnly ? "Roster" : "Player database"}</h2>
             <p className="text-muted text-[11px]">
-              {filtered.length} of {players.length} players · 19 levels, E- to A+
+              {filtered.length} of {players.length} players · 13 levels, E to A+
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -623,7 +623,7 @@ export function PlayerManager({
         open={formOpen}
         onClose={() => setFormOpen(false)}
         title={form.id ? "Edit player" : "Add player"}
-        description="Levels run from E- (beginner) to A+ (open). Player type controls the fee rate."
+        description="Levels run from E (beginner) to A+ (open). Player type controls the fee rate."
         size="md"
         footer={
           <>
@@ -755,8 +755,8 @@ export function PlayerManager({
             <p className="text-ink font-semibold">CSV columns</p>
             <p className="mt-1 font-mono text-[10px]">nickname, fullName, level, category, contact, notes</p>
             <p className="mt-1">
-              Level accepts E-, E, E+, DE, D-, … A+. Category accepts Active, Inactive, Alumni, Applicant, or
-              Non-affiliate. Header names are flexible.
+              Level accepts E, D-, D, D+, C-, … A+ (old levels like E+ or CD are converted). Category accepts
+              Active, Inactive, Alumni, Applicant, or Non-affiliate. Header names are flexible.
             </p>
           </div>
 

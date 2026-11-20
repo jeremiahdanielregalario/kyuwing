@@ -19,8 +19,8 @@ const DEMO_POOL: PairingPlayer[] = [
   { id: "p9", nickname: "Sam", level: "C_MINUS", waitMinutes: 5, gamesPlayed: 0 },
   { id: "p10", nickname: "Ben", level: "D_PLUS", waitMinutes: 51, gamesPlayed: 0 },
   { id: "p11", nickname: "Jolo", level: "D", waitMinutes: 27, gamesPlayed: 2 },
-  { id: "p12", nickname: "Lia", level: "E_PLUS", waitMinutes: 15, gamesPlayed: 0 },
-  { id: "p13", nickname: "Mika", level: "BC", waitMinutes: 34, gamesPlayed: 1 },
+  { id: "p12", nickname: "Lia", level: "E", waitMinutes: 15, gamesPlayed: 0 },
+  { id: "p13", nickname: "Mika", level: "C_PLUS", waitMinutes: 34, gamesPlayed: 1 },
   { id: "p14", nickname: "Enzo", level: "C_MINUS", waitMinutes: 11, gamesPlayed: 2 },
 ];
 
@@ -270,22 +270,16 @@ function TeamRow({
 // Local copy to avoid pulling the server-facing helper into a client bundle.
 function levelValue(level: string) {
   const order = [
-    "E_MINUS",
     "E",
-    "E_PLUS",
-    "DE",
     "D_MINUS",
     "D",
     "D_PLUS",
-    "CD",
     "C_MINUS",
     "C",
     "C_PLUS",
-    "BC",
     "B_MINUS",
     "B",
     "B_PLUS",
-    "AB",
     "A_MINUS",
     "A",
     "A_PLUS",

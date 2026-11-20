@@ -2,22 +2,16 @@ import { z } from "zod";
 import { CATEGORY_LABELS } from "./fees";
 
 export const SKILL_LEVEL_KEYS = [
-  "E_MINUS",
   "E",
-  "E_PLUS",
-  "DE",
   "D_MINUS",
   "D",
   "D_PLUS",
-  "CD",
   "C_MINUS",
   "C",
   "C_PLUS",
-  "BC",
   "B_MINUS",
   "B",
   "B_PLUS",
-  "AB",
   "A_MINUS",
   "A",
   "A_PLUS",

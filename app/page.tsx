@@ -118,7 +118,7 @@ const faqs = [
   },
   {
     q: "How does the player level database work?",
-    a: "Each player has a nickname, a level from E- to A+, and a type (Active, Alumni, or Applicant). You can edit players one by one, or import a CSV/JSON file. Re-importing updates matching nicknames.",
+    a: "Each player has a nickname, a level from E to A+, and a type (Active, Alumni, or Applicant). You can edit players one by one, or import a CSV/JSON file. Re-importing updates matching nicknames.",
   },
   {
     q: "What are Tipid and MEGA game days?",
@@ -666,7 +666,7 @@ export default function HomePage() {
                     ["Jose", "A+", 4, "₱450", true],
                     ["Andrea", "C+", 3, "₱400", true],
                     ["Ben", "D+", 2, "₱350", false],
-                    ["Lia", "E+", 1, "₱300", false],
+                    ["Lia", "E", 1, "₱300", false],
                     ["Nico", "B+", 5, "₱500", true],
                   ].map(([name, level, games, total, paid]) => (
                     <div

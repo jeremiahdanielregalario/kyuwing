@@ -40,15 +40,17 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 
 ### Player levels
 
-The 19-step ladder follows the UP BadAss convention, grouped into five brackets used by the pairing rule:
+The 13-step ladder follows the UP BadAss convention, grouped into five brackets used by the pairing rule:
 
 ```
-E:   E-  E  E+
-D:   DE  D-  D  D+
-C:   CD  C-  C  C+
-B:   BC  B-  B  B+
-A:   AB  A-  A  A+
+E:   E
+D:   D-  D  D+
+C:   C-  C  C+
+B:   B-  B  B+
+A:   A-  A  A+
 ```
+
+E is a single flat level. The older levels E-, E+ and the border levels DE, CD, BC, AB are retired: E- and E+ became E, and each border level rounded down (DE → E, CD → D+, BC → C+, AB → B+). Imports and game days saved on a tablet before the change are converted the same way.
 
 Brackets are `E → D → C → B → A`; the engine prefers partners and opponents within the same bracket, tolerates one bracket up or down, and only crosses further when the queue is thin.
 

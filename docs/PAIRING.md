@@ -26,9 +26,9 @@ Lower is better. Penalties add; bonuses subtract (negative cost).
 
 | Factor | Weight | Direction |
 | --- | ---: | --- |
-| Team strength difference (`abs(team1 - team2)`) | ×48 per level step | penalty |
+| Team strength difference (`abs(team1 - team2)`) | ×72 per level step | penalty |
 | Cross-bracket teammate (gap > 1) | ×55 per bracket beyond one | penalty |
-| Large numeric teammate gap (more than 3 level steps) | ×5 per extra step | penalty |
+| Large numeric teammate gap (more than 2 level steps) | ×7.5 per extra step | penalty |
 | Repeated teammate (every prior time) | ×150 each | penalty |
 | Same teammate within the last 3 rounds | +110 | penalty |
 | Repeated opponent (every prior time) | ×20 each | penalty |
@@ -46,11 +46,11 @@ Lower is better. Penalties add; bonuses subtract (negative cost).
 
 ### What dominates
 
-Team balance is the strongest structural signal: one level of imbalance costs 48, which is more than roughly 40 minutes of wait bonus. That is intentional — a lopsided game is worse than a slightly longer wait.
+Team balance is the strongest structural signal: one level of imbalance costs 72, which is more than an hour of one player's wait bonus (72 / 1.15 ≈ 63 minutes). That is intentional — a lopsided game is worse than a slightly longer wait.
 
 Repeating a teammate is the next strongest signal (150 plus 110 if recent), and repeating an entire foursome is stronger still (260 plus 130 recent). A fresh, balanced foursome will almost always beat a stale one, even if the stale one has waited longer.
 
-Requests are weighted heavily but not absolutely. Honoring a partner request is worth −135; violating it costs +95. A request will lose to a team-balance difference of about three level steps, which is the intended “bend, don't break” behavior.
+Requests are weighted heavily but not absolutely. Honoring a partner request is worth −135; violating it costs +95. A request will lose to a team-balance difference of about two level steps, which is the intended “bend, don't break” behavior.
 
 ### Scarcity mode
 
@@ -65,18 +65,20 @@ When scarcity mode produces a cross-bracket pairing, the suggestion is flagged `
 
 ## Bracket rules
 
-Levels map to numeric values 0–18 and to five brackets:
+Levels map to numeric values 0–12 and to five brackets:
 
 ```
-value:   0  1  2 | 3  4  5  6 | 7  8  9 10 | 11 12 13 14 | 15 16 17 18
-label:  E-  E  E+ |DE D-  D  D+ |CD C-  C C+ |BC B-  B  B+ |AB A-  A  A+
-bracket:    E     |     D      |     C      |     B      |     A
+value:   0 | 1  2  3 | 4  5  6 | 7  8  9 | 10 11 12
+label:   E |D- D  D+ |C- C  C+ |B- B  B+ |A-  A  A+
+bracket: E |    D    |    C    |    B    |    A
 ```
+
+The ladder had 19 steps until November 2026 (E-, E+ and the border levels DE, CD, BC, AB were retired), and the per-level weights were scaled by 1.5 when it shrank, so one step still means about the same skill gap to the engine: team imbalance 48 → 72, teammate level gap 5 → 7.5 per step beyond a free gap of 2 (was 3). `RETIRED_LEVELS` in `lib/levels.ts` reads any old level still on a tablet or in an import (E-, E+, DE → E; CD → D+; BC → C+; AB → B+).
 
 - **Same bracket** (gap 0): free.
 - **One bracket apart** (gap 1): free. A C+ may partner a D-.
 - **Two or more brackets apart** (gap > 1): penalized 55 per extra bracket, reduced to 11 in scarcity.
-- **Numeric gap > 3**: an additional 5 per extra step, to discourage, say, C+ with D- even though they are adjacent brackets.
+- **Numeric gap > 2**: an additional 7.5 per extra step, to discourage, say, C+ with D- even though they are adjacent brackets.
 
 The rule is applied to **teammates**, not opponents. Opponents of different levels are fine as long as the teams balance; the balance term handles the rest.
 
@@ -165,27 +167,24 @@ Queue: `C+`, `C+`, `D-`, `D-` (wait 10 min each, no history).
 
 Candidate splits:
 
-- `C+ + C+` vs `D- + D-` → team values 20 vs 8, balance 12 → cost 576.
-- `C+ + D-` vs `C+ + D-` → 15 vs 15, balance 0 → cost 0.
+- `C+ + C+` vs `D- + D-` → team values 12 vs 2, balance 10 → 720.
+- `C+ + D-` vs `C+ + D-` → 7 vs 7, balance 0. Each C+/D- partnership is one bracket apart (free) but 5 steps apart, so it costs (5 − 2) × 7.5 = 22.5 → 45.
 
-The second split wins: one stronger player with one weaker player per side. Both teammates are within one bracket, so no cross-bracket penalty.
+The second split wins: one stronger player with one weaker player per side. (Both costs are before the wait term, which is the same for every split of the same four.)
 
 ### Same-bracket four
 
 Queue: `C-`, `C`, `C`, `C+`.
 
-A zero-balance split exists (`C- + C+` vs `C + C`, both 18). The engine returns `balance: 0` and `crossBracket: false`.
+A zero-balance split exists (`C- + C+` vs `C + C`, both 10). The engine returns `balance: 0` and `crossBracket: false`.
 
 ### Permanent pair with a huge gap
 
-Queue: `A+` (permanent with `E-`), `E-`, `C`, `C`.
+Queue: `A+` (permanent with `E`), `E`, `C+`, `C+`.
 
-The `A+`/`E-` pair must stay together, so the only legal splits put them on the same team:
+The `A+`/`E` pair must stay together, so the only legal split is `A+ + E` (12) vs `C+ + C+` (12): balance 0, but a four-bracket teammate gap. The split that would balance them differently, `A+ + C+` vs `E + C+` (balance 12, cost 864), is never considered because it separates the pair.
 
-- `A+ + E-` (18) vs `C + C` (18) → balance 0, but a two-bracket teammate gap.
-- `A+ + C` vs `E- + C` → balance 10 → cost 480.
-
-The first split wins on balance despite the gap; the pair is preserved. This is the intended behavior: honoring a committed pair outranks bracket purity.
+The pair is preserved. This is the intended behavior: honoring a committed pair outranks bracket purity.
 
 ### Repeat foursome avoidance
 
@@ -195,7 +194,7 @@ The exact foursome `p1–p4` carries 260 + 130 = 390 in penalties. Any fresh fou
 
 ### Thin queue
 
-Queue: `A+`, `A`, `E-`, `E` (four players, so scarcity is on by default).
+Queue: `A+`, `A`, `E`, `E` (four players, so scarcity is on by default).
 
 Every split crosses at least two brackets. With scarcity, the cross-bracket penalty is 11 per extra bracket instead of 55, so a match is produced rather than returning nothing. `crossBracket` is `true` and the reason reads “Cross-bracket fill for scarcity.”
 

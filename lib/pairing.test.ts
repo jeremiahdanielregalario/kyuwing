@@ -167,6 +167,51 @@ describe("findBestMatch", () => {
   });
 });
 
+describe("weights on the 13-level ladder", () => {
+  it("lets partners two levels apart in adjacent brackets play for free, but not three", () => {
+    // D+ (3) with C+ (6) is three levels apart; D+ with C (5) is two. Both splits are level.
+    const free = findBestMatch(
+      [player("a", "D+"), player("b", "C"), player("c", "D+"), player("d", "C")],
+      [],
+      { scarcity: false },
+    )!;
+    const gapped = findBestMatch(
+      [player("a", "D+"), player("b", "C+"), player("c", "D+"), player("d", "C+")],
+      [],
+      { scarcity: false },
+    )!;
+    expect(free.balance).toBe(0);
+    expect(gapped.balance).toBe(0);
+    expect(free.cost).toBe(0);
+    expect(gapped.cost).toBe(2 * 7.5);
+  });
+
+  it("charges 72 per level of team imbalance", () => {
+    const match = findBestMatch(
+      [player("a", "C"), player("b", "C"), player("c", "C"), player("d", "C+")],
+      [],
+      {
+        scarcity: false,
+      },
+    )!;
+    expect(match.balance).toBe(1);
+    expect(match.cost).toBe(72);
+  });
+
+  it("will not seat an unbalanced four over a balanced one for less than about an hour of waiting", () => {
+    // One level of imbalance (72) outweighs 60 minutes of waiting by one player (69).
+    const players = [
+      player("a", "C"),
+      player("b", "C"),
+      player("c", "C"),
+      player("d", "C+", { waitMinutes: 60 }),
+      player("e", "C"),
+    ];
+    const match = findBestMatch(players, [], { scarcity: false })!;
+    expect(match.playerIds).not.toContain("d");
+  });
+});
+
 describe("unrated (X) players", () => {
   it("never auto-pairs an X player", () => {
     const players = [
