@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Recency score on the badge** — each player's recency badge (Players, the player database and the public roster) now shows their score as a whole number beside the status, e.g. **Playing often | 72**. Players with no history show the status only.
 - **Public queue playbook** — members can now read the queue playbook, including **The math behind the queue**, at `/playbook` without signing in. It's linked from the landing page (menu and footer) and from the live queue link (**How the queue picks games**, with a button back to the live queue). It shows the same playbook the queue master sees, minus the buttons into the app, and no player data.
 - **The queue formula, in the playbook** — the Queue playbook has a new section, **The math behind the queue**, showing the exact formula Auto-pair uses: the order of the line (priority, wait, arrival, games) and the cost of a match (balance, teammate spread, repeats, requests and waiting), typeset as proper math, with what each letter means and how the weights trade off (e.g. one level of imbalance ≈ 63 minutes of waiting). The numbers are read from the engine itself, so they stay current.
 - **Flat base fee option** — the Fees tab's **Base fee** card can switch from **Split court cost** (still the default) to **Flat rate**. A flat rate starts at ₱150 at DASC and ₱100 at KBC and can be edited; everyone then pays that base price plus shuttles, and the card still shows what the split would have been.

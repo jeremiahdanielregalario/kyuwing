@@ -71,7 +71,7 @@ export function RecencyBadge({ snapshot }: { snapshot: RecencySnapshot | undefin
       )}
       title={
         snapshot
-          ? `${snapshot.bandLabel} · score ${snapshot.score}/100${
+          ? `${snapshot.bandLabel} · recency score ${snapshot.score}${
               snapshot.daysSincePlayed !== null ? ` · last played ${snapshot.daysSincePlayed}d ago` : ""
             }`
           : "No imported attendance yet"
@@ -79,6 +79,9 @@ export function RecencyBadge({ snapshot }: { snapshot: RecencySnapshot | undefin
     >
       <Icon className="h-3 w-3" />
       {style.label}
+      {snapshot && band !== "new" && (
+        <span className="ml-0.5 border-l border-current/30 pl-1.5 tabular-nums">{snapshot.score}</span>
+      )}
     </span>
   );
 }
