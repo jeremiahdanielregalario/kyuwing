@@ -69,9 +69,10 @@ export type PairingSuggestion = {
   keepsPermanentPair: boolean;
 };
 
-const TEAM_DIFF_WEIGHT = 48;
+/** Per level of team imbalance. One step of the 13-level ladder is about 1.5 steps of the old 19. */
+const TEAM_DIFF_WEIGHT = 72;
 const CROSS_BRACKET_WEIGHT = 55;
-const INTRA_GAP_WEIGHT = 5;
+const INTRA_GAP_WEIGHT = 7.5;
 const REPEAT_TEAMMATE_WEIGHT = 150;
 const RECENT_TEAMMATE_WEIGHT = 110;
 const REPEAT_OPPONENT_WEIGHT = 20;
@@ -114,7 +115,7 @@ export const PAIRING_WEIGHTS = {
   crossBracket: CROSS_BRACKET_WEIGHT,
   scarcityFactor: 0.2,
   intraGap: INTRA_GAP_WEIGHT,
-  intraGapFree: 3,
+  intraGapFree: 2,
   repeatTeammate: REPEAT_TEAMMATE_WEIGHT,
   recentTeammate: RECENT_TEAMMATE_WEIGHT,
   repeatOpponent: REPEAT_OPPONENT_WEIGHT,
@@ -389,8 +390,8 @@ function evaluateMatch(
 
   if (keepsPermanentPair) reasons.push("Permanent pair kept");
   if (balance === 0) reasons.push("Teams level on paper");
-  else if (balance <= 2) reasons.push("Tight team balance");
-  else if (balance <= 4) reasons.push("Teams within reach");
+  else if (balance <= 1) reasons.push("Tight team balance");
+  else if (balance <= 3) reasons.push("Teams within reach");
 
   const maxTeammateBracketGap = Math.max(
     bracketGap(team1[0].level, team1[1].level),

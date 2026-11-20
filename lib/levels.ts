@@ -4,28 +4,40 @@ import { SkillLevel } from "@prisma/client";
  * The UP BadAss ladder, lowest to highest.
  * Numeric values are used by the pairing engine; labels are what queue masters see.
  * The five "brackets" (E, D, C, B, A) are used for the "same bracket ±1" rule.
+ * E is a single flat level; D, C, B and A each have a minus, plain and plus step.
  */
 export const LEVELS = [
-  { key: SkillLevel.E_MINUS, label: "E-", value: 0, bracket: "E" },
-  { key: SkillLevel.E, label: "E", value: 1, bracket: "E" },
-  { key: SkillLevel.E_PLUS, label: "E+", value: 2, bracket: "E" },
-  { key: SkillLevel.DE, label: "DE", value: 3, bracket: "D" },
-  { key: SkillLevel.D_MINUS, label: "D-", value: 4, bracket: "D" },
-  { key: SkillLevel.D, label: "D", value: 5, bracket: "D" },
-  { key: SkillLevel.D_PLUS, label: "D+", value: 6, bracket: "D" },
-  { key: SkillLevel.CD, label: "CD", value: 7, bracket: "C" },
-  { key: SkillLevel.C_MINUS, label: "C-", value: 8, bracket: "C" },
-  { key: SkillLevel.C, label: "C", value: 9, bracket: "C" },
-  { key: SkillLevel.C_PLUS, label: "C+", value: 10, bracket: "C" },
-  { key: SkillLevel.BC, label: "BC", value: 11, bracket: "B" },
-  { key: SkillLevel.B_MINUS, label: "B-", value: 12, bracket: "B" },
-  { key: SkillLevel.B, label: "B", value: 13, bracket: "B" },
-  { key: SkillLevel.B_PLUS, label: "B+", value: 14, bracket: "B" },
-  { key: SkillLevel.AB, label: "AB", value: 15, bracket: "A" },
-  { key: SkillLevel.A_MINUS, label: "A-", value: 16, bracket: "A" },
-  { key: SkillLevel.A, label: "A", value: 17, bracket: "A" },
-  { key: SkillLevel.A_PLUS, label: "A+", value: 18, bracket: "A" },
+  { key: SkillLevel.E, label: "E", value: 0, bracket: "E" },
+  { key: SkillLevel.D_MINUS, label: "D-", value: 1, bracket: "D" },
+  { key: SkillLevel.D, label: "D", value: 2, bracket: "D" },
+  { key: SkillLevel.D_PLUS, label: "D+", value: 3, bracket: "D" },
+  { key: SkillLevel.C_MINUS, label: "C-", value: 4, bracket: "C" },
+  { key: SkillLevel.C, label: "C", value: 5, bracket: "C" },
+  { key: SkillLevel.C_PLUS, label: "C+", value: 6, bracket: "C" },
+  { key: SkillLevel.B_MINUS, label: "B-", value: 7, bracket: "B" },
+  { key: SkillLevel.B, label: "B", value: 8, bracket: "B" },
+  { key: SkillLevel.B_PLUS, label: "B+", value: 9, bracket: "B" },
+  { key: SkillLevel.A_MINUS, label: "A-", value: 10, bracket: "A" },
+  { key: SkillLevel.A, label: "A", value: 11, bracket: "A" },
+  { key: SkillLevel.A_PLUS, label: "A+", value: 12, bracket: "A" },
 ] as const;
+
+/**
+ * Levels retired in the 13-level ladder, and where each now sits: E-/E+ fold into E, and each
+ * border level (DE, CD, BC, AB) rounds down to the top of the bracket below. A game day saved
+ * on a tablet before the change, or an old spreadsheet, can still carry these, so they are
+ * read through this map instead of being dropped.
+ */
+export const RETIRED_LEVELS: Record<string, SkillLevel> = {
+  E_MINUS: SkillLevel.E,
+  E_PLUS: SkillLevel.E,
+  DE: SkillLevel.E,
+  CD: SkillLevel.D_PLUS,
+  BC: SkillLevel.C_PLUS,
+  AB: SkillLevel.B_PLUS,
+  "E-": SkillLevel.E,
+  "E+": SkillLevel.E,
+};
 
 /**
  * "X": the player's official level is not known yet (typically a new applicant).
@@ -62,7 +74,8 @@ export const BRACKET_LABELS: Record<Bracket, string> = {
 
 export function levelInfo(level: SkillLevel | string) {
   if (isUnrated(level)) return UNRATED_LEVEL;
-  return LEVELS.find((row) => row.key === level || row.label === level) ?? LEVELS[0];
+  const key = RETIRED_LEVELS[level] ?? level;
+  return LEVELS.find((row) => row.key === key || row.label === key) ?? LEVELS[0];
 }
 
 export function levelLabel(level: SkillLevel | string): string {
@@ -95,10 +108,9 @@ export function parseLevel(input: string): LevelKey | null {
     .replace("PLUS", "+")
     .replace("MINUS", "-");
   if (value === "X") return SkillLevel.X;
-  if (value === "DE") return SkillLevel.DE;
-  if (value === "CD") return SkillLevel.CD;
-  if (value === "BC") return SkillLevel.BC;
-  if (value === "AB") return SkillLevel.AB;
+  // "E-", "e minus", "E_MINUS" and the border levels all arrive here as "E-", "DE", ...
+  const retired = RETIRED_LEVELS[value];
+  if (retired) return retired;
   const found = LEVELS.find(
     (level) => level.label.toUpperCase() === value || level.key.replace("_", "") === value,
   );

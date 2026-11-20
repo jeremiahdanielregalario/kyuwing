@@ -56,7 +56,7 @@ export const FORMULA_TERMS: FormulaTerm[] = [
 
 /** What each letter means, in the order members meet them. */
 export const FORMULA_LEGEND: Array<{ tex: string; meaning: string }> = [
-  { tex: String.raw`L`, meaning: "level as a number, E- = 0 up to A+ = 18" },
+  { tex: String.raw`L`, meaning: "level as a number, E = 0 up to A+ = 12" },
   { tex: String.raw`g_{ij}`, meaning: "brackets between two partners (E, D, C, B, A)" },
   { tex: String.raw`w_p`, meaning: "minutes waiting since check-in or since their last game ended" },
   { tex: String.raw`t_p`, meaning: "minutes since they checked in" },

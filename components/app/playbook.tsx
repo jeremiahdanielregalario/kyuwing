@@ -254,13 +254,13 @@ export function Playbook({ publicView = false }: { publicView?: boolean }) {
               vs
             </span>
             <div>
-              <p className="font-display text-lg font-extrabold">B- · D+</p>
+              <p className="font-display text-lg font-extrabold">C · D</p>
               <p className="text-muted text-[10px]">balanced team total</p>
             </div>
           </div>
           <p className="text-muted mt-2 text-[11px] leading-relaxed">
-            Both teams total the same level. The engine allows the bracket mix because the match stays
-            competitive.
+            Both teams total the same level (C+ and D- make 6 + 1, C and D make 5 + 2). The engine allows the
+            bracket mix because the match stays competitive.
           </p>
         </div>
       </section>

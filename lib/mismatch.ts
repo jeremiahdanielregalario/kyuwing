@@ -7,7 +7,7 @@ import { bracketIndex, isUnrated, levelLabel, levelValue } from "@/lib/levels";
  * teams leave someone out of their depth. Unrated (X) players are left out. Pure, so it is
  * unit-tested; the board shows the result as a warning tag on the court.
  */
-export const UNEVEN_GAP = 5;
+export const UNEVEN_GAP = 3;
 export const SPREAD_BRACKETS = 3;
 
 export type Mismatch = { short: string; detail: string };
