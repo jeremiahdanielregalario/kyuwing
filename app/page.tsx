@@ -161,6 +161,9 @@ export default function HomePage() {
             <a href="#faq" className="hover:text-ink transition">
               FAQ
             </a>
+            <Link href="/playbook" className="hover:text-ink transition">
+              Playbook
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <Link href="/roster" className={buttonVariants({ variant: "ghost", size: "sm" })}>
@@ -834,6 +837,7 @@ export default function HomePage() {
             links={[
               ["Queue board", "/app"],
               ["Player roster", "/roster"],
+              ["Queue playbook", "/playbook"],
               ["Venues", "/app/venues"],
               ["Queue master", "/login"],
             ]}

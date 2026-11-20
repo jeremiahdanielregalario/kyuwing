@@ -29,6 +29,7 @@ export default async function LiveViewPage({ params }: Params) {
       initialData={board}
       endpoint={`/api/live/${id}/${key}`}
       rosterHref={`/roster?back=${encodeURIComponent(`/live/${id}/${key}`)}`}
+      playbookHref={`/playbook?back=${encodeURIComponent(`/live/${id}/${key}`)}`}
     />
   );
 }

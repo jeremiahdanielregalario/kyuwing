@@ -11,6 +11,7 @@ import {
   LogOut,
   MapPin,
   Search,
+  Sigma,
   Trophy,
   Users,
   Wallet,
@@ -60,11 +61,13 @@ export function LiveView({
   initialData,
   endpoint,
   rosterHref,
+  playbookHref,
 }: {
   initialData: PublicBoard;
   endpoint: string;
   /** The public roster, with a link back to this live view. */
   rosterHref: string;
+  playbookHref: string;
 }) {
   const { data = initialData, error } = useSWR<PublicBoard>(endpoint, fetcher, {
     fallbackData: initialData,
@@ -332,6 +335,20 @@ export function LiveView({
             <span className="text-muted block text-[12px]">
               Levels, who&apos;s been playing, and tournament awards
             </span>
+          </span>
+          <ChevronRight className="text-muted h-5 w-5 shrink-0" />
+        </Link>
+
+        <Link
+          href={playbookHref}
+          className="press border-line bg-paper hover:border-forest/40 flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 shadow-sm"
+        >
+          <span className="bg-forest text-lime grid h-10 w-10 shrink-0 place-items-center rounded-full">
+            <Sigma className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="font-display block text-[14px] font-bold">How the queue picks games</span>
+            <span className="text-muted block text-[12px]">The queue playbook and the pairing formula</span>
           </span>
           <ChevronRight className="text-muted h-5 w-5 shrink-0" />
         </Link>
