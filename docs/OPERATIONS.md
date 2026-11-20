@@ -192,7 +192,7 @@ How players are banded:
 | Dormant       | Not seen in over 90 days                                                       |
 | No history    | Not on any logged list                                                         |
 
-The score (0–100) sorts the **Recency** column. Each list counts less as it ages (half weight after 60 days, none after a year), and a waitlist place counts 40% of a game, because joining the waitlist still shows the player wants to play.
+The score, a whole number from 0 to 100, appears next to the status on each badge and sorts the **Recency** column. Each list counts less as it ages (half weight after 60 days, none after a year), and a waitlist place counts 40% of a game, because joining the waitlist still shows the player wants to play.
 
 ## Tournament awards
 
