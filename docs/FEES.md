@@ -82,7 +82,7 @@ Payment state is stored on `SessionPlayer` (`paid`, `amountPaid`, `paymentMethod
 ## Where fees appear
 
 1. **Fee ledger** — the operational view for collecting money.
-2. **Excel export** — laid out like the finance team's **Gameday Finance Tracker** sheet: one row per player with membership status, games, total, mode of payment and remarks (grips, other charges, sukli, balances), rows shaded green once paid, and the side panel with base price, rent, shuttles used, expenses, estimated revenue and totals by payment method. The shuttle tube price (₱880) can be edited in the sheet.
+2. **Excel export** — laid out like the finance team's **Gameday Finance Tracker** sheet: one row per player with membership status, games, total, mode of payment and remarks (grips, other charges, sukli, balances), rows shaded green once paid, and the side panel with base price, rent, shuttles used, expenses, estimated revenue and totals by payment method. The shuttle tube price (₱880) can be edited in the sheet. Two more sheets follow: **Matches** (every game) and **Matches per player** (each player's games with partner and opponents, to check a player's game count).
 3. **PDF export** — a summary table with totals, using `PHP 250` instead of `₱250` because standard PDF fonts lack the peso glyph.
 4. **Board** — a paid indicator on player rows, so the queue master can see who still owes without leaving the board.
 
