@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Matches per player in the Excel report** — the report has a third sheet, **Matches per player**: every player A to Z with their games in the order played (round, court, partner, opponents, start and finish times), free games marked, and their counted games beside the name, so a disputed game count can be checked at a glance. Checked-in players who didn't play show "No games".
 - **Recency score on the badge** — each player's recency badge (Players, the player database and the public roster) now shows their score as a whole number beside the status, e.g. **Playing often | 72**. Players with no history show the status only.
 - **Players open sorted by recency** — the player database and the public roster now list the most active players first (highest recency score; equal scores A to Z). Sort by name, level or type as before from the column headers or **Sort**.
 - **Public queue playbook** — members can now read the queue playbook, including **The math behind the queue**, at `/playbook` without signing in. It's linked from the landing page (menu and footer) and from the live queue link (**How the queue picks games**, with a button back to the live queue). It shows the same playbook the queue master sees, minus the buttons into the app, and no player data.
