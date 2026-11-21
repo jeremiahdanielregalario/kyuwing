@@ -482,6 +482,9 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
                     <span className="text-muted block text-[10px]">
                       {feeNote(row)} · {row.gamesPlayed} games
                       {row.extras ? ` · extras ${formatPeso(row.extras)}` : ""}
+                      {paymentMethodLabel(row) ? (
+                        <span className="text-ink font-semibold"> · {paymentMethodLabel(row)}</span>
+                      ) : null}
                     </span>
                   </span>
                   <span className="shrink-0 text-right">
@@ -519,7 +522,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
         </ul>
 
         <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[880px] text-left text-[12px]">
+          <table className="w-full min-w-[940px] text-left text-[12px]">
             <thead>
               <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
                 <th className="px-4 py-2.5 font-bold">Player</th>
@@ -528,6 +531,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
                 <th className="px-2 py-2.5 text-right font-bold">Extras</th>
                 <th className="px-2 py-2.5 text-right font-bold">Total</th>
                 <th className="px-2 py-2.5 text-right font-bold">Paid</th>
+                <th className="px-2 py-2.5 font-bold">Method</th>
                 <th className="px-2 py-2.5 text-right font-bold">Balance</th>
                 <th className="px-2 py-2.5 text-right font-bold">Change</th>
                 <th className="px-3 py-2.5 text-right font-bold">Status</th>
@@ -538,7 +542,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-muted px-4 py-12 text-center">
+                  <td colSpan={12} className="text-muted px-4 py-12 text-center">
                     No players match this view.
                   </td>
                 </tr>
@@ -574,6 +578,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
                     <td className="text-muted px-2 py-2.5 text-right font-mono">
                       {formatPeso(row.amountPaid)}
                     </td>
+                    <td className="px-2 py-2.5 font-semibold">{paymentMethodLabel(row) ?? "—"}</td>
                     <td className="px-2 py-2.5 text-right font-mono font-bold">
                       {row.balance ? formatPeso(row.balance) : "—"}
                     </td>
@@ -774,6 +779,12 @@ function FeeStatus({ row }: { row: FeeRow }) {
   if (row.paid) return <Badge tone="green">Paid</Badge>;
   if (row.amountPaid > 0) return <Badge tone="amber">Partial</Badge>;
   return <Badge tone="neutral">Due</Badge>;
+}
+
+/** How the player paid ("GCash"), or null when nothing has been paid yet. */
+function paymentMethodLabel(row: FeeRow): string | null {
+  if (row.amountPaid <= 0 || !row.paymentMethod) return null;
+  return PAYMENT_METHOD_LABELS[row.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] ?? row.paymentMethod;
 }
 
 /** Category, plus how the sheet's rules touched this player's fee (QM, +₱10, voucher). */
