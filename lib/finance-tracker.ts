@@ -1,5 +1,5 @@
-import { formatPeso } from "./fees";
-import type { FeeRow } from "./board-types";
+import { SHUTTLE_TUBE_PRICE, formatPeso } from "./fees";
+import type { FeeReport, FeeRow } from "./board-types";
 
 /**
  * The rows of the Excel report's "Gameday Finance Tracker" sheet, laid out like the finance
@@ -82,4 +82,56 @@ export function trackerSheetName(date: Date | string): string {
     day: "numeric",
     year: "numeric",
   }).format(value);
+}
+
+export type FinanceSummary = {
+  basePrice: number;
+  rent: number;
+  /** One shuttle per four player-games (each game has four players). */
+  shuttlesUsed: number;
+  shuttleTubePrice: number;
+  /** Shuttles at the tube price over 12, plus the court rent. */
+  totalExpenses: number;
+  /** Total of the payment methods, less total expenses. */
+  estimatedRevenue: number;
+  /** Cash, GCash, Maya and GoTyme always; Bank and Other only when something came in. */
+  byMethod: Array<{ method: string; amount: number }>;
+  totalByMethod: number;
+  counts: { members: number; inactiveAlumni: number; applicants: number; plusOnes: number };
+};
+
+const SUMMARY_METHODS = ["CASH", "GCASH", "MAYA", "GOTYME", "BANK", "OTHER"];
+
+/**
+ * The finance tracker's side panel (expenses, revenue, totals by payment method, head counts),
+ * shared by the Excel report and the Fees page so both show the same numbers.
+ */
+export function financeSummary(report: FeeReport, tubePrice = SHUTTLE_TUBE_PRICE): FinanceSummary {
+  const rows = trackerRows(report.rows);
+  const sum = (method: string) =>
+    rows.filter((row) => row.payment === method).reduce((total, row) => total + row.total, 0);
+  const byMethod = SUMMARY_METHODS.map((method) => ({ method, amount: sum(method) })).filter(
+    (entry, index) => index < 4 || entry.amount > 0,
+  );
+  const totalByMethod = byMethod.reduce((total, entry) => total + entry.amount, 0);
+  const shuttlesUsed = report.summary.totalGames / 4;
+  const rent = report.scheme.split.courtCost;
+  const totalExpenses = (tubePrice / 12) * shuttlesUsed + rent;
+  const count = (status: string) => rows.filter((row) => row.status === status).length;
+  return {
+    basePrice: report.scheme.split.flatFee,
+    rent,
+    shuttlesUsed,
+    shuttleTubePrice: tubePrice,
+    totalExpenses,
+    estimatedRevenue: totalByMethod - totalExpenses,
+    byMethod,
+    totalByMethod,
+    counts: {
+      members: count("Mem"),
+      inactiveAlumni: count("Inact/Alum"),
+      applicants: count("App"),
+      plusOnes: count("Plus 1"),
+    },
+  };
 }

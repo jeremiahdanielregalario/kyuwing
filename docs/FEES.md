@@ -67,7 +67,7 @@ Earlier versions had a **Venues → Fee table** with a flat + per-game fee for e
 | Method | how the player paid (`SessionPlayer.paymentMethod`: Cash, GCash, Maya, GoTyme, Bank transfer, Other); a dash until something is paid. On phones it follows the games on each row |
 | Balance | `max(0, total - amountPaid)` |
 
-Totals across the session (billed, collected, outstanding) are shown at the top.
+Totals across the session (billed, collected, outstanding) are shown at the top. Below them, the **Finance summary** card shows the Excel report's side panel without exporting: base price, rent, shuttles used (player-games ÷ 4), shuttle tube price (₱880), total expenses (tube price ÷ 12 × shuttles + rent), estimated revenue (total by payment method − expenses), the totals by payment method (Cash, GCash, Maya, GoTyme always; Bank transfer and Other when used) and the counts of active members, inactive/alumni, applicants and Plus 1s. Both come from `financeSummary()` in `lib/finance-tracker.ts`, so they always agree. Like the Excel panel, the method totals add up each player's total by the method recorded, so a player with no method yet isn't in them.
 
 ### Recording payment
 

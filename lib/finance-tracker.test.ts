@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { FeeRow } from "./board-types";
-import { TRACKER_PAYMENT, trackerRemarks, trackerRows, trackerSheetName } from "./finance-tracker";
+import type { FeeReport, FeeRow } from "./board-types";
+import {
+  TRACKER_PAYMENT,
+  financeSummary,
+  trackerRemarks,
+  trackerRows,
+  trackerSheetName,
+} from "./finance-tracker";
 import { PAYMENT_METHOD_LABELS } from "./fees";
 import { PAYMENT_METHOD_KEYS } from "./validation";
 
@@ -108,5 +114,64 @@ describe("payment methods", () => {
     }
     expect(PAYMENT_METHOD_LABELS.MAYA).toBe("Maya");
     expect(PAYMENT_METHOD_LABELS.GOTYME).toBe("GoTyme");
+  });
+});
+
+describe("financeSummary", () => {
+  function report(rows: FeeRow[], totalGames: number): FeeReport {
+    return {
+      rows,
+      summary: { totalGames },
+      scheme: { split: { flatFee: 120, courtCost: 1200 } },
+    } as unknown as FeeReport;
+  }
+
+  it("works out expenses, revenue and totals by method like the Excel side panel", () => {
+    const summary = financeSummary(
+      report(
+        [
+          row({ nickname: "A", total: 220, paymentMethod: "CASH" }),
+          row({ nickname: "B", total: 200, paymentMethod: "GCASH" }),
+          row({ nickname: "C", total: 180, paymentMethod: "GCASH", category: "APPLICANT" }),
+          row({
+            nickname: "D",
+            total: 150,
+            paymentMethod: null,
+            paid: false,
+            amountPaid: 0,
+            category: "NON_AFFILIATE",
+          }),
+          row({ nickname: "E", total: 0, category: "ALUMNI", paymentMethod: "CASH" }),
+          row({ nickname: "F", status: "EXPECTED", paid: false, amountPaid: 0, paymentMethod: null }),
+        ],
+        24,
+      ),
+      880,
+    );
+    expect(summary.basePrice).toBe(120);
+    expect(summary.rent).toBe(1200);
+    expect(summary.shuttlesUsed).toBe(6);
+    expect(summary.totalExpenses).toBe(880 / 2 + 1200);
+    expect(summary.byMethod).toEqual([
+      { method: "CASH", amount: 220 },
+      { method: "GCASH", amount: 380 },
+      { method: "MAYA", amount: 0 },
+      { method: "GOTYME", amount: 0 },
+    ]);
+    expect(summary.totalByMethod).toBe(600);
+    expect(summary.estimatedRevenue).toBe(600 - 1640);
+    expect(summary.counts).toEqual({ members: 2, inactiveAlumni: 1, applicants: 1, plusOnes: 1 });
+  });
+
+  it("lists Bank and Other only when something came in that way", () => {
+    const summary = financeSummary(report([row({ total: 300, paymentMethod: "OTHER" })], 4), 880);
+    expect(summary.byMethod.map((entry) => entry.method)).toEqual([
+      "CASH",
+      "GCASH",
+      "MAYA",
+      "GOTYME",
+      "OTHER",
+    ]);
+    expect(summary.totalByMethod).toBe(300);
   });
 });

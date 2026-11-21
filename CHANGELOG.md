@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Finance summary on the Fees page** — the Excel report's side panel is now on the Fees page too, under the totals: base price, rent, shuttles used, shuttle tube price, total expenses, estimated revenue, totals by payment method (Cash, GCash, Maya, GoTyme, plus Bank transfer and Other when used) and the counts of active members, inactive/alumni, applicants and Plus 1s. It uses the same calculation as the Excel sheet, so the two always match.
 - **Payment method on the Fees ledger** — the ledger shows how each player paid (Cash, GCash, Maya, GoTyme, Bank transfer, Other): a **Method** column beside **Paid** on tablets and computers, and after the games on each phone row. Players who haven't paid show a dash.
 - **Matches per player in the Excel report** — the report has a third sheet, **Matches per player**: every player A to Z with their games in the order played (round, court, partner, opponents, start and finish times), free games marked, and their counted games beside the name, so a disputed game count can be checked at a glance. Checked-in players who didn't play show "No games".
 - **Recency score on the badge** — each player's recency badge (Players, the player database and the public roster) now shows their score as a whole number beside the status, e.g. **Playing often | 72**. Players with no history show the status only.
