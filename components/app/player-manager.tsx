@@ -121,8 +121,9 @@ export function PlayerManager({
   const [levelFilter, setLevelFilter] = React.useState("ALL");
   const [categoryFilter, setCategoryFilter] = React.useState("ALL");
   const [statusFilter, setStatusFilter] = React.useState("active");
-  const [sortKey, setSortKey] = React.useState<SortKey>("nickname");
-  const [sortDir, setSortDir] = React.useState<SortDir>("asc");
+  // Most active players first by default.
+  const [sortKey, setSortKey] = React.useState<SortKey>("recency");
+  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
   const [historyFor, setHistoryFor] = React.useState<PlayerRecord | null>(null);
   const [awardsFor, setAwardsFor] = React.useState<PlayerRecord | null>(null);
   /** Phones: the player whose actions sheet (history, edit, archive, delete) is open. */
@@ -181,8 +182,9 @@ export function PlayerManager({
         default:
           diff = a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" });
       }
-      if (diff === 0) diff = a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" });
-      return sortDir === "asc" ? diff : -diff;
+      if (sortDir === "desc") diff = -diff;
+      // Ties always read A to Z, whichever way the column is sorted.
+      return diff !== 0 ? diff : a.nickname.localeCompare(b.nickname, undefined, { sensitivity: "base" });
     });
 
   const filtersActive =
