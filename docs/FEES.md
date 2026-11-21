@@ -64,6 +64,7 @@ Earlier versions had a **Venues → Fee table** with a flat + per-game fee for e
 | W / L | derived from completed matches |
 | Total | `base price + shuttle rate × games + surcharge − voucher` + extras |
 | Paid | settlement state |
+| Method | how the player paid (`SessionPlayer.paymentMethod`: Cash, GCash, Maya, GoTyme, Bank transfer, Other); a dash until something is paid. On phones it follows the games on each row |
 | Balance | `max(0, total - amountPaid)` |
 
 Totals across the session (billed, collected, outstanding) are shown at the top.

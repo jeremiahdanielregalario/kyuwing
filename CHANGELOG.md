@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Added
 
+- **Payment method on the Fees ledger** — the ledger shows how each player paid (Cash, GCash, Maya, GoTyme, Bank transfer, Other): a **Method** column beside **Paid** on tablets and computers, and after the games on each phone row. Players who haven't paid show a dash.
 - **Matches per player in the Excel report** — the report has a third sheet, **Matches per player**: every player A to Z with their games in the order played (round, court, partner, opponents, start and finish times), free games marked, and their counted games beside the name, so a disputed game count can be checked at a glance. Checked-in players who didn't play show "No games".
 - **Recency score on the badge** — each player's recency badge (Players, the player database and the public roster) now shows their score as a whole number beside the status, e.g. **Playing often | 72**. Players with no history show the status only.
 - **Players open sorted by recency** — the player database and the public roster now list the most active players first (highest recency score; equal scores A to Z). Sort by name, level or type as before from the column headers or **Sort**.
