@@ -3,7 +3,7 @@ import { WORDMARK_SIZE } from "@/lib/brand-logo";
 import type { FeeReport } from "@/lib/board-types";
 import { formatGameDate } from "@/lib/datetime";
 import { SHUTTLE_TUBE_PRICE } from "@/lib/fees";
-import { trackerRows, trackerSheetName } from "@/lib/finance-tracker";
+import { financeSummary, trackerRows, trackerSheetName } from "@/lib/finance-tracker";
 import { ONLINE_PAYMENT } from "@/lib/payment";
 import { officerLabel } from "@/lib/signup-text";
 
@@ -168,15 +168,13 @@ export function addFinanceTracker(workbook: ExcelJS.Workbook, report: FeeReport,
 
   // Side panel: what the day cost and what came in.
   const games = `E${first}:E${last}`;
-  const shuttles = report.summary.totalGames / 4;
-  const byMethod = (method: string) =>
-    rows.filter((row) => row.payment === method).reduce((sum, row) => sum + row.total, 0);
-  const methods = ["CASH", "GCASH", "MAYA", "GOTYME", "BANK", "OTHER"].filter(
-    (method, index) => index < 4 || byMethod(method) > 0,
-  );
-  const collected = methods.reduce((sum, method) => sum + byMethod(method), 0);
-  const tube = SHUTTLE_TUBE_PRICE;
-  const expenses = (tube / 12) * shuttles + report.scheme.split.courtCost;
+  const summary = financeSummary(report, SHUTTLE_TUBE_PRICE);
+  const shuttles = summary.shuttlesUsed;
+  const methods = summary.byMethod.map((entry) => entry.method);
+  const byMethod = (method: string) => summary.byMethod.find((entry) => entry.method === method)?.amount ?? 0;
+  const collected = summary.totalByMethod;
+  const tube = summary.shuttleTubePrice;
+  const expenses = summary.totalExpenses;
 
   sideCell(sheet, "K5", "Base Price", { bold: true });
   sideCell(sheet, "L5", report.scheme.split.flatFee, { bold: true, peso: true, center: true });

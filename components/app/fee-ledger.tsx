@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
 import { toFeeReport } from "@/lib/board-engine/view";
-import type { FeeRow } from "@/lib/board-types";
+import type { FeeReport, FeeRow } from "@/lib/board-types";
+import { financeSummary } from "@/lib/finance-tracker";
 import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
 import {
   CATEGORY_SHORT,
@@ -382,6 +383,8 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
           icon={<Check className="h-4 w-4" />}
         />
       </div>
+
+      <FinanceSummaryCard report={report} />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="border-line bg-paper inline-flex rounded-full border p-1">
@@ -771,6 +774,87 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
       </Modal>
 
       <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
+    </div>
+  );
+}
+
+/** The finance tracker's side panel from the Excel report, so it can be read without exporting. */
+function FinanceSummaryCard({ report }: { report: FeeReport }) {
+  const summary = financeSummary(report);
+  const shuttles = Number.isInteger(summary.shuttlesUsed)
+    ? String(summary.shuttlesUsed)
+    : summary.shuttlesUsed.toFixed(2);
+  return (
+    <Card>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5 sm:px-6">
+        <h2 className="font-display text-ink text-lg font-bold tracking-tight">Finance summary</h2>
+        <p className="text-muted text-[11px]">Same figures as the Excel report&apos;s finance tracker</p>
+      </div>
+      <div className="grid gap-5 p-5 sm:grid-cols-3 sm:p-6">
+        <SummaryList
+          title="Costs"
+          items={[
+            ["Base price", formatPeso(summary.basePrice)],
+            ["Rent", formatPeso(summary.rent)],
+            ["Shuttles used", shuttles],
+            ["Shuttle tube price", formatPeso(summary.shuttleTubePrice)],
+            ["Total expenses", formatPeso(summary.totalExpenses), "strong"],
+            [
+              "Estimated revenue",
+              formatPeso(summary.estimatedRevenue),
+              summary.estimatedRevenue < 0 ? "negative" : "strong",
+            ],
+          ]}
+        />
+        <SummaryList
+          title="By payment method"
+          items={[
+            ...summary.byMethod.map(
+              ({ method, amount }) =>
+                [
+                  PAYMENT_METHOD_LABELS[method as keyof typeof PAYMENT_METHOD_LABELS] ?? method,
+                  formatPeso(amount),
+                ] as SummaryItem,
+            ),
+            ["Total", formatPeso(summary.totalByMethod), "strong"],
+          ]}
+        />
+        <SummaryList
+          title="Players"
+          items={[
+            ["Active members", String(summary.counts.members)],
+            ["Inactive / alumni", String(summary.counts.inactiveAlumni)],
+            ["Applicants", String(summary.counts.applicants)],
+            ["Plus 1s", String(summary.counts.plusOnes)],
+          ]}
+        />
+      </div>
+    </Card>
+  );
+}
+
+type SummaryItem = [label: string, value: string, tone?: "strong" | "negative"];
+
+function SummaryList({ title, items }: { title: string; items: SummaryItem[] }) {
+  return (
+    <div>
+      <h3 className="text-muted mb-1.5 text-[10px] font-bold tracking-wider uppercase">{title}</h3>
+      <dl className="divide-line/60 divide-y">
+        {items.map(([label, value, tone]) => (
+          <div key={label} className="flex items-center justify-between gap-3 py-2 text-[13px]">
+            <dt className={cn(tone ? "text-ink font-semibold" : "text-muted")}>{label}</dt>
+            <dd
+              className={cn(
+                "font-mono",
+                tone === "strong" && "text-forest font-bold",
+                tone === "negative" && "text-coral font-bold",
+              )}
+            >
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
