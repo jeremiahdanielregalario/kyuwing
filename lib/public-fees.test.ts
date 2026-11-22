@@ -8,8 +8,8 @@ function row(nickname: string, overrides: Partial<FeeRow> = {}): FeeRow {
     sessionPlayerId: `sp-${nickname}`,
     playerId: `p-${nickname}`,
     nickname,
-    fullName: `SURNAMESECRET, ${nickname}`,
-    level: "C",
+    fullName: `SANTOS, GIVENSECRET ${nickname}`,
+    level: "LEVELSECRET" as FeeRow["level"],
     category: "APPLICANT",
     status: "DONE",
     gamesPlayed: 3,
@@ -97,10 +97,33 @@ describe("toPublicFeeSheet", () => {
     });
   });
 
-  it("never leaks ids, categories, notes or names other than nicknames", () => {
+  it("carries the finance tracker's table: status label, nickname and surname, remarks", () => {
+    expect(sheet.sheet.map((row) => row.name)).toEqual(["Ana Santos", "mia Santos", "zed Santos"]);
+    expect(sheet.sheet[0]).toEqual({
+      verified: false,
+      status: "App",
+      name: "Ana Santos",
+      games: 3,
+      total: 250,
+      payment: "",
+      voucher: 0,
+      remarks: "1 grip · Unpaid",
+    });
+    expect(sheet.sheet[2]).toMatchObject({ verified: true, payment: "GCASH" });
+  });
+
+  it("leaves out players who never checked in and paid nothing", () => {
+    const sheetOf = (rows: FeeRow[]) => toPublicFeeSheet({ ...REPORT, rows }).sheet.map((r) => r.name);
+    expect(sheetOf([row("Ana", { status: "EXPECTED" }), row("Ben")])).toEqual(["Ben Santos"]);
+  });
+
+  it("never leaks ids, categories, levels, notes or given names", () => {
     const text = JSON.stringify(sheet);
     expect(text).not.toContain("SECRET");
     expect(text).not.toContain("APPLICANT");
+    expect(text).not.toContain("GIVENSECRET");
+    expect(text).not.toContain("playerId");
+    expect(text).not.toContain("sessionPlayerId");
     expect(text).not.toContain("sp-");
     expect(text).not.toContain("p-Ana");
     expect(Object.keys(sheet.lines[0]).sort()).toEqual(
@@ -117,6 +140,9 @@ describe("toPublicFeeSheet", () => {
         "settled",
         "total",
       ].sort(),
+    );
+    expect(Object.keys(sheet.sheet[0]).sort()).toEqual(
+      ["games", "name", "payment", "remarks", "status", "total", "verified", "voucher"].sort(),
     );
   });
 });
