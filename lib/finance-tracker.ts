@@ -28,6 +28,8 @@ export const TRACKER_PAYMENT: Record<string, string> = {
 };
 
 export type TrackerRow = {
+  /** Which game-day player the row is (not a sheet column). */
+  sessionPlayerId: string;
   verified: boolean;
   status: string;
   name: string;
@@ -58,6 +60,7 @@ export function trackerRows(rows: FeeRow[]): TrackerRow[] {
   return rows
     .filter((row) => row.status !== "EXPECTED" || row.amountPaid > 0)
     .map((row) => ({
+      sessionPlayerId: row.sessionPlayerId,
       verified: row.paid,
       status: TRACKER_STATUS[row.category],
       name: row.nickname,

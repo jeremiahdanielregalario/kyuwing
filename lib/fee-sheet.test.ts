@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { FeeRow } from "./board-types";
 import type { TrackerRow } from "./finance-tracker";
 import {
   SHEET_COLUMNS,
@@ -6,6 +7,8 @@ import {
   copyValue,
   displayValue,
   inRange,
+  parseAmount,
+  paymentForEdit,
   rangeOf,
   rangeToHtml,
   rangeToTsv,
@@ -13,6 +16,7 @@ import {
 
 function row(overrides: Partial<TrackerRow>): TrackerRow {
   return {
+    sessionPlayerId: "s",
     verified: true,
     status: "Mem",
     name: "Jess",
@@ -93,5 +97,81 @@ describe("fee sheet copy", () => {
     expect(rangeToHtml(rows, { top: 2, bottom: 2, left: 2, right: 2 }, true)).toBe(
       "<table><tr><th>Name</th></tr><tr><td>Lu &lt;b&gt;</td></tr></table>",
     );
+  });
+});
+
+function fee(overrides: Partial<FeeRow>): FeeRow {
+  return {
+    sessionPlayerId: "s",
+    playerId: "p",
+    nickname: "Jess",
+    level: "C",
+    category: "ACTIVE",
+    status: "DONE",
+    gamesPlayed: 5,
+    flatFee: 120,
+    perGameFee: 20,
+    surcharge: 0,
+    voucher: 0,
+    queueMaster: false,
+    total: 260,
+    gripCount: 1,
+    otherCharge: 0,
+    otherNote: null,
+    extras: 40,
+    paid: false,
+    amountPaid: 0,
+    balance: 260,
+    change: 0,
+    settled: false,
+    paymentMethod: null,
+    ...overrides,
+  };
+}
+
+describe("fee sheet edits", () => {
+  it("ticking VERIFIED? records a full payment, unticking clears it", () => {
+    expect(paymentForEdit(fee({}), { verified: true })).toEqual({ paid: true, method: "CASH" });
+    expect(
+      paymentForEdit(fee({ paid: true, amountPaid: 260, paymentMethod: "GCASH" }), { verified: true }),
+    ).toEqual({
+      paid: true,
+      method: "GCASH",
+    });
+    expect(paymentForEdit(fee({ paid: true, amountPaid: 260 }), { verified: false })).toEqual({
+      paid: false,
+      amountPaid: 0,
+    });
+  });
+
+  it("picking a mode of payment marks the player paid, and keeps an amount already paid", () => {
+    expect(paymentForEdit(fee({}), { method: "MAYA" })).toEqual({ paid: true, method: "MAYA" });
+    expect(
+      paymentForEdit(fee({ paid: true, amountPaid: 300, paymentMethod: "CASH" }), { method: "GCASH" }),
+    ).toEqual({ paid: true, amountPaid: 300, method: "GCASH" });
+    expect(paymentForEdit(fee({ paid: true, amountPaid: 260 }), { method: null })).toEqual({
+      paid: false,
+      amountPaid: 0,
+    });
+  });
+
+  it("a voucher keeps an exact payment exact and leaves the other charges alone", () => {
+    const exact = paymentForEdit(fee({ paid: true, amountPaid: 260, paymentMethod: "GCASH" }), {
+      voucher: 100,
+    });
+    expect(exact).toEqual({
+      paid: true,
+      method: "GCASH",
+      charges: { gripCount: 1, otherCharge: 0, otherNote: null, voucher: 100 },
+    });
+    const partial = paymentForEdit(fee({ amountPaid: 100 }), { voucher: 50 });
+    expect(partial).toMatchObject({ paid: false, amountPaid: 100, method: null });
+  });
+
+  it("reads a typed amount", () => {
+    expect(parseAmount("₱1,500")).toBe(1500);
+    expect(parseAmount(" ")).toBe(0);
+    expect(parseAmount("abc")).toBeNull();
+    expect(parseAmount("-5")).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ import { RejectedChanges } from "@/components/app/rejected-changes";
 import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
 import { toFeeReport } from "@/lib/board-engine/view";
 import type { FeeReport, FeeRow } from "@/lib/board-types";
+import { paymentForEdit } from "@/lib/fee-sheet";
 import { financeSummary, trackerRows } from "@/lib/finance-tracker";
 import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
 import {
@@ -45,14 +46,17 @@ import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
-/** Ledger or Sheet (the Excel report's table, for copying cells); remembered on this device. */
+/**
+ * Sheet (the Excel report's table: record payments in the cells, copy blocks of cells) or Ledger.
+ * Sheet unless this device picked Ledger.
+ */
 const VIEW_KEY = "kyuwing.fees-view";
 const viewListeners = new Set<() => void>();
 function readView(): "ledger" | "sheet" {
   try {
-    return window.localStorage.getItem(VIEW_KEY) === "sheet" ? "sheet" : "ledger";
+    return window.localStorage.getItem(VIEW_KEY) === "ledger" ? "ledger" : "sheet";
   } catch {
-    return "ledger";
+    return "sheet";
   }
 }
 function useLedgerView(): ["ledger" | "sheet", (view: "ledger" | "sheet") => void] {
@@ -66,7 +70,7 @@ function useLedgerView(): ["ledger" | "sheet", (view: "ledger" | "sheet") => voi
       };
     },
     readView,
-    () => "ledger" as const,
+    () => "sheet" as const,
   );
   const set = (value: "ledger" | "sheet") => {
     try {
@@ -507,8 +511,8 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
             >
               {(
                 [
-                  ["ledger", "Ledger"],
                   ["sheet", "Sheet"],
+                  ["ledger", "Ledger"],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -530,7 +534,13 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
         </div>
 
         {view === "sheet" ? (
-          <FeeSheet rows={sheetRows} />
+          <FeeSheet
+            rows={sheetRows}
+            feeRows={report.rows}
+            pending={pending}
+            onEdit={(row, change) => act(() => setPayment(row.sessionPlayerId, paymentForEdit(row, change)))}
+            onOpen={openPayment}
+          />
         ) : (
           <>
             {/* Phones: one tappable card per player; tap to record a payment. */}
