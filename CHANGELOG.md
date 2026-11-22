@@ -4,6 +4,10 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Changed
+
+- **Queue masters pay the base price** — a queue master on duty is no longer let off the base price: they pay it like everyone else, plus ₱20 a game and no ₱10 surcharge. This applies to game days from 22 November 2026; earlier game days keep the old waiver, so fees already settled and past reports don't change. The Fees page's fee explanation says which rule the game day uses.
+
 ### Added
 
 - **Finance summary on the Fees page** — the Excel report's side panel is now on the Fees page too, under the totals: base price, rent, shuttles used, shuttle tube price, total expenses, estimated revenue, totals by payment method (Cash, GCash, Maya, GoTyme, plus Bank transfer and Other when used) and the counts of active members, inactive/alumni, applicants and Plus 1s. It uses the same calculation as the Excel sheet, so the two always match.

@@ -8,6 +8,7 @@ import {
   extrasTotal,
   GRIP_PRICE,
   isQueueMasterOnDuty,
+  queueMasterPaysBase,
 } from "./fees";
 
 const plan = [
@@ -55,8 +56,46 @@ describe("split fee schedule", () => {
     expect(schedule.feeFor("NON_AFFILIATE", 2)).toMatchObject({ surcharge: 10, total: 170 });
   });
 
-  it("charges a queue master on duty no base price, ₱20 a game and no surcharge", () => {
+  it("charges a queue master on duty the base price, ₱20 a game and no surcharge", () => {
     const schedule = split(28);
+    const base = schedule.split.flatFee;
+    expect(base).toBeGreaterThan(0);
+    expect(schedule.feeFor("ACTIVE", 4, { queueMaster: true })).toEqual({
+      flatFee: base,
+      perGameFee: 20,
+      surcharge: 0,
+      voucher: 0,
+      total: base + 80,
+    });
+    expect(schedule.feeFor("APPLICANT", 3, { queueMaster: true }).total).toBe(base + 60);
+  });
+
+  it("keeps the queue master's base price waived on game days before 2026-11-22", () => {
+    const at = (gameDate: string) =>
+      buildFeeSchedule({
+        courtPlan: plan,
+        ratePerCourtHour: 200,
+        venueShortName: "KBC",
+        attendees: 28,
+        gameDate,
+      });
+    expect(at("2026-11-21T00:00:00.000Z").feeFor("ACTIVE", 4, { queueMaster: true }).flatFee).toBe(0);
+    expect(at("2026-11-22T00:00:00.000Z").feeFor("ACTIVE", 4, { queueMaster: true }).flatFee).toBeGreaterThan(
+      0,
+    );
+    expect(queueMasterPaysBase("2026-11-21T00:00:00.000Z")).toBe(false);
+    expect(queueMasterPaysBase("2026-11-22T00:00:00.000Z")).toBe(true);
+    expect(queueMasterPaysBase(undefined)).toBe(true);
+  });
+
+  it("charged a queue master on duty no base price before the change", () => {
+    const schedule = buildFeeSchedule({
+      courtPlan: plan,
+      ratePerCourtHour: 200,
+      venueShortName: "KBC",
+      attendees: 28,
+      gameDate: "2026-11-14T00:00:00.000Z",
+    });
     expect(schedule.feeFor("ACTIVE", 4, { queueMaster: true })).toEqual({
       flatFee: 0,
       perGameFee: 20,

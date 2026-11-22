@@ -448,8 +448,12 @@ describe("base fee", () => {
     expect(report.scheme.split).toMatchObject({ mode: "FLAT", splitFee: 240, flatFee: 150 });
     // P1 is an active member with no games: just the base price.
     expect(report.rows.find((row) => row.sessionPlayerId === "sp1")!.total).toBe(150);
-    // P0 is the queue master on duty and still pays no base price.
+    // P0 is the queue master on duty; before 2026-11-22 the base price was waived.
     expect(report.rows.find((row) => row.sessionPlayerId === "sp0")!.total).toBe(0);
+    // From 2026-11-22 the queue master pays it too.
+    const later = structuredClone(flat);
+    later.gameDay.date = new Date(Date.UTC(2026, 10, 22)).toISOString();
+    expect(toFeeReport(later, AT_9).rows.find((row) => row.sessionPlayerId === "sp0")!.total).toBe(150);
     expect(diffStates(state, flat).gameDay).toEqual({ flatBaseFee: 150 });
 
     const back = applyOp(flat, op({ type: "setBaseFee", amount: null })).state;

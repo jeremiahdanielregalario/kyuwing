@@ -14,7 +14,7 @@ total      = base price + shuttle rate × games played + ₱10 (applicants and P
            + extras (grips, other charges)
 ```
 
-- **Queue masters on duty** (the nicknames in the game day's queue master field, e.g. "Roniel & Jgops") pay no base price, ₱20 a game whatever their category, and no surcharge. They still count as players when the rent is divided, as in the sheet. Matching is by nickname or one of the player's **Also goes by** names, ignoring case (`isQueueMasterOnDuty`).
+- **Queue masters on duty** (the nicknames in the game day's queue master field, e.g. "Roniel & Jgops") pay the base price like everyone else, ₱20 a game whatever their category, and no surcharge. They count as players when the rent is divided, as in the sheet. Until 21 November 2026 the base price was waived for them; game days dated before 22 November 2026 (`QUEUE_MASTER_BASE_FEE_FROM`, checked by `queueMasterPaysBase()`) keep that rule, so their settled fees and reports don't change. Matching is by nickname or one of the player's **Also goes by** names, ignoring case (`isQueueMasterOnDuty`).
 - **₱10 surcharge** for Applicants and Non-affiliates ("Plus 1"), once per game day (`NON_MEMBER_SURCHARGE`).
 - **Voucher**: a discount in pesos entered in the Record payment dialog (`SessionPlayer.voucher`). It never takes the fee below ₱0; grips and other charges are added after it.
 
@@ -35,7 +35,7 @@ The rates live in `DEFAULT_COURT_RATES` (`lib/fees.ts`). A venue without a defau
 | Inactive, Alumni, Applicant | ₱25 |
 | Non-affiliate | ₱30 |
 
-Example: 3 courts 10:00–12:00 and 4 courts 12:00–14:00 is 14 court-hours. At KBC (₱250) the rent is ₱3,500; with 28 players the base price is ₱125. An Active player who played 3 games owes ₱125 + 3 × ₱20 = ₱185; an Applicant with 3 games owes ₱125 + 3 × ₱25 + ₱10 = ₱210; a queue master with 3 games owes 3 × ₱20 = ₱60. With 30 players the share is ₱116.67, so the base price is ₱120.
+Example: 3 courts 10:00–12:00 and 4 courts 12:00–14:00 is 14 court-hours. At KBC (₱250) the rent is ₱3,500; with 28 players the base price is ₱125. An Active player who played 3 games owes ₱125 + 3 × ₱20 = ₱185; an Applicant with 3 games owes ₱125 + 3 × ₱25 + ₱10 = ₱210; a queue master with 3 games owes ₱125 + 3 × ₱20 = ₱185. With 30 players the share is ₱116.67, so the base price is ₱120.
 
 Key properties:
 
@@ -118,7 +118,7 @@ The Fees tab shows the breakdown (`court-hours × rate = rent ÷ players = share
 
 **Overriding the court-hours.** When the venue bills a different total than the court plan works out (a court given back early, a free half hour), press **Edit court-hours** on the Split court cost card and type the total court-hours (courts × hours, in whole, half or quarter hours). That number supersedes the plan's for the fee split, the Excel and PDF reports and the payment list; the card shows "(set by the queue master; the plan has 12)". **Use the plan's …** goes back to the calculated hours. It is stored per game day in `GameDay.courtHoursOverride`.
 
-**Flat base fee.** The **Base fee** card at the top of the Fees tab has two choices: **Split court cost** (the default, described above) and **Flat rate**. Choosing **Flat rate** sets the base price to ₱150 at DASC or ₱100 at KBC (`DEFAULT_FLAT_BASE_FEES`; other venues start from the current split share), and **Edit amount** changes it. Every player then pays that base price whatever the rent or turnout; shuttle rates, the ₱10 surcharge, vouchers, extras and the queue master rule (no base price, ₱20 a game) stay the same. The card still shows what the split would have been, for reference. Pressing **Split court cost** goes back to the split. It is stored per game day in `GameDay.flatBaseFee` (null = split) and set with the `setBaseFee` op; the Excel side panel's **Base Price** shows the flat amount and **Rent** still shows the court cost.
+**Flat base fee.** The **Base fee** card at the top of the Fees tab has two choices: **Split court cost** (the default, described above) and **Flat rate**. Choosing **Flat rate** sets the base price to ₱150 at DASC or ₱100 at KBC (`DEFAULT_FLAT_BASE_FEES`; other venues start from the current split share), and **Edit amount** changes it. Every player then pays that base price whatever the rent or turnout; shuttle rates, the ₱10 surcharge, vouchers, extras and the queue master rule (₱20 a game, no surcharge) stay the same. The card still shows what the split would have been, for reference. Pressing **Split court cost** goes back to the split. It is stored per game day in `GameDay.flatBaseFee` (null = split) and set with the `setBaseFee` op; the Excel side panel's **Base Price** shows the flat amount and **Rent** still shows the court cost.
 
 ## Tests
 

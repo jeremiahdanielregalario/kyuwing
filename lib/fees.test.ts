@@ -132,7 +132,7 @@ describe("flat base fee", () => {
     expect(schedule.split).toMatchObject({ mode: "FLAT", splitFee: 120, flatFee: 150, courtCost: 3600 });
     expect(schedule.feeFor("ACTIVE", 2).total).toBe(150 + 2 * 20);
     expect(schedule.feeFor("APPLICANT", 1).total).toBe(150 + 25 + 10);
-    expect(schedule.feeFor("ACTIVE", 2, { queueMaster: true }).total).toBe(40);
+    expect(schedule.feeFor("ACTIVE", 2, { queueMaster: true }).total).toBe(150 + 40);
   });
 
   it("splits when there is no flat fee", () => {

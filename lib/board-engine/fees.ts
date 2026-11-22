@@ -12,6 +12,7 @@ export function feeSchedule(state: EngineState) {
     flatBaseFee: state.gameDay.flatBaseFee ?? null,
     venueShortName: state.gameDay.venue.shortName,
     attendees: state.players.filter((row) => row.status !== "EXPECTED").length,
+    gameDate: state.gameDay.date,
   });
 }
 
