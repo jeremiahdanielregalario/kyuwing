@@ -120,7 +120,7 @@ export type FeeRow = {
   surcharge: number;
   /** Discount taken off the fee. */
   voucher: number;
-  /** One of the game day's queue masters: no base price, ₱20 per game. */
+  /** One of the game day's queue masters: ₱20 per game and no surcharge (base price waived only before 2026-11-22). */
   queueMaster: boolean;
   /** Court + shuttle fees, surcharge and extras, less the voucher. */
   total: number;

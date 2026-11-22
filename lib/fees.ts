@@ -72,8 +72,20 @@ export const NON_MEMBER_SURCHARGE: Record<PlayerCategory, number> = {
   NON_AFFILIATE: 10,
 };
 
-/** A queue master on duty pays no base price and the member shuttle rate, whatever their category. */
+/** A queue master on duty pays the member shuttle rate and no surcharge, whatever their category. */
 export const QUEUE_MASTER_PER_GAME = 20;
+
+/**
+ * From this game date (a Manila date key) a queue master on duty pays the base price like everyone
+ * else. Earlier game days keep the old waiver, so their settled fees don't change.
+ */
+export const QUEUE_MASTER_BASE_FEE_FROM = "2026-11-22";
+
+/** Whether a queue master on duty pays the base price on a game day with this date. */
+export function queueMasterPaysBase(gameDate: string | null | undefined): boolean {
+  if (!gameDate) return true;
+  return gameDate.slice(0, 10) >= QUEUE_MASTER_BASE_FEE_FROM;
+}
 
 /** The base price (rent ÷ players) is rounded up to the next multiple of this, like the sheet. */
 export const BASE_PRICE_STEP = 5;
@@ -148,7 +160,7 @@ export type FeeSplit = {
 };
 
 export type PlayerFee = {
-  /** Base price: 0 for a queue master on duty. */
+  /** Base price: 0 for a queue master on duty on game days before `QUEUE_MASTER_BASE_FEE_FROM`. */
   flatFee: number;
   perGameFee: number;
   /** ₱10 for applicants and Plus 1 guests. */
@@ -210,8 +222,9 @@ export function defaultFlatBaseFee(venueShortName: string | null | undefined): n
  *
  * The base price is the court cost (rate × hours × courts, summed over blocks, or rate × the
  * court-hours a queue master typed in, which supersede the plan's) divided among
- * everyone who checked in, rounded up to the next ₱5. A queue master on duty pays no base
- * price and ₱20 per game. Shuttle rates are by category (`SPLIT_SHUTTLE_RATES`). The rate is
+ * everyone who checked in, rounded up to the next ₱5. A queue master on duty pays the base
+ * price, ₱20 per game and no surcharge (before `QUEUE_MASTER_BASE_FEE_FROM` the base price was
+ * waived, and those game days keep that). Shuttle rates are by category (`SPLIT_SHUTTLE_RATES`). The rate is
  * the game day's own, or the venue's default (DASC ₱300, KBC ₱250 per court per hour).
  *
  * A queue master can instead set a flat base fee (`flatBaseFee`); then everyone pays that as
@@ -227,7 +240,10 @@ export function buildFeeSchedule(input: {
   flatBaseFee?: number | null;
   venueShortName: string | null | undefined;
   attendees: number;
+  /** The game day's date (ISO, UTC midnight of the Manila date); decides the queue master's base price. */
+  gameDate?: string | null;
 }): FeeSchedule {
+  const qmPaysBase = queueMasterPaysBase(input.gameDate);
   const rate = effectiveCourtRate(input.ratePerCourtHour, input.venueShortName);
   const planned = courtHours(input.courtPlan);
   const overridden = input.courtHoursOverride != null && input.courtHoursOverride > 0;
@@ -251,7 +267,7 @@ export function buildFeeSchedule(input: {
   return {
     split,
     feeFor: (category, games, options = {}) => {
-      const base = options.queueMaster ? 0 : flatFee;
+      const base = options.queueMaster && !qmPaysBase ? 0 : flatFee;
       const perGameFee = options.queueMaster ? QUEUE_MASTER_PER_GAME : SPLIT_SHUTTLE_RATES[category];
       const surcharge = options.queueMaster ? 0 : NON_MEMBER_SURCHARGE[category];
       const before = computeFee({ flatFee: base, perGameFee }, games) + surcharge;

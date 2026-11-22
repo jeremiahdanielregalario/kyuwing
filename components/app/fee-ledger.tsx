@@ -25,6 +25,7 @@ import {
   PAYMENT_METHOD_LABELS,
   QUEUE_MASTER_PER_GAME,
   changeDue,
+  queueMasterPaysBase,
   defaultFlatBaseFee,
   extrasTotal,
   formatPeso,
@@ -114,6 +115,9 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
       () => setHoursDraft(null),
     );
   const flat = split.mode === "FLAT";
+  const qmRule = queueMasterPaysBase(report.gameDay.date)
+    ? `Queue masters on duty pay the base price and ${formatPeso(QUEUE_MASTER_PER_GAME)} a game, with no surcharge.`
+    : `Queue masters on duty pay no base price and ${formatPeso(QUEUE_MASTER_PER_GAME)} a game.`;
   const saveBaseFee = (amount: number | null) =>
     act(
       () => setBaseFee(report.gameDay.id, amount),
@@ -215,8 +219,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
                 <p>
                   Everyone pays a flat{" "}
                   <span className="font-semibold">{formatPeso(split.flatFee)} base price</span>, plus shuttles
-                  per game. Applicants and Plus 1s add {formatPeso(10)}. Queue masters on duty pay no base
-                  price and {formatPeso(QUEUE_MASTER_PER_GAME)} a game.
+                  per game. Applicants and Plus 1s add {formatPeso(10)}. {qmRule}
                 </p>
                 <Button
                   size="sm"
@@ -346,8 +349,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
               {report.scheme.split.players} players ={" "}
               <span className="font-semibold">{formatPeso(report.scheme.split.flatFee)} base price</span>{" "}
               (rounded up to the next ₱5), plus shuttles per game. Applicants and Plus 1s add {formatPeso(10)}
-              . Queue masters on duty pay no base price and {formatPeso(QUEUE_MASTER_PER_GAME)} a game. The
-              base price changes if more players check in.
+              . {qmRule} The base price changes if more players check in.
             </p>
           </>
         )}
