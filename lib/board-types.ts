@@ -110,6 +110,8 @@ export type FeeRow = {
   sessionPlayerId: string;
   playerId: string;
   nickname: string;
+  /** As stored ("DELA CRUZ, Matthew"); for the finance sheet's names. Never on public views. */
+  fullName: string | null;
   level: string;
   category: "ACTIVE" | "INACTIVE" | "ALUMNI" | "APPLICANT" | "NON_AFFILIATE";
   status: string;

@@ -40,6 +40,36 @@ export type TrackerRow = {
   remarks: string;
 };
 
+const SUFFIX = /^(jr|sr|ii|iii|iv|v)\.?$/i;
+
+/** "DELA CRUZ" → "Dela Cruz", "SANTOS-REYES" → "Santos-Reyes"; mixed-case names are left alone. */
+function titleCase(name: string): string {
+  if (name !== name.toUpperCase()) return name;
+  return name
+    .toLowerCase()
+    .replace(/(^|[\s\-'])(\p{L})/gu, (_, before: string, letter: string) => before + letter.toUpperCase());
+}
+
+/**
+ * The finance sheet's name: official nickname and surname ("Danyel Regalario"). Stored full names
+ * read "REGALARIO, Jeremiah Daniel", so the surname is the part before the comma (without a
+ * comma, the last word); a Jr./III is dropped. Nickname alone when there's no full name, or when
+ * the nickname already ends with the surname.
+ */
+export function trackerName(nickname: string, fullName: string | null): string {
+  const name = fullName?.trim();
+  if (!name) return nickname;
+  const words = (name.includes(",") ? name.split(",")[0] : name).trim().split(/\s+/);
+  if (!name.includes(",")) words.splice(0, words.length - 1);
+  while (words.length > 1 && SUFFIX.test(words[words.length - 1])) words.pop();
+  const surname = titleCase(words.join(" "));
+  if (!surname || SUFFIX.test(surname)) return nickname;
+  const nick = nickname.toLowerCase();
+  const sur = surname.toLowerCase();
+  if (nick === sur || nick.endsWith(` ${sur}`)) return nickname;
+  return `${nickname} ${surname}`;
+}
+
 /** Grips, other charges, change given back and any balance, in the template's short style. */
 export function trackerRemarks(row: FeeRow): string {
   const parts: string[] = [];
@@ -63,7 +93,7 @@ export function trackerRows(rows: FeeRow[]): TrackerRow[] {
       sessionPlayerId: row.sessionPlayerId,
       verified: row.paid,
       status: TRACKER_STATUS[row.category],
-      name: row.nickname,
+      name: trackerName(row.nickname, row.fullName),
       games: row.gamesPlayed,
       total: row.total,
       payment: row.paymentMethod ? (TRACKER_PAYMENT[row.paymentMethod] ?? row.paymentMethod) : "",

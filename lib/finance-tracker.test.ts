@@ -5,6 +5,7 @@ import {
   financeSummary,
   trackerRemarks,
   trackerRows,
+  trackerName,
   trackerSheetName,
 } from "./finance-tracker";
 import { PAYMENT_METHOD_LABELS } from "./fees";
@@ -15,6 +16,7 @@ function row(overrides: Partial<FeeRow>): FeeRow {
     sessionPlayerId: "s",
     playerId: "p",
     nickname: "Jess",
+    fullName: null,
     level: "C",
     category: "ACTIVE",
     status: "DONE",
@@ -39,7 +41,40 @@ function row(overrides: Partial<FeeRow>): FeeRow {
   };
 }
 
+describe("trackerName", () => {
+  it("is the official nickname and the surname, in title case", () => {
+    expect(trackerName("Danyel", "REGALARIO, Jeremiah Daniel")).toBe("Danyel Regalario");
+    expect(trackerName("Matt", "DELA CRUZ, Matthew")).toBe("Matt Dela Cruz");
+    expect(trackerName("Bea", "SANTOS-REYES, Beatriz")).toBe("Bea Santos-Reyes");
+  });
+
+  it("keeps a surname stored in mixed case as written", () => {
+    expect(trackerName("Mac", "McArthur, Douglas")).toBe("Mac McArthur");
+  });
+
+  it("drops a Jr. or III from the surname", () => {
+    expect(trackerName("Jun", "REYES JR., Juan")).toBe("Jun Reyes");
+    expect(trackerName("Trey", "LOPEZ III, Jose")).toBe("Trey Lopez");
+  });
+
+  it("uses the last word when the full name has no comma", () => {
+    expect(trackerName("Danyel", "Jeremiah Daniel Regalario")).toBe("Danyel Regalario");
+  });
+
+  it("falls back to the nickname, and doesn't repeat a surname already in it", () => {
+    expect(trackerName("Jess", null)).toBe("Jess");
+    expect(trackerName("Jess", "  ")).toBe("Jess");
+    expect(trackerName("Ian Regalario", "REGALARIO, Ian")).toBe("Ian Regalario");
+    expect(trackerName("Jomar", "MAR, Jose Omar")).toBe("Jomar Mar");
+  });
+});
+
 describe("trackerRows", () => {
+  it("names players by nickname and surname", () => {
+    const [named] = trackerRows([row({ nickname: "Danyel", fullName: "REGALARIO, Jeremiah Daniel" })]);
+    expect(named.name).toBe("Danyel Regalario");
+  });
+
   it("maps a fee row to the template's columns", () => {
     expect(trackerRows([row({})])).toEqual([
       {

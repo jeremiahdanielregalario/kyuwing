@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Names as nickname and surname in the finance sheet** — the Fees page's Sheet view and the Excel report's tracker sheet now list each player as official nickname plus surname, e.g. **Danyel Regalario**, the finance team's prescribed format. Surnames stored in capitals are shown in title case ("Dela Cruz"), and Jr./III is left off. Players without a full name on file show their nickname alone. The public fees link and live view still show nicknames only.
 - **Queue masters show their real membership status in the report** — in the Excel report and the Fees page's Sheet view, a queue master on duty is listed under their own status (Mem, Inact/Alum, App or Plus 1) instead of "QM", which isn't one of the finance team's statuses. They're sorted with that group and now count in the finance summary's member counts. Their fees don't change.
 - **Flat rate is the default base fee** — new game days start on **Flat rate** (₱150 at DASC, ₱100 at KBC) instead of splitting the court cost. **Split court cost** is still one tap away on the Fees page. Venues without a flat rate still start on the split, and existing game days keep their current setting.
 - **Default courts by game-day type** — a new game day's court blocks start with 3 courts for a Regular day and 4 for a MEGA day, whatever the venue. Switching between Regular and MEGA updates blocks you haven't changed or numbered. Tipid days still use the venue's default court count, and existing game days are unchanged.
