@@ -3,6 +3,7 @@
 import * as React from "react";
 import useSWR from "swr";
 import { MapPin, Search, Wallet } from "lucide-react";
+import { FeeSheet } from "@/components/app/fee-sheet";
 import { Logo } from "@/components/logo";
 import { Stat } from "@/components/ui/stat";
 import { formatClock, formatGameDate } from "@/lib/datetime";
@@ -24,10 +25,13 @@ const sameSheet = (a: PublicFeeSheet | undefined, b: PublicFeeSheet | undefined)
 
 type Filter = "all" | "unpaid" | "paid";
 const FILTER_LABELS: Record<Filter, string> = { all: "All", unpaid: "Not paid", paid: "Paid" };
+type View = "sheet" | "list";
 
 /**
  * The finance member's view-only fees sheet: what each player owes and has paid, kept up to
- * date while the queue master records payments on the Fees page.
+ * date while the queue master records payments on the Fees page. Opens on the Sheet (the
+ * Gameday Finance Tracker's table, whose cells copy into the finance team's spreadsheet);
+ * List is the card view for reading on a phone.
  */
 export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFeeSheet; endpoint: string }) {
   const {
@@ -41,6 +45,7 @@ export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFee
     keepPreviousData: true,
     compare: sameSheet,
   });
+  const [view, setView] = React.useState<View>("sheet");
   const [filter, setFilter] = React.useState<Filter>("all");
   const [query, setQuery] = React.useState("");
 
@@ -50,12 +55,19 @@ export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFee
       (filter === "all" || (filter === "paid" ? line.paid : !line.paid)) &&
       (!needle || line.nickname.toLowerCase().includes(needle)),
   );
+  // A page loaded before the sheet was added polls a server that sends no `sheet`: show it empty.
+  const sheetRows = (data.sheet ?? []).filter(
+    (row) =>
+      (filter === "all" || (filter === "paid" ? row.verified : !row.verified)) &&
+      (!needle || row.name.toLowerCase().includes(needle)),
+  );
   const { summary } = data;
+  const width = view === "sheet" ? "max-w-5xl" : "max-w-3xl";
 
   return (
     <div className="min-h-dvh pb-12">
       <header className="bg-forest-deep text-cream">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4">
+        <div className={cn("mx-auto flex items-center justify-between gap-3 px-4 py-4", width)}>
           <Logo compact tone="cream" />
           <span
             className={cn(
@@ -72,7 +84,7 @@ export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFee
             {error ? "Reconnecting" : `Updated ${formatClock(data.generatedAt)}`}
           </span>
         </div>
-        <div className="mx-auto max-w-3xl px-4 pb-5">
+        <div className={cn("mx-auto px-4 pb-5", width)}>
           <p className="text-lime text-[11px] font-bold tracking-[0.16em] uppercase">Fees · view only</p>
           <h1 className="font-display mt-1 text-2xl leading-tight font-extrabold">{data.gameDay.name}</h1>
           <p className="text-cream/60 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
@@ -84,7 +96,7 @@ export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFee
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-5 px-4 pt-5">
+      <main className={cn("mx-auto space-y-5 px-4 pt-5", width)}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Billed" value={formatPeso(summary.billed)} hint={`${summary.games} games`} />
           <Stat
@@ -107,6 +119,32 @@ export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFee
             <h2 className="font-display mr-auto inline-flex items-center gap-1.5 text-base font-bold">
               <Wallet className="h-4 w-4" /> Payments
             </h2>
+            <div
+              role="radiogroup"
+              aria-label="How the payments are shown"
+              className="border-line bg-paper inline-flex rounded-full border p-0.5"
+            >
+              {(
+                [
+                  ["sheet", "Sheet"],
+                  ["list", "List"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={view === value}
+                  onClick={() => setView(value)}
+                  className={cn(
+                    "press min-h-9 rounded-full px-3 text-[12px] font-semibold",
+                    view === value ? "bg-forest text-cream" : "text-muted",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className="border-line bg-paper inline-flex rounded-full border p-0.5" role="tablist">
               {(["all", "unpaid", "paid"] as const).map((value) => (
                 <button
@@ -130,13 +168,17 @@ export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFee
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Find a nickname"
-              aria-label="Find a nickname"
+              placeholder={view === "sheet" ? "Find a name" : "Find a nickname"}
+              aria-label={view === "sheet" ? "Find a name" : "Find a nickname"}
               className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
             />
           </label>
 
-          {lines.length === 0 ? (
+          {view === "sheet" ? (
+            <div className="border-line bg-paper overflow-hidden rounded-2xl border">
+              <FeeSheet rows={sheetRows} />
+            </div>
+          ) : lines.length === 0 ? (
             <p className="border-line bg-paper text-muted rounded-2xl border px-4 py-3 text-[13px]">
               {data.lines.length === 0 ? "No players on this game day yet." : "No one matches."}
             </p>
@@ -175,8 +217,10 @@ export function FeeSheetView({ initialData, endpoint }: { initialData: PublicFee
         </section>
 
         <p className="text-muted text-[11px] leading-relaxed">
-          This page refreshes on its own. Payments are recorded by the queue master on the board; this sheet
-          can&apos;t change anything. Payments taken on a tablet without signal show here once it reconnects.
+          This page refreshes on its own. The Sheet lists everyone who checked in, in the Gameday Finance
+          Tracker&apos;s columns: select cells, or press Copy all, and paste them into the tracker. Payments
+          are recorded by the queue master on the board; this sheet can&apos;t change anything. Payments taken
+          on a tablet without signal show here once it reconnects.
         </p>
       </main>
     </div>

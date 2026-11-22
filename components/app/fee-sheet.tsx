@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { PaymentMethod } from "@/lib/board-engine/types";
 import type { FeeRow } from "@/lib/board-types";
-import { TRACKER_PAYMENT, type TrackerRow } from "@/lib/finance-tracker";
+import { TRACKER_PAYMENT } from "@/lib/finance-tracker";
 import {
   SHEET_COLUMNS,
   clampRange,
@@ -19,6 +19,7 @@ import {
   type Cell,
   type Range,
   type SheetEdit,
+  type SheetRow,
 } from "@/lib/fee-sheet";
 import { PAYMENT_METHOD_KEYS } from "@/lib/validation";
 import { cn } from "@/lib/utils";
@@ -33,21 +34,28 @@ const COLS = SHEET_COLUMNS.length;
  * heading for the whole column, then Ctrl/Cmd+C or Copy: the cells paste into Excel or Google
  * Sheets as cells, with amounts as plain numbers. On touch, tap one corner and then the other;
  * the table still scrolls with a finger.
+ *
+ * Without `feeRows` (the finance officer's shared link) the grid is read-only: cells can be
+ * selected and copied, and nothing can be changed.
  */
 export function FeeSheet({
   rows,
   feeRows,
-  pending,
+  pending = false,
   onEdit,
   onOpen,
 }: {
-  rows: TrackerRow[];
-  feeRows: FeeRow[];
-  pending: boolean;
-  onEdit: (row: FeeRow, edit: SheetEdit) => void;
-  onOpen: (row: FeeRow) => void;
+  rows: Array<SheetRow & { sessionPlayerId?: string }>;
+  feeRows?: FeeRow[];
+  pending?: boolean;
+  onEdit?: (row: FeeRow, edit: SheetEdit) => void;
+  onOpen?: (row: FeeRow) => void;
 }) {
-  const byId = React.useMemo(() => new Map(feeRows.map((row) => [row.sessionPlayerId, row])), [feeRows]);
+  const readOnly = !feeRows;
+  const byId = React.useMemo(
+    () => new Map((feeRows ?? []).map((row) => [row.sessionPlayerId, row])),
+    [feeRows],
+  );
   const [editing, setEditing] = React.useState<Cell | null>(null);
   const [draft, setDraft] = React.useState("");
   // The cell being typed in, for the handlers: moving focus away blurs the box, which must not
@@ -110,8 +118,8 @@ export function FeeSheet({
 
   /** Edit a cell: type a voucher, tick VERIFIED?, or open the payment form for the rest. */
   const activate = (cell: Cell, typed?: string) => {
-    const tracker = rows[cell.row];
-    const fee = tracker && byId.get(tracker.sessionPlayerId);
+    const id = rows[cell.row]?.sessionPlayerId;
+    const fee = id ? byId.get(id) : undefined;
     if (!fee || pending) return;
     const column = SHEET_COLUMNS[cell.col];
     select(cell, cell);
@@ -121,13 +129,13 @@ export function FeeSheet({
       typedStart.current = typed !== undefined;
       setEditing(cell);
     } else if (column.edit === "check") {
-      onEdit(fee, { verified: !fee.paid });
+      onEdit?.(fee, { verified: !fee.paid });
     } else if (column.edit === "method") {
       gridRef.current
         ?.querySelector<HTMLSelectElement>(`[data-cell="${cell.row}-${cell.col}"] select`)
         ?.focus();
     } else {
-      onOpen(fee);
+      onOpen?.(fee);
     }
   };
 
@@ -144,7 +152,7 @@ export function FeeSheet({
       toast.error("Enter the voucher in whole pesos.");
       return;
     }
-    if (value !== fee.voucher) onEdit(fee, { voucher: value });
+    if (value !== fee.voucher) onEdit?.(fee, { voucher: value });
   };
   const cancelVoucher = () => {
     editRef.current = null;
@@ -246,6 +254,11 @@ export function FeeSheet({
         <p className="text-muted text-[11px]">
           {range ? (
             <span className="text-ink font-semibold">{selectionSize(range)} selected</span>
+          ) : readOnly ? (
+            <>
+              Drag across cells (on touch, tap one corner and then the other) or tap a heading to pick a
+              block, then copy it into the finance tracker.
+            </>
           ) : (
             <>
               Tick <span className="text-ink font-semibold">VERIFIED?</span> or pick a{" "}
@@ -274,7 +287,9 @@ export function FeeSheet({
         ref={gridRef}
         tabIndex={0}
         role="grid"
-        aria-label="Fee sheet: record payments and select cells to copy"
+        aria-label={
+          readOnly ? "Fee sheet: select cells to copy" : "Fee sheet: record payments and select cells to copy"
+        }
         aria-multiselectable="true"
         onKeyDown={onKeyDown}
         onCopy={onCopy}
@@ -313,7 +328,7 @@ export function FeeSheet({
                     const cell = { row: r, col };
                     const selected = inRange(range, r, col);
                     const isFocus = focus?.row === r && focus.col === col && !!range;
-                    const fee = byId.get(row.sessionPlayerId);
+                    const fee = row.sessionPlayerId ? byId.get(row.sessionPlayerId) : undefined;
                     const isEditing = editing?.row === r && editing.col === col;
                     // Clicks on a cell's own control shouldn't also start a selection drag.
                     const own = {
@@ -329,7 +344,7 @@ export function FeeSheet({
                           checked={fee.paid}
                           disabled={pending}
                           onChange={(event) => {
-                            onEdit(fee, { verified: event.target.checked });
+                            onEdit?.(fee, { verified: event.target.checked });
                             focusGrid();
                           }}
                           aria-label={`${row.name} verified (paid in full)`}
@@ -343,7 +358,7 @@ export function FeeSheet({
                           value={fee.paymentMethod ?? ""}
                           disabled={pending}
                           onChange={(event) => {
-                            onEdit(fee, { method: (event.target.value || null) as PaymentMethod | null });
+                            onEdit?.(fee, { method: (event.target.value || null) as PaymentMethod | null });
                             focusGrid();
                           }}
                           onKeyDown={(event) => {
@@ -405,7 +420,7 @@ export function FeeSheet({
                         }}
                         className={cn(
                           "border-line h-9 cursor-cell border-r border-b whitespace-nowrap select-none",
-                          column.edit === "method" ? "px-1" : "px-3",
+                          column.edit === "method" && !readOnly ? "px-1" : "px-3",
                           column.align === "center" && "text-center",
                           column.align === "right" && "text-right font-mono",
                           selected ? "bg-lime/25" : "bg-paper",

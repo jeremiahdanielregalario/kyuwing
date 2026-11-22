@@ -187,9 +187,9 @@ function ShareFeesDialog({
         <div className="border-coral/30 bg-coral-soft/60 flex items-start gap-3 rounded-2xl border p-3.5">
           <ShieldAlert className="text-coral mt-0.5 h-4 w-4 shrink-0" />
           <p className="text-ink text-[12px] leading-relaxed">
-            Anyone with this link sees every player&apos;s nickname, games, fee and payment (no full names or
-            contacts). Send it to the finance officer directly, not to the players&apos; group chat. It is a
-            different link from the live queue.
+            Anyone with this link sees every player&apos;s nickname and surname, membership status, games, fee
+            and payment (no given names or contacts). Send it to the finance officer directly, not to the
+            players&apos; group chat. It is a different link from the live queue.
           </p>
         </div>
       </div>
