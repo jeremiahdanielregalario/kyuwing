@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { dateOnlyFromKey, formatGameDate } from "@/lib/datetime";
 import type { CourtSetup } from "@/lib/court-setup";
 import { planProblem } from "@/lib/court-plan";
+import { defaultFlatBaseFee } from "@/lib/fees";
 import { levelLabel, parseLevel } from "@/lib/levels";
 import { refreshAttendance, refreshGameDay } from "@/lib/refresh";
 import { checkSignup, notReadyReason } from "@/lib/signup-check";
@@ -123,6 +124,9 @@ export async function createGameDay(input: unknown): Promise<ActionResult<{ id: 
       queueMasterName: parsed.data.queueMasterName || listQueueMaster || null,
       financeMemberName: parsed.data.financeMemberName || listFinance || null,
       courtRatePerHour: parsed.data.courtRatePerHour ?? null,
+      // New game days start on the venue's flat rate (DASC ₱150, KBC ₱100). A venue without
+      // one starts on the split; the queue master can switch on the Fees page either way.
+      flatBaseFee: defaultFlatBaseFee(venue.shortName),
       ...(playerIds.length
         ? { players: { create: playerIds.map((playerId) => ({ playerId, status: "EXPECTED" as const })) } }
         : {}),
