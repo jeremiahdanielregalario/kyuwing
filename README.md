@@ -63,6 +63,8 @@ A player can also be **X** (not rated yet), typically a new applicant whose offi
 | KBC  | Kalayaan Badminton Center | Monday      | 10:00–14:00   | 3              |
 | DASC | Don Antonio Sports Center | Saturday    | 09:00–13:00   | 4              |
 
+New game days start with 3 courts per block on a Regular day and 4 on a MEGA day, whatever the venue; the venue's default courts apply to Tipid days.
+
 Both venues and their court blocks are editable in **Venues**.
 
 ### Game-day types

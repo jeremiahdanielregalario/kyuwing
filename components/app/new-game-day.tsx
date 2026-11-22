@@ -6,7 +6,7 @@ import { CalendarPlus, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { createGameDay } from "@/lib/actions/gamedays";
 import { courtName, parseCourtNumbers } from "@/lib/datetime";
-import { gameTime, MEGA_EXTRA_MINUTES, shiftPlanEnd } from "@/lib/court-plan";
+import { defaultCourtsFor, gameTime, MEGA_EXTRA_MINUTES, shiftPlanEnd } from "@/lib/court-plan";
 import { Button } from "@/components/ui/button";
 import { CourtRateField } from "@/components/app/court-rate-field";
 import { CourtPlanEditor } from "@/components/app/court-plan-editor";
@@ -28,14 +28,19 @@ type VenueOption = {
 /** `numbers` is what the queue master typed, e.g. "5, 6, 7, 8" or "5-8". */
 type Slot = { id: string; label: string; start: string; end: string; courts: number; numbers: string };
 
-function makeSlot(venue: VenueOption, start = venue.defaultStart, end = venue.defaultEnd): Slot {
+function makeSlot(
+  venue: VenueOption,
+  type: string,
+  start = venue.defaultStart,
+  end = venue.defaultEnd,
+): Slot {
   const game = gameTime(start, end);
   return {
     id: `slot-${Date.now()}`,
     label: "First block",
     start: game.start,
     end: game.end,
-    courts: venue.defaultCourts,
+    courts: defaultCourtsFor(type, venue.defaultCourts),
     numbers: "",
   };
 }
@@ -68,7 +73,7 @@ export function NewGameDayButton({
   const appliedHeader = React.useRef("");
   const listBlocked = Boolean(listText) && !listCheck?.ready;
   const listPlayers = listCheck?.ready ? listCheck.lines.filter((line) => !line.waitlist).length : 0;
-  const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue)] : []);
+  const [slots, setSlots] = React.useState<Slot[]>(firstVenue ? [makeSlot(firstVenue, "REGULAR")] : []);
   const [pending, startTransition] = React.useTransition();
 
   const selectedVenue = venues.find((venue) => venue.id === venueId) ?? firstVenue;
@@ -77,16 +82,27 @@ export function NewGameDayButton({
     setVenueId(id);
     const venue = venues.find((item) => item.id === id);
     if (venue) {
-      const fresh = [makeSlot(venue)];
+      const fresh = [makeSlot(venue, type)];
       setSlots(type === "MEGA" ? shiftPlanEnd(fresh, MEGA_EXTRA_MINUTES) : fresh);
     }
   };
 
   // A MEGA game day starts with one more court hour than a regular one; switching back takes
   // it away again. Either way the queue master can adjust the times afterwards.
+  // The court count follows the type too (3 regular, 4 MEGA) on blocks still at the old type's
+  // default and without typed court numbers, so a count the queue master changed is kept.
   const changeType = (next: string) => {
-    if (next === "MEGA" && type !== "MEGA") setSlots(shiftPlanEnd(slots, MEGA_EXTRA_MINUTES));
-    else if (next !== "MEGA" && type === "MEGA") setSlots(shiftPlanEnd(slots, -MEGA_EXTRA_MINUTES));
+    let nextSlots = slots;
+    if (next === "MEGA" && type !== "MEGA") nextSlots = shiftPlanEnd(slots, MEGA_EXTRA_MINUTES);
+    else if (next !== "MEGA" && type === "MEGA") nextSlots = shiftPlanEnd(slots, -MEGA_EXTRA_MINUTES);
+    if (selectedVenue) {
+      const from = defaultCourtsFor(type, selectedVenue.defaultCourts);
+      const to = defaultCourtsFor(next, selectedVenue.defaultCourts);
+      nextSlots = nextSlots.map((slot) =>
+        slot.courts === from && !slot.numbers.trim() ? { ...slot, courts: to } : slot,
+      );
+    }
+    setSlots(nextSlots);
     setType(next);
   };
 
@@ -120,7 +136,9 @@ export function NewGameDayButton({
       setType(header.type);
       if (header.title) setName(header.title);
       if (venue) {
-        setSlots([makeSlot(venue, header.start ?? venue.defaultStart, header.end ?? venue.defaultEnd)]);
+        setSlots([
+          makeSlot(venue, header.type, header.start ?? venue.defaultStart, header.end ?? venue.defaultEnd),
+        ]);
       }
     }
     const qm = roleName("QM");
