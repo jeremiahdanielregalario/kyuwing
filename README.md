@@ -255,6 +255,7 @@ Then run `pnpm db:deploy` against the production database.
 - [Operations](docs/OPERATIONS.md) — day-of checklist for queue masters
 - [Deployment](docs/DEPLOYMENT.md) — Vercel, database, migrations, rollback
 - [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
 - [Changelog](CHANGELOG.md)
 - [Agent notes](AGENTS.md)
 

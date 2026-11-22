@@ -5,14 +5,20 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only token: pull requests from forks can't push or read secrets.
+permissions:
+  contents: read
+
 jobs:
   check:
-    name: Typecheck, lint, test, build
+    # This name is a required status check on main; rename it there too if it changes.
+    name: Quality gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -51,20 +57,80 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Formatting (Prettier)
+        run: pnpm format:check
+
       - name: Generate Prisma client
         run: pnpm exec prisma generate
 
-      - name: Apply migrations
+      - name: Apply migrations to a fresh database
         run: pnpm db:deploy
+
+      - name: Schema matches migrations
+        run: >-
+          pnpm exec prisma migrate diff
+          --from-schema-datasource prisma/schema.prisma
+          --to-schema-datamodel prisma/schema.prisma
+          --exit-code
+          || (echo "::error::prisma/schema.prisma has changes without a migration. Run: pnpm db:migrate --name describe_the_change" && exit 1)
+
+      - name: Seed demo data
+        run: pnpm db:seed
 
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Lint
-        run: pnpm lint
+      - name: Lint (zero warnings)
+        run: pnpm lint --max-warnings 0
 
       - name: Test
         run: pnpm test
 
       - name: Build
         run: pnpm build
+
+  changelog:
+    name: Changelog
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: CHANGELOG.md updated for app changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          SKIP: ${{ contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+        run: |
+          if [ "$SKIP" = "true" ]; then
+            echo "skip-changelog label set; not checking."
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE...$HEAD")
+          app=$(echo "$changed" | grep -E '^(app|components|lib|prisma)/' | grep -v -E '\.test\.ts$' || true)
+          if [ -z "$app" ]; then
+            echo "No app code changed."
+            exit 0
+          fi
+          if echo "$changed" | grep -qx 'CHANGELOG.md'; then
+            echo "CHANGELOG.md updated."
+            exit 0
+          fi
+          echo "::error file=CHANGELOG.md::App code changed but CHANGELOG.md didn't. Add a line under 'Unreleased', or ask the maintainer for the skip-changelog label if nothing is user-visible."
+          echo "Changed app files:"
+          echo "$app"
+          exit 1
+
+  dependencies:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
