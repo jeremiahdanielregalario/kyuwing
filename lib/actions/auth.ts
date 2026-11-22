@@ -15,6 +15,7 @@ import {
   sessionName,
 } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ensureDeviceId } from "@/lib/device";
 import { deviceLabel, type SignInEnd } from "@/lib/sign-in-log";
 
 export type LoginMode = "master" | "admin";
@@ -54,6 +55,7 @@ async function startSession(name: string, admin: boolean) {
     console.error("Sign-in log: could not record the sign-in", error);
   }
   await createSession(name, { admin, sid });
+  await ensureDeviceId();
 }
 
 export async function loginAction(

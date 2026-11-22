@@ -239,6 +239,8 @@ Runner-up: Baby & JCB
 | Status line says **Offline** | No signal | Keep going: presses are saved on the tablet and sent when the signal is back |
 | Status line says **Signed out** | Session expired (14 hours) | Sign in again on the same tablet, then open the board: unsent changes go up |
 | Toast “A change wasn't saved: …” | Something changed on another device first | Look at the board and redo the change if it's still needed |
+| **View only on this device** box; status line says **View only** | Another device holds the board and is offline (or this device is offline and doesn't hold it) | Wait for the holding tablet to get signal (wake its screen and open the board). If it is dead or lost, press **Take over the board** and confirm |
+| “Another device took over the board while this one was offline” | Someone took the board over while this tablet had no signal | Those changes weren't saved. Check the board and redo what's still needed; this tablet is view only until it changes the board with the holder online, or takes it back over |
 | “At least four players need to be checked in” | Fewer than four Waiting | Check in more arrivals |
 | “All N courts are assigned” | Every court has a suggestion or live match | Start, finish, or cancel a match |
 | “Add at least one court block in Settings first” | Empty court plan | Add a block in Settings |
@@ -265,5 +267,8 @@ If something looks broken:
   - The installed app opens straight to the board and updates itself whenever a new version is deployed.
 - **Weak or no signal:** open the game day's board once with signal, before play starts (this also saves Fees and Sign-ups on the tablet; give it a few seconds). After that they work on the tablet: every press shows at once, is saved on the tablet, and is sent in the background. The status line under the game day name says **Saved · live on all devices**, **Saving n changes…**, or **Offline · n changes saved on this tablet**. Don't sign out or clear the browser while it says changes are waiting (Sign out asks first if any are). The installed app opens to the last board used on the tablet when there's no signal. A change the server refuses (e.g. changed on another device first) is listed in a coral box until you close it; redo it if it's still needed. The live link players watch only updates once the changes reach the server. Pages you haven't opened with signal show "You're offline".
 - Keep the device plugged in or on a power bank.
-- Use one device as the source of truth. Other devices can watch, but run the board from one tablet: changes made offline on two devices are applied in the order they reach the server.
+- Use one device as the source of truth. The device that changed the board last holds it. While it is offline (no contact for 30 seconds), every other signed-in device is **view only**, so only the holder's offline copy changes and nothing clashes when it reconnects. Other devices can change the board again once the holder is back online. A device that is offline itself can only change the board if it holds it.
+  - Keep the holding tablet's screen on and the board open. A sleeping screen or a backgrounded app stops checking in, so other devices go view only until it wakes.
+  - If the holding tablet dies or is lost, press **Take over the board** on another signed-in device and confirm. Changes still unsent on the old tablet are refused when it comes back, listed there, and it becomes view only.
+  - In the first 30 seconds after the holder loses signal, another device can still change the board; both sets of changes are then applied in the order they reach the server.
 - Screen brightness up; the board is designed to be readable across a court.

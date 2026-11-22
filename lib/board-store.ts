@@ -10,6 +10,14 @@ import { canonicalJson, normalizeState } from "@/lib/board-engine/canonical";
 import { diffStates, isEmptyChange, type ChangeSet } from "@/lib/board-engine/diff";
 import { applyOp, closesGameDay, needsRoster, type BoardOp, type OpResult } from "@/lib/board-engine/ops";
 import type { EngineState, RosterEntry } from "@/lib/board-engine/types";
+import {
+  judgeChange,
+  judgeTakeover,
+  leaseView,
+  type Claimant,
+  type Lease,
+  type LeaseView,
+} from "@/lib/board-lease";
 
 type Tx = Prisma.TransactionClient;
 
@@ -295,6 +303,8 @@ export type RunOpsResult = {
   state: EngineState | null;
   /** The game day was closed by one of these changes (attendance was logged). */
   closed: boolean;
+  /** Who holds the board afterwards, as seen by the sender (when the sender was given). */
+  lease?: LeaseView;
 };
 
 const MAX_OPS = 200;
@@ -308,10 +318,10 @@ function storedResult(row: { ok: boolean; message: string | null }): OpResult {
  * the result. The game day row is locked meanwhile, so two senders never interleave. Operations
  * already saved (same id) are not applied again; their stored answer is returned.
  */
-export async function runOps(gameDayId: string, ops: BoardOp[]): Promise<RunOpsResult> {
+export async function runOps(gameDayId: string, ops: BoardOp[], who?: Claimant): Promise<RunOpsResult> {
   if (ops.length > MAX_OPS) throw new Error("Too many changes at once.");
   try {
-    return await runOpsOnce(gameDayId, ops);
+    return await runOpsOnce(gameDayId, ops, who);
   } catch (error) {
     if (!isPermanent(error)) throw error;
     // Something in the batch can never be saved (e.g. a nickname taken meanwhile). Save the rest
@@ -320,13 +330,15 @@ export async function runOps(gameDayId: string, ops: BoardOp[]): Promise<RunOpsR
       const results: OpResult[] = [];
       let state: EngineState | null = null;
       let closed = false;
+      let lease: LeaseView | undefined;
       for (const op of ops) {
-        const one = await runOps(gameDayId, [op]);
+        const one = await runOps(gameDayId, [op], who);
         results.push(one.results[0]);
         state = one.state ?? state;
         closed ||= one.closed;
+        lease = one.lease ?? lease;
       }
-      return { results, state, closed };
+      return { results, state, closed, lease };
     }
     const [op] = ops;
     const message = "That change couldn't be saved. Check the board and try again.";
@@ -342,7 +354,12 @@ export async function runOps(gameDayId: string, ops: BoardOp[]): Promise<RunOpsR
         },
       })
       .catch(() => undefined);
-    return { results: [fail(message)], state: await loadEngineState(prisma, gameDayId), closed: false };
+    return {
+      results: [fail(message)],
+      state: await loadEngineState(prisma, gameDayId),
+      closed: false,
+      lease: who ? leaseView(await readLease(prisma, gameDayId), who.deviceId, Date.now()) : undefined,
+    };
   }
 }
 
@@ -355,7 +372,57 @@ function isPermanent(error: unknown): boolean {
   return !["P1001", "P1002", "P1008", "P1017", "P2024", "P2028", "P2034"].includes(error.code);
 }
 
-async function runOpsOnce(gameDayId: string, ops: BoardOp[]): Promise<RunOpsResult> {
+async function readLease(tx: Tx, gameDayId: string): Promise<Lease | null> {
+  const row = await tx.boardLease.findUnique({ where: { gameDayId } });
+  return row
+    ? {
+        deviceId: row.deviceId,
+        seenAt: row.seenAt.getTime(),
+        epoch: row.epoch,
+        name: row.name,
+        device: row.device,
+      }
+    : null;
+}
+
+async function writeLease(tx: Tx, gameDayId: string, lease: Lease) {
+  const data = {
+    deviceId: lease.deviceId,
+    seenAt: new Date(lease.seenAt),
+    epoch: lease.epoch,
+    name: lease.name,
+    device: lease.device,
+  };
+  await tx.boardLease.upsert({ where: { gameDayId }, create: { gameDayId, ...data }, update: data });
+}
+
+/** The holder reached the server (a poll): it is still in touch. Answers with the lease as `deviceId` sees it. */
+export async function heartbeat(gameDayId: string, deviceId: string): Promise<LeaseView> {
+  const now = Date.now();
+  await prisma.boardLease.updateMany({ where: { gameDayId, deviceId }, data: { seenAt: new Date(now) } });
+  return leaseView(await readLease(prisma, gameDayId), deviceId, now);
+}
+
+/**
+ * Takes the board over from a holder that is out of touch: the caller holds it and the epoch
+ * goes up, so changes the old holder made before this are refused when they arrive. Null when
+ * the game day doesn't exist.
+ */
+export async function takeOverBoard(gameDayId: string, who: Claimant): Promise<LeaseView | null> {
+  return prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<
+      { id: string }[]
+    >`SELECT id FROM "GameDay" WHERE id = ${gameDayId} FOR UPDATE`;
+    if (locked.length === 0) return null;
+    const now = Date.now();
+    const lease = await readLease(tx, gameDayId);
+    const next = judgeTakeover(lease, who, now);
+    if (next !== lease) await writeLease(tx, gameDayId, next);
+    return leaseView(next, who.deviceId, now);
+  });
+}
+
+async function runOpsOnce(gameDayId: string, ops: BoardOp[], who?: Claimant): Promise<RunOpsResult> {
   return prisma.$transaction(
     async (tx) => {
       const locked = await tx.$queryRaw<
@@ -373,6 +440,37 @@ async function runOpsOnce(gameDayId: string, ops: BoardOp[]): Promise<RunOpsResu
         ).map((row) => [row.id, row]),
       );
       const fresh = ops.filter((op) => !seen.has(op.id));
+      const now = Date.now();
+      const lease = who ? await readLease(tx, gameDayId) : null;
+      if (who && fresh.length) {
+        const judged = judgeChange(lease, who, now);
+        if (!judged.ok) {
+          // Another device holds the board and is out of touch (or took it over): save nothing.
+          // The refusal is logged so a resend gets the same answer.
+          await tx.boardOp.createMany({
+            data: fresh.map((op) => ({
+              id: op.id,
+              gameDayId,
+              type: String(op.type).slice(0, 40),
+              ok: false,
+              message: judged.error.slice(0, 500),
+              pressedAt: new Date(Number.isFinite(op.at) ? op.at : now),
+            })),
+            skipDuplicates: true,
+          });
+          const state = await loadEngineState(tx, gameDayId);
+          if (state) delete state.roster;
+          return {
+            results: ops.map((op) => {
+              const stored = seen.get(op.id);
+              return stored ? storedResult(stored) : fail(judged.error);
+            }),
+            state,
+            closed: false,
+            lease: leaseView(lease, who.deviceId, now),
+          };
+        }
+      }
       const before = await loadEngineState(tx, gameDayId, { roster: fresh.some(needsRoster) });
       if (!before) return { results: ops.map(() => fail("Game day not found.")), state: null, closed: false };
 
@@ -413,9 +511,25 @@ async function runOpsOnce(gameDayId: string, ops: BoardOp[]): Promise<RunOpsResu
       if (closed) await logAttendanceFromGameDay(tx, gameDayId);
       if (log.length) await tx.boardOp.createMany({ data: log });
 
+      let held = lease;
+      if (who) {
+        const changed = results.some((result, index) => result.ok && !seen.has(ops[index].id));
+        const judged = judgeChange(lease, who, now);
+        // The device that changed the board last holds it; the holder checking in stays in touch.
+        if (judged.ok && (changed || lease?.deviceId === who.deviceId)) {
+          held = judged.next;
+          await writeLease(tx, gameDayId, held);
+        }
+      }
+
       const saved = { ...state };
       delete saved.roster;
-      return { results, state: saved, closed };
+      return {
+        results,
+        state: saved,
+        closed,
+        lease: who ? leaseView(held, who.deviceId, now) : undefined,
+      };
     },
     { timeout: 20_000, maxWait: 10_000 },
   );

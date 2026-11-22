@@ -1,6 +1,8 @@
 import * as React from "react";
+import { fail } from "@/lib/action-result";
 import { applyOp, applyOps, type BoardOp, type BoardOpBody, type OpResult } from "@/lib/board-engine/ops";
 import type { EngineState, RosterEntry } from "@/lib/board-engine/types";
+import { decodeLeaseHeader, lockReason, type DeviceLease, type LeaseView } from "@/lib/board-lease";
 import { describeOp } from "./describe-op";
 import { readGameDay, writeGameDay, type StoredGameDay } from "./idb";
 
@@ -24,6 +26,12 @@ export type SyncStatus = {
   problem: string | null;
   /** Changes the device accepted but the server refused, until the queue master dismisses them. */
   rejected: RejectedChange[];
+  /** Who holds the board, as last heard (null before the first answer). */
+  lease: DeviceLease | null;
+  /** Why this device can't change the board right now (another device holds it), or null. */
+  locked: string | null;
+  /** A takeover request is on its way. */
+  takingOver: boolean;
 };
 
 export type RejectedChange = { id: string; label: string; error: string; at: number };
@@ -80,6 +88,9 @@ export class GameDaySync {
   private loadedAt: number;
   private roster: RosterEntry[];
   private pending: BoardOp[] = [];
+  /** The lease epoch each unsent press was made under (sent along so a takeover can refuse them). */
+  private epochs = new Map<string, number>();
+  private lease: DeviceLease | null = null;
   private view: EngineState;
   private status: SyncStatus;
   private snapshot: SyncSnapshot;
@@ -101,7 +112,17 @@ export class GameDaySync {
     this.loadedAt = initial.loadedAt;
     this.roster = initial.roster;
     this.view = this.compute();
-    this.status = { online: true, pending: 0, sending: false, syncedAt: null, problem: null, rejected: [] };
+    this.status = {
+      online: true,
+      pending: 0,
+      sending: false,
+      syncedAt: null,
+      problem: null,
+      rejected: [],
+      lease: null,
+      locked: null,
+      takingOver: false,
+    };
     this.snapshot = { state: this.view, status: this.status };
   }
 
@@ -141,9 +162,15 @@ export class GameDaySync {
    */
   run(body: BoardOpBody): OpResult {
     const op = { id: newId(), at: Date.now(), ...body } as BoardOp;
+    const locked = lockReason(this.lease, this.status.online, op.at);
+    if (locked) {
+      this.publish();
+      return fail(locked);
+    }
     const { state, result } = applyOp(this.view, op);
     if (!result.ok) return result;
     this.pending = [...this.pending, op];
+    if (this.lease) this.epochs.set(op.id, this.lease.epoch);
     this.version += 1;
     this.view = state;
     if (state.roster) this.roster = state.roster;
@@ -152,6 +179,44 @@ export class GameDaySync {
     queueMicrotask(() => void this.send());
     return result;
   }
+
+  /**
+   * Takes the board over from a holder that is out of touch. This device's own unsent presses
+   * go with it; the old holder's are refused when it reconnects.
+   */
+  takeOver = async (): Promise<OpResult> => {
+    if (this.status.takingOver) return fail("Already taking over the board.");
+    this.publish({ takingOver: true });
+    try {
+      const response = await request(`/api/gamedays/${this.id}/takeover`, { method: "POST" });
+      if (response.status === 401) {
+        this.publish({ takingOver: false, problem: "Signed out. Sign in again to take over the board." });
+        return fail("Your queue-master session expired. Sign in again.");
+      }
+      if (!response.ok) {
+        this.publish({ takingOver: false, online: response.status < 500 });
+        return fail("The board couldn't be taken over. Try again.");
+      }
+      const body: { lease: LeaseView } = await response.json();
+      this.setLease(body.lease);
+      if (body.lease.holder === "you")
+        for (const op of this.pending) this.epochs.set(op.id, body.lease.epoch);
+      this.publish({ takingOver: false, online: true });
+      this.persist();
+      void this.send();
+      if (this.status.locked) return fail(this.status.locked);
+      return {
+        ok: true,
+        message:
+          body.lease.holder === "you"
+            ? "This device now holds the board."
+            : "The board's holder is back online, so you can change the board here.",
+      };
+    } catch {
+      this.publish({ takingOver: false, online: false });
+      return fail("You're offline. Taking over the board needs signal.");
+    }
+  };
 
   /** Ask the server for the latest now (after a refused press, or the queue master pulls to refresh). */
   refresh() {
@@ -175,12 +240,21 @@ export class GameDaySync {
     this.loadedAt = loadedAt;
   }
 
+  private setLease(view: LeaseView | null | undefined) {
+    if (!view) return;
+    const before = this.lease;
+    this.lease = { ...view, receivedAt: Date.now() };
+    if (!before || before.holder !== view.holder || before.epoch !== view.epoch) this.persist();
+  }
+
   private publish(patch: Partial<SyncStatus> = {}) {
+    const next = { ...this.status, ...patch };
     this.status = {
-      ...this.status,
-      ...patch,
+      ...next,
       pending: this.pending.length,
       sending: this.sending,
+      lease: this.lease,
+      locked: lockReason(this.lease, next.online, Date.now()),
     };
     this.snapshot = { state: this.view, status: this.status };
     this.listeners.forEach((listener) => listener());
@@ -193,6 +267,13 @@ export class GameDaySync {
       loadedAt: this.loadedAt,
       pending: this.pending,
       roster: this.roster,
+      lease: this.lease,
+      epochs: Object.fromEntries(
+        this.pending.flatMap((op) => {
+          const epoch = this.epochs.get(op.id);
+          return epoch === undefined ? [] : [[op.id, epoch] as const];
+        }),
+      ),
     };
     void writeGameDay(this.id, stored);
   }
@@ -207,6 +288,9 @@ export class GameDaySync {
         if (stored.roster?.length) this.roster = stored.roster;
       }
       if (unsent.length) this.pending = [...unsent, ...this.pending];
+      for (const [id, epoch] of Object.entries(stored.epochs ?? {}))
+        if (!this.epochs.has(id)) this.epochs.set(id, epoch);
+      if (stored.lease && !this.lease) this.lease = stored.lease;
       this.version += 1;
       this.refreshView();
     });
@@ -259,7 +343,13 @@ export class GameDaySync {
       clearTimeout(this.retryTimer);
       this.retryTimer = null;
     }
-    const batch = this.pending.slice(0, BATCH);
+    // One batch carries one epoch, so presses made before a takeover are judged on their own.
+    const epoch = this.epochs.get(this.pending[0].id);
+    const batch: BoardOp[] = [];
+    for (const op of this.pending) {
+      if (batch.length >= BATCH || this.epochs.get(op.id) !== epoch) break;
+      batch.push(op);
+    }
     this.sending = true;
     this.publish();
     let response: Response;
@@ -267,7 +357,7 @@ export class GameDaySync {
       response = await request(`/api/gamedays/${this.id}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ops: batch }),
+        body: JSON.stringify(epoch === undefined ? { ops: batch } : { ops: batch, epoch }),
       });
     } catch {
       this.sending = false;
@@ -289,7 +379,7 @@ export class GameDaySync {
       this.retryLater();
       return;
     }
-    let body: { results: OpResult[]; state: EngineState; hash: string; loadedAt: number };
+    let body: { results: OpResult[]; state: EngineState; hash: string; loadedAt: number; lease?: LeaseView };
     try {
       body = await response.json();
     } catch {
@@ -310,6 +400,8 @@ export class GameDaySync {
     });
     this.setBase(body.state, body.hash, body.loadedAt);
     this.pending = this.pending.filter((op) => !sent.has(op.id));
+    for (const id of sent) this.epochs.delete(id);
+    this.setLease(body.lease);
     this.version += 1;
     this.refreshView();
     const rejected = refused.length
@@ -329,6 +421,7 @@ export class GameDaySync {
       const response = await request(`/api/gamedays/${this.id}/state`, {
         headers: { "If-None-Match": `"${this.hash}"` },
       });
+      this.setLease(decodeLeaseHeader(response.headers.get("x-board-lease")));
       if (response.status === 304) {
         this.publish({ online: true, syncedAt: Date.now() });
         return;
@@ -392,5 +485,6 @@ export function useGameDaySync(initial: GameDayBootstrap, onRejected?: (rejectio
     refresh,
     current,
     dismissRejected: keeper.dismissRejected,
+    takeOver: keeper.takeOver,
   };
 }

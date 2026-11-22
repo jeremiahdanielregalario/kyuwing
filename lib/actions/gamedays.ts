@@ -12,6 +12,7 @@ import type { GenerateOptions } from "@/lib/board-engine/generate";
 import { runOps } from "@/lib/board-store";
 import { prisma } from "@/lib/db";
 import { dateOnlyFromKey, formatGameDate } from "@/lib/datetime";
+import { currentClaimant } from "@/lib/device";
 import type { CourtSetup } from "@/lib/court-setup";
 import { planProblem } from "@/lib/court-plan";
 import { defaultFlatBaseFee } from "@/lib/fees";
@@ -41,7 +42,11 @@ async function run<T = undefined>(
   const authError = await guard();
   if (authError) return authError;
   if (!gameDayId) return fail(notFoundMessage(body));
-  const { results, state, closed } = await runOps(gameDayId, [{ id: randomUUID(), at: Date.now(), ...body }]);
+  const { results, state, closed } = await runOps(
+    gameDayId,
+    [{ id: randomUUID(), at: Date.now(), ...body }],
+    await currentClaimant(),
+  );
   if (!state) return fail("Game day not found.");
   const result = results[0] as OpResult;
   if (result.ok) {

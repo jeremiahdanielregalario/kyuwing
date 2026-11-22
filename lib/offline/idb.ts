@@ -1,5 +1,6 @@
 import type { BoardOp } from "@/lib/board-engine/ops";
 import type { EngineState, RosterEntry } from "@/lib/board-engine/types";
+import type { DeviceLease } from "@/lib/board-lease";
 
 /**
  * What the tablet keeps for one game day between page loads, so the board opens and works with
@@ -12,6 +13,10 @@ export type StoredGameDay = {
   loadedAt: number;
   pending: BoardOp[];
   roster: RosterEntry[];
+  /** Who held the board when this device last heard (lib/board-lease.ts). Missing in older saves. */
+  lease?: DeviceLease | null;
+  /** The lease epoch each unsent press was made under, by op id. */
+  epochs?: Record<string, number>;
 };
 
 const DB_NAME = "kyuwing-offline";

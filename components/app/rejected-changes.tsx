@@ -11,6 +11,7 @@ const noop = () => () => {};
 /**
  * Changes made on this tablet that the server refused (usually because the game day changed on
  * another device first). Stays on screen until the queue master closes it, so nothing is missed.
+ * On phones it sits over the <BoardLock> banner, which shows again once this is closed.
  */
 export function RejectedChanges({
   changes,
@@ -28,7 +29,7 @@ export function RejectedChanges({
   return createPortal(
     <div
       role="alert"
-      className="border-coral/40 bg-coral-soft text-ink fixed inset-x-3 bottom-24 z-50 mx-auto max-w-md rounded-2xl border p-4 shadow-lg sm:right-6 sm:left-auto sm:mx-0 lg:bottom-6"
+      className="border-coral/40 bg-coral-soft text-ink fixed inset-x-3 bottom-24 z-[51] mx-auto max-w-md rounded-2xl border p-4 shadow-lg sm:right-6 sm:left-auto sm:mx-0 lg:bottom-6"
     >
       <div className="flex items-start gap-3">
         <AlertTriangle className="text-coral mt-0.5 h-5 w-5 shrink-0" />

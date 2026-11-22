@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BracketSpread } from "@/components/app/bracket-spread";
+import { BoardLock } from "@/components/app/board-lock";
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
 import { toBoardData } from "@/lib/board-engine/view";
@@ -65,7 +66,14 @@ export function SignupManager({
 }) {
   // Sign-ups work on this device's copy of the game day, like the board, so they keep working
   // on weak signal (see lib/offline/game-day-sync.ts).
-  const { state, status: syncStatus, actions, refresh, dismissRejected } = useOfflineGameDay(bootstrap);
+  const {
+    state,
+    status: syncStatus,
+    actions,
+    refresh,
+    dismissRejected,
+    takeOver,
+  } = useOfflineGameDay(bootstrap);
   const { addAllActivePlayers, addPlayerToGameDay, addWalkIn, removePlayerFromGameDay } = actions;
   const gameDayId = state.gameDay.id;
   const gameDayName = state.gameDay.name;
@@ -150,6 +158,7 @@ export function SignupManager({
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_350px]">
       <RejectedChanges changes={syncStatus.rejected} onDismiss={dismissRejected} />
+      <BoardLock status={syncStatus} onTakeOver={takeOver} />
       <SavingPill show={pending} />
       <div className="space-y-4">
         <BracketSpread

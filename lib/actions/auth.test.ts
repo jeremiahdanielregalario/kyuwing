@@ -25,6 +25,8 @@ vi.mock("next/headers", () => ({
   headers: async () =>
     new Headers({ "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1" }),
 }));
+const ensureDeviceId = vi.fn(async () => "device-1");
+vi.mock("@/lib/device", () => ({ ensureDeviceId: () => ensureDeviceId() }));
 const redirect = vi.fn();
 vi.mock("next/navigation", () => ({ redirect: (to: string) => redirect(to) }));
 
@@ -49,7 +51,8 @@ describe("loginAction", () => {
 
   it("signs the queue master in with a name and the right PIN", async () => {
     expect((await loginAction("EJ", "1234")).ok).toBe(true);
-    expect(createSession).toHaveBeenCalledWith("EJ", { admin: false, sid: "log1" });
+    expect(createSession).toHaveBeenCalledWith("EJ", { admin: false, sid: "log1" }); // The device id cookie, so the board can tell this device from others.
+    expect(ensureDeviceId).toHaveBeenCalled();
   });
 
   it("logs the sign-in with the name, device and when it runs out", async () => {
