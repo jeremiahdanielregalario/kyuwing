@@ -22,13 +22,7 @@ export type ConfirmSpec = {
  *   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
  *   <ConfirmDialog spec={confirmSpec} onClose={() => setConfirmSpec(null)} />
  */
-export function ConfirmDialog({
-  spec,
-  onClose,
-}: {
-  spec: ConfirmSpec | null;
-  onClose: () => void;
-}) {
+export function ConfirmDialog({ spec, onClose }: { spec: ConfirmSpec | null; onClose: () => void }) {
   return (
     <Modal
       open={Boolean(spec)}

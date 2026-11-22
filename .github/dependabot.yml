@@ -1,0 +1,22 @@
+# Monthly, grouped dependency updates: one PR for npm packages and one for GitHub Actions.
+# They go through the same quality checks as any other pull request.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      npm:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    labels: [dependencies, skip-changelog]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: [dependencies, skip-changelog]

@@ -1,0 +1,52 @@
+name: Bug report
+description: Something in Kyuwing isn't working right
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Please don't include real full names, contacts, payment details, exports, or live/fees links.** Nicknames or made-up names are fine. Security or privacy problems: report them privately (see SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the board of a live game day
+        2. Press …
+        3. See …
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Board / pairing
+        - Fees / payments
+        - Sign-ups / check-in
+        - Reports (Excel / PDF)
+        - Live view / fees sheet / roster (public pages)
+        - Players / venues / settings
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: e.g. iPad, Safari
+  - type: textarea
+    id: pairing
+    attributes:
+      label: For a pairing problem
+      description: The four players' levels, wait times, games played, and any requests or permanent partners (nicknames or made-up names).
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Optional. Crop or blur anything private.

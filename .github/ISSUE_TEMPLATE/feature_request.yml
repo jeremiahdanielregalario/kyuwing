@@ -1,0 +1,29 @@
+name: Idea or change
+description: Suggest a feature or a change to how Kyuwing works
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the **problem** first: what's hard or slow on a game day today. Pairing and fee changes affect real games and money, so they need agreement here before anyone writes code.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: Who runs into it (queue master, finance member, players), and when.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How you'd solve it. Sketches welcome.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Do you want to build it?
+      options:
+        - Yes, once the approach is agreed
+        - No, just suggesting
+    validations:
+      required: true
