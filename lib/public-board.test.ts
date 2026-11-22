@@ -154,6 +154,7 @@ function feeRow(nickname: string, total: number, amountPaid: number, games = 2):
     sessionPlayerId: `sp-${nickname}`,
     playerId: `p-${nickname}`,
     nickname,
+    fullName: `SECRET, ${nickname}`,
     level: "C",
     category: "ACTIVE",
     status: "DONE",

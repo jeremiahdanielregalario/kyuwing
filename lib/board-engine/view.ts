@@ -230,6 +230,7 @@ export function toFeeReport(state: EngineState, now: number): FeeReport {
       sessionPlayerId: row.id,
       playerId: row.playerId,
       nickname: row.nickname,
+      fullName: row.fullName,
       level: row.level,
       category: row.category,
       status: row.status,

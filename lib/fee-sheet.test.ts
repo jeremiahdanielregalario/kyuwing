@@ -105,6 +105,7 @@ function fee(overrides: Partial<FeeRow>): FeeRow {
     sessionPlayerId: "s",
     playerId: "p",
     nickname: "Jess",
+    fullName: null,
     level: "C",
     category: "ACTIVE",
     status: "DONE",

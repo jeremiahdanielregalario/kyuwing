@@ -8,6 +8,7 @@ function row(nickname: string, overrides: Partial<FeeRow> = {}): FeeRow {
     sessionPlayerId: `sp-${nickname}`,
     playerId: `p-${nickname}`,
     nickname,
+    fullName: `SURNAMESECRET, ${nickname}`,
     level: "C",
     category: "APPLICANT",
     status: "DONE",

@@ -71,7 +71,7 @@ Totals across the session (billed, collected, outstanding) are shown at the top.
 
 ### Sheet view
 
-The Fee ledger opens in **Sheet** view, the default way to record payments. The **Sheet / Ledger** switch in its header changes to the Ledger above, and each device remembers the choice. Sheet view shows the Excel report's player table: the same rows and columns as the first sheet of the export (VERIFIED?, Membership Status, Name, No. of Games, Total Amount, Mode of Payment, Voucher, Remarks, from `trackerRows()`), laid out as a spreadsheet grid (headings and cells only, with no column letters or row numbers). It always shows every player in the report, ignoring the ledger's filter and search.
+The Fee ledger opens in **Sheet** view, the default way to record payments. The **Sheet / Ledger** switch in its header changes to the Ledger above, and each device remembers the choice. Sheet view shows the Excel report's player table: the same rows and columns as the first sheet of the export (VERIFIED?, Membership Status, Name, No. of Games, Total Amount, Mode of Payment, Voucher, Remarks, from `trackerRows()`), laid out as a spreadsheet grid (headings and cells only, with no column letters or row numbers). It always shows every player in the report, ignoring the ledger's filter and search. **Name** follows the finance team's format, official nickname plus surname ("Danyel Regalario"), from `trackerName()`: the surname is the part of the stored full name before the comma ("REGALARIO, Jeremiah Daniel"), put in title case, with any Jr./III dropped; a player without a full name shows the nickname alone.
 
 Three columns can be edited in place. The rest are worked out by the app:
 
