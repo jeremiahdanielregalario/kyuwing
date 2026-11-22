@@ -194,6 +194,20 @@ How players are banded:
 
 The score, a whole number from 0 to 100, appears next to the status on each badge and sorts the **Recency** column. The player database and the public roster open sorted by it, highest first (ties A to Z); click another column or use **Sort** to change it. Each list counts less as it ages (half weight after 60 days, none after a year), and a waitlist place counts 40% of a game, because joining the waitlist still shows the player wants to play.
 
+## Applying a club leveling sheet
+
+The club re-rates members from time to time and publishes a sheet with `NAME` (`SURNAME, Given`), `NICKNAME` and the new level. The app is not bulk-imported from it, because the sheet only carries levels: the player importer needs a category and would also overwrite names and contacts. Apply it as a level-only update instead.
+
+1. Match each sheet row to a player by **full name** — surname **and** given name — and use the nickname only to confirm. Never match on nickname alone: nicknames repeat (`Neo` is two members) and differ between the sheet and the app (`Jean` / `Jolo` were the same person).
+2. Same surname is not the same person. `ORTIZ, Arabella` is not `Ortiz, Ayla`; `BENCIO, Jorrel` is not `Bencio, Conrado`.
+3. Expect spelling drift (`Ghessette` / `Ghesette`) and the Unicode minus `−` (U+2212) in place of `-`.
+4. Score each candidate (full name, surname, first name, nickname) and keep the margin over the runner-up; review the weakest rows by eye before writing.
+5. If the sheet lists one person twice with different levels, leave that player alone and ask which value is right.
+6. Back up the current levels, then write **only the `level` column**. Players the sheet omits keep their level; report them.
+7. If two records turn out to be one person, move their history and awards to the surviving record, add the other nickname to **Also goes by**, then delete the duplicate.
+
+The 22 November 2026 update changed five levels out of 240 matches; the other rows already agreed with the app. That is normal — most of the work is the matching, not the writing.
+
 ## Tournament awards
 
 Players with a tournament podium get a trophy (gold for a title, a medal for runner-up only) as the first icon on their row in the player database (on phones, beside the ⋯ button that holds the other player actions). Tapping it lists each podium with the level, tournament, date, and their doubles partner or, for team-format tournaments, their teammates.
