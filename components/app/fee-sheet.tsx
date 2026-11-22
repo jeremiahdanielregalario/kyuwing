@@ -10,7 +10,6 @@ import {
   clampRange,
   displayValue,
   inRange,
-  rangeLabel,
   rangeOf,
   rangeToHtml,
   rangeToTsv,
@@ -20,11 +19,10 @@ import {
 import { cn } from "@/lib/utils";
 
 const COLS = SHEET_COLUMNS.length;
-const columnLetter = (col: number) => String.fromCharCode(66 + col); // The report's table starts in column B.
 
 /**
  * The Excel report's player table as a spreadsheet grid. Drag (or Shift+click) to select a block,
- * tap a column letter or row number for the whole column or row, then Ctrl/Cmd+C or Copy: the cells
+ * tap a heading for the whole column, then Ctrl/Cmd+C or Copy: the cells
  * paste into Excel or Google Sheets as cells, with amounts as plain numbers. On touch, tap one
  * corner and then the other; the table still scrolls with a finger.
  */
@@ -85,11 +83,6 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
     focusGrid();
     if (event.shiftKey && anchor) select({ row: 0, col: anchor.col }, { row: last, col });
     else select({ row: 0, col }, { row: last, col });
-  };
-  const pickRow = (event: React.MouseEvent, row: number) => {
-    focusGrid();
-    if (event.shiftKey && anchor) select({ row: anchor.row, col: 0 }, { row, col: COLS - 1 });
-    else select({ row, col: 0 }, { row, col: COLS - 1 });
   };
   const pickAll = () => {
     if (!rows.length) return;
@@ -157,20 +150,15 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
     }
   };
 
-  const cells = target ? (target.bottom - target.top + 1) * (target.right - target.left + 1) : 0;
-
   return (
     <div>
       <div className="border-line/80 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
-        <p className="text-[11px]">
-          <span className="border-line bg-paper mr-2 inline-block min-w-16 rounded border px-2 py-1 text-center font-mono font-semibold">
-            {range ? rangeLabel(range) : "—"}
-          </span>
-          <span className="text-muted">
-            {range
-              ? `${cells} ${cells === 1 ? "cell" : "cells"} selected`
-              : "Drag across cells to select. Copy takes everything when nothing is selected."}
-          </span>
+        <p className="text-muted text-[11px]">
+          {range ? (
+            <span className="text-ink font-semibold">{selectionSize(range)} selected</span>
+          ) : (
+            "Drag across cells to select. Copy takes everything when nothing is selected."
+          )}
         </p>
         <div className="flex items-center gap-3">
           <label className="text-muted inline-flex min-h-9 cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
@@ -201,36 +189,13 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
         <table className="w-max min-w-full border-separate border-spacing-0 font-sans text-[12px]">
           <thead className="sticky top-0 z-20">
             <tr>
-              <th
-                className="bg-cream-deep border-line-strong sticky left-0 z-30 h-7 w-11 cursor-pointer border-r border-b"
-                onClick={pickAll}
-                aria-label="Select all cells"
-              />
               {SHEET_COLUMNS.map((column, col) => (
                 <th
                   key={column.key}
                   onClick={(event) => pickColumn(event, col)}
                   className={cn(
-                    "border-line-strong text-muted h-7 cursor-pointer border-r border-b px-2 text-center text-[10px] font-semibold select-none",
-                    range && col >= range.left && col <= range.right
-                      ? "bg-lime/40 text-ink"
-                      : "bg-cream-deep",
-                  )}
-                >
-                  {columnLetter(col)}
-                </th>
-              ))}
-            </tr>
-            <tr>
-              <th className="bg-cream-deep border-line-strong text-muted sticky left-0 z-30 h-9 border-r border-b text-[10px] font-semibold">
-                5
-              </th>
-              {SHEET_COLUMNS.map((column, col) => (
-                <th
-                  key={column.key}
-                  onClick={(event) => pickColumn(event, col)}
-                  className={cn(
-                    "border-line-strong bg-cream h-9 cursor-pointer border-r border-b px-3 text-center text-[11px] font-bold whitespace-nowrap select-none",
+                    "border-line-strong h-9 cursor-pointer border-r border-b px-3 text-center text-[11px] font-bold whitespace-nowrap select-none",
+                    range && col >= range.left && col <= range.right ? "bg-lime-bright" : "bg-cream",
                     col === 2 && "min-w-40",
                     col === 7 && "min-w-48",
                   )}
@@ -243,23 +208,13 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={COLS + 1} className="text-muted px-4 py-12 text-center">
+                <td colSpan={COLS} className="text-muted px-4 py-12 text-center">
                   No players yet.
                 </td>
               </tr>
             ) : (
               rows.map((row, r) => (
                 <tr key={r}>
-                  <th
-                    scope="row"
-                    onClick={(event) => pickRow(event, r)}
-                    className={cn(
-                      "border-line-strong text-muted sticky left-0 z-10 h-9 cursor-pointer border-r border-b text-center text-[10px] font-semibold select-none",
-                      range && r >= range.top && r <= range.bottom ? "bg-lime/40 text-ink" : "bg-cream-deep",
-                    )}
-                  >
-                    {r + 6}
-                  </th>
                   {SHEET_COLUMNS.map((column, col) => {
                     const cell = { row: r, col };
                     const selected = inRange(range, r, col);
@@ -293,6 +248,13 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
       </div>
     </div>
   );
+}
+
+function selectionSize(range: Range) {
+  const rows = range.bottom - range.top + 1;
+  const cols = range.right - range.left + 1;
+  if (rows === 1 && cols === 1) return "1 cell";
+  return `${rows} ${rows === 1 ? "row" : "rows"} × ${cols} ${cols === 1 ? "column" : "columns"}`;
 }
 
 function copiedMessage(range: Range) {

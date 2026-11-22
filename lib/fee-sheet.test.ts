@@ -6,7 +6,6 @@ import {
   copyValue,
   displayValue,
   inRange,
-  rangeLabel,
   rangeOf,
   rangeToHtml,
   rangeToTsv,
@@ -72,11 +71,6 @@ describe("fee sheet selection", () => {
       right: 7,
     });
     expect(clampRange({ top: 4, bottom: 5, left: 0, right: 1 }, 3, 8)).toBeNull();
-  });
-
-  it("labels the range with the Excel sheet's own cell addresses", () => {
-    expect(rangeLabel({ top: 0, bottom: 0, left: 2, right: 2 })).toBe("D6");
-    expect(rangeLabel({ top: 0, bottom: 2, left: 0, right: 7 })).toBe("B6:I8");
   });
 });
 
