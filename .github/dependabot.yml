@@ -12,6 +12,13 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
     labels: [dependencies, skip-changelog]
+    ignore:
+      # Prisma 7 is a migration (prisma.config.ts, a driver adapter, client and CLI together),
+      # not a bump; do it by hand on its own branch. Minor and patch updates still come through.
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
