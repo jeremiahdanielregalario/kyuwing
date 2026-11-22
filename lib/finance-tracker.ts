@@ -49,16 +49,17 @@ export function trackerRemarks(row: FeeRow): string {
 }
 
 /**
- * Everyone who checked in (plus anyone who paid without checking in), members first by
- * status like the template's sheets, then by name.
+ * Everyone who checked in (plus anyone who paid without checking in), grouped by membership
+ * status like the template's sheets, then by name. Queue masters on duty show their own status
+ * (the template has no "QM" status), so they also count in the summary's head counts.
  */
 export function trackerRows(rows: FeeRow[]): TrackerRow[] {
-  const order = ["QM", "App", "Inact/Alum", "Mem", "Plus 1"];
+  const order = ["App", "Inact/Alum", "Mem", "Plus 1"];
   return rows
     .filter((row) => row.status !== "EXPECTED" || row.amountPaid > 0)
     .map((row) => ({
       verified: row.paid,
-      status: row.queueMaster ? "QM" : TRACKER_STATUS[row.category],
+      status: TRACKER_STATUS[row.category],
       name: row.nickname,
       games: row.gamesPlayed,
       total: row.total,

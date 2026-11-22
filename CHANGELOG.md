@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Queue masters show their real membership status in the report** — in the Excel report and the Fees page's Sheet view, a queue master on duty is listed under their own status (Mem, Inact/Alum, App or Plus 1) instead of "QM", which isn't one of the finance team's statuses. They're sorted with that group and now count in the finance summary's member counts. Their fees don't change.
 - **Flat rate is the default base fee** — new game days start on **Flat rate** (₱150 at DASC, ₱100 at KBC) instead of splitting the court cost. **Split court cost** is still one tap away on the Fees page. Venues without a flat rate still start on the split, and existing game days keep their current setting.
 - **Default courts by game-day type** — a new game day's court blocks start with 3 courts for a Regular day and 4 for a MEGA day, whatever the venue. Switching between Regular and MEGA updates blocks you haven't changed or numbered. Tipid days still use the venue's default court count, and existing game days are unchanged.
 - **Queue masters pay the base price** — a queue master on duty is no longer let off the base price: they pay it like everyone else, plus ₱20 a game and no ₱10 surcharge. This applies to game days from 22 November 2026; earlier game days keep the old waiver, so fees already settled and past reports don't change. The Fees page's fee explanation says which rule the game day uses.
