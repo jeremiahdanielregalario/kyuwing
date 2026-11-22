@@ -54,6 +54,15 @@ docs/                     Long-form documentation
 - Money is stored as whole Philippine pesos (`Int`). Use `formatPeso()` in UI and `formatPesoPdf()` in PDFs (`₱` is unavailable in standard PDF fonts).
 - `DATABASE_URL` is the runtime connection (pooled in production). `DIRECT_URL` is used only by `prisma migrate`; locally it can equal `DATABASE_URL`.
 
+### Player data and bulk level updates
+
+- **Never match players on nickname alone.** Nicknames repeat across different people and change between the club's sheet and the app (`Neo` belongs to two different members; `Jolo` was a duplicate record of `VICTOR, Jean Louie`). Match on full name (surname + given name), then use the nickname only to confirm; a nickname that disagrees with the name is not evidence.
+- **Same surname is not the same person.** `ORTIZ, Arabella` is not `Ortiz, Ayla` or `Ortiz, Angela Gwenn Alair`; `BENCIO, Jorrel` is not `Bencio, Conrado`. Require the given name to agree too.
+- The club's sheets arrive as `SURNAME, Given` in `NAME` plus a `NICKNAME`; app `fullName` also uses `SURNAME, Given`, so split on the raw comma before cleaning. Spellings drift by a letter (`Ghessette` / `Ghesette`), and the minus sign is often U+2212 `−`, not `-`.
+- A sheet can list one person twice with different levels. Leave that player alone and report the conflict rather than picking a row.
+- Report, don't invent: players the sheet omits keep their existing level, and players that exist only in the app are not "fixed" by a guess.
+- Before writing, print a dry run with a confidence score and a margin against the runner-up, and eyeball the weakest rows. Write only `level`; never overwrite names, categories or contacts from a leveling sheet. Back up the current values first.
+
 ### Server actions
 
 - Every mutation lives in `lib/actions/*` and starts with `"use server"`.
