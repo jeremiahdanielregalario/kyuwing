@@ -13,11 +13,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FeeSheet } from "@/components/app/fee-sheet";
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
 import { toFeeReport } from "@/lib/board-engine/view";
 import type { FeeReport, FeeRow } from "@/lib/board-types";
-import { financeSummary } from "@/lib/finance-tracker";
+import { financeSummary, trackerRows } from "@/lib/finance-tracker";
 import type { GameDayBootstrap } from "@/lib/offline/game-day-sync";
 import {
   CATEGORY_SHORT,
@@ -44,6 +45,40 @@ import { cn } from "@/lib/utils";
 
 type AnyResult = { ok: true; message?: string } | { ok: false; error: string };
 
+/** Ledger or Sheet (the Excel report's table, for copying cells); remembered on this device. */
+const VIEW_KEY = "kyuwing.fees-view";
+const viewListeners = new Set<() => void>();
+function readView(): "ledger" | "sheet" {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === "sheet" ? "sheet" : "ledger";
+  } catch {
+    return "ledger";
+  }
+}
+function useLedgerView(): ["ledger" | "sheet", (view: "ledger" | "sheet") => void] {
+  const view = React.useSyncExternalStore(
+    (onChange) => {
+      viewListeners.add(onChange);
+      window.addEventListener("storage", onChange);
+      return () => {
+        viewListeners.delete(onChange);
+        window.removeEventListener("storage", onChange);
+      };
+    },
+    readView,
+    () => "ledger" as const,
+  );
+  const set = (value: "ledger" | "sheet") => {
+    try {
+      window.localStorage.setItem(VIEW_KEY, value);
+    } catch {
+      // Private mode: the choice just isn't remembered.
+    }
+    viewListeners.forEach((listener) => listener());
+  };
+  return [view, set];
+}
+
 export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
   // Payments are recorded on this device's copy of the game day, like the board, so the finance
   // member can keep going on weak signal (see lib/offline/game-day-sync.ts).
@@ -55,6 +90,8 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
   const [confirmSpec, setConfirmSpec] = React.useState<ConfirmSpec | null>(null);
   const [filter, setFilter] = React.useState<"all" | "unpaid" | "paid">("all");
   const [query, setQuery] = React.useState("");
+  const [view, setView] = useLedgerView();
+  const sheetRows = React.useMemo(() => trackerRows(report.rows), [report.rows]);
   const [selected, setSelected] = React.useState<FeeRow | null>(null);
   const [amount, setAmount] = React.useState("");
   const [method, setMethod] = React.useState<keyof typeof PAYMENT_METHOD_LABELS>("CASH");
@@ -459,171 +496,218 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
               Total = base price + (games × shuttle rate) + ₱10 for App/Plus 1 − voucher, plus extras.
             </p>
           </div>
-          <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
-            <Download className="h-3 w-3" /> Exports include all players
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-muted inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase">
+              <Download className="h-3 w-3" /> Exports include all players
+            </span>
+            <div
+              role="radiogroup"
+              aria-label="How the ledger is shown"
+              className="border-line inline-flex rounded-full border bg-white p-1"
+            >
+              {(
+                [
+                  ["ledger", "Ledger"],
+                  ["sheet", "Sheet"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={view === value}
+                  onClick={() => setView(value)}
+                  className={cn(
+                    "press min-h-9 rounded-full px-3 text-[11px] font-semibold",
+                    view === value ? "bg-forest text-cream" : "text-muted hover:text-ink",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Phones: one tappable card per player; tap to record a payment. */}
-        <ul className="divide-line/60 divide-y md:hidden">
-          {rows.length === 0 ? (
-            <li className="text-muted px-4 py-12 text-center text-[12px]">No players match this view.</li>
-          ) : (
-            rows.map((row) => (
-              <li key={row.sessionPlayerId} className="animate-pop-in flex items-center gap-3 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => openPayment(row)}
-                  disabled={pending}
-                  className="press flex min-w-0 flex-1 items-center gap-3 text-left"
-                  aria-label={`Record payment for ${row.nickname}`}
-                >
-                  <LevelBadge level={row.level} />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate text-[13px] font-semibold">{row.nickname}</span>
-                      <FeeStatus row={row} />
-                    </span>
-                    <span className="text-muted block text-[10px]">
-                      {feeNote(row)} · {row.gamesPlayed} games
-                      {row.extras ? ` · extras ${formatPeso(row.extras)}` : ""}
-                      {paymentMethodLabel(row) ? (
-                        <span className="text-ink font-semibold"> · {paymentMethodLabel(row)}</span>
-                      ) : null}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <span className="block font-mono text-[13px] font-bold">{formatPeso(row.total)}</span>
-                    <span
-                      className={cn(
-                        "block font-mono text-[10px]",
-                        row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
-                      )}
-                    >
-                      {row.change > 0
-                        ? `change ${formatPeso(row.change)}`
-                        : row.balance
-                          ? `owes ${formatPeso(row.balance)}`
-                          : "settled up"}
-                    </span>
-                  </span>
-                </button>
-                <label
-                  className="grid h-11 w-9 shrink-0 cursor-pointer place-items-center"
-                  title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
-                >
-                  <input
-                    type="checkbox"
-                    checked={row.settled}
-                    disabled={pending || !row.paid}
-                    onChange={(event) => act(() => setSettled(row.sessionPlayerId, event.target.checked))}
-                    aria-label={`${row.nickname} settled`}
-                    className="accent-forest h-5 w-5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
-                  />
-                </label>
-              </li>
-            ))
-          )}
-        </ul>
-
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[940px] text-left text-[12px]">
-            <thead>
-              <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
-                <th className="px-4 py-2.5 font-bold">Player</th>
-                <th className="px-2 py-2.5 text-center font-bold">Games</th>
-                <th className="px-2 py-2.5 text-right font-bold">/ Game</th>
-                <th className="px-2 py-2.5 text-right font-bold">Extras</th>
-                <th className="px-2 py-2.5 text-right font-bold">Total</th>
-                <th className="px-2 py-2.5 text-right font-bold">Paid</th>
-                <th className="px-2 py-2.5 font-bold">Method</th>
-                <th className="px-2 py-2.5 text-right font-bold">Balance</th>
-                <th className="px-2 py-2.5 text-right font-bold">Change</th>
-                <th className="px-3 py-2.5 text-right font-bold">Status</th>
-                <th className="px-2 py-2.5 text-center font-bold">Settled</th>
-                <th className="px-3 py-2.5 text-right font-bold">Action</th>
-              </tr>
-            </thead>
-            <tbody>
+        {view === "sheet" ? (
+          <FeeSheet rows={sheetRows} />
+        ) : (
+          <>
+            {/* Phones: one tappable card per player; tap to record a payment. */}
+            <ul className="divide-line/60 divide-y md:hidden">
               {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="text-muted px-4 py-12 text-center">
-                    No players match this view.
-                  </td>
-                </tr>
+                <li className="text-muted px-4 py-12 text-center text-[12px]">No players match this view.</li>
               ) : (
                 rows.map((row) => (
-                  <tr
-                    key={row.sessionPlayerId}
-                    className="border-line/50 hover:bg-cream/30 border-b transition"
-                  >
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <LevelBadge level={row.level} />
-                        <div>
-                          <p className="font-semibold">{row.nickname}</p>
-                          <p className="text-muted text-[9px]">{feeNote(row)}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-2 py-2.5 text-center font-mono font-bold">{row.gamesPlayed}</td>
-                    <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.perGameFee)}</td>
-                    <td
-                      className="px-2 py-2.5 text-right font-mono"
-                      title={[
-                        row.gripCount ? `${row.gripCount} grip${row.gripCount === 1 ? "" : "s"}` : "",
-                        row.otherCharge ? `${row.otherNote || "Other"} ${formatPeso(row.otherCharge)}` : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+                  <li key={row.sessionPlayerId} className="animate-pop-in flex items-center gap-3 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => openPayment(row)}
+                      disabled={pending}
+                      className="press flex min-w-0 flex-1 items-center gap-3 text-left"
+                      aria-label={`Record payment for ${row.nickname}`}
                     >
-                      {row.extras ? formatPeso(row.extras) : "—"}
-                    </td>
-                    <td className="px-2 py-2.5 text-right font-mono font-bold">{formatPeso(row.total)}</td>
-                    <td className="text-muted px-2 py-2.5 text-right font-mono">
-                      {formatPeso(row.amountPaid)}
-                    </td>
-                    <td className="px-2 py-2.5 font-semibold">{paymentMethodLabel(row) ?? "—"}</td>
-                    <td className="px-2 py-2.5 text-right font-mono font-bold">
-                      {row.balance ? formatPeso(row.balance) : "—"}
-                    </td>
-                    <td
-                      className={cn(
-                        "px-2 py-2.5 text-right font-mono",
-                        row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
-                      )}
+                      <LevelBadge level={row.level} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-[13px] font-semibold">{row.nickname}</span>
+                          <FeeStatus row={row} />
+                        </span>
+                        <span className="text-muted block text-[10px]">
+                          {feeNote(row)} · {row.gamesPlayed} games
+                          {row.extras ? ` · extras ${formatPeso(row.extras)}` : ""}
+                          {paymentMethodLabel(row) ? (
+                            <span className="text-ink font-semibold"> · {paymentMethodLabel(row)}</span>
+                          ) : null}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block font-mono text-[13px] font-bold">{formatPeso(row.total)}</span>
+                        <span
+                          className={cn(
+                            "block font-mono text-[10px]",
+                            row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
+                          )}
+                        >
+                          {row.change > 0
+                            ? `change ${formatPeso(row.change)}`
+                            : row.balance
+                              ? `owes ${formatPeso(row.balance)}`
+                              : "settled up"}
+                        </span>
+                      </span>
+                    </button>
+                    <label
+                      className="grid h-11 w-9 shrink-0 cursor-pointer place-items-center"
+                      title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
                     >
-                      {row.change ? formatPeso(row.change) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <FeeStatus row={row} />
-                    </td>
-                    <td className="px-2 py-2.5 text-center">
                       <input
                         type="checkbox"
                         checked={row.settled}
                         disabled={pending || !row.paid}
                         onChange={(event) => act(() => setSettled(row.sessionPlayerId, event.target.checked))}
                         aria-label={`${row.nickname} settled`}
-                        title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
                         className="accent-forest h-5 w-5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
                       />
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <Button size="sm" variant="paper" onClick={() => openPayment(row)} disabled={pending}>
-                        Record
-                      </Button>
-                    </td>
-                  </tr>
+                    </label>
+                  </li>
                 ))
               )}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[940px] text-left text-[12px]">
+                <thead>
+                  <tr className="border-line bg-cream/50 text-muted border-b text-[9px] tracking-[0.12em] uppercase">
+                    <th className="px-4 py-2.5 font-bold">Player</th>
+                    <th className="px-2 py-2.5 text-center font-bold">Games</th>
+                    <th className="px-2 py-2.5 text-right font-bold">/ Game</th>
+                    <th className="px-2 py-2.5 text-right font-bold">Extras</th>
+                    <th className="px-2 py-2.5 text-right font-bold">Total</th>
+                    <th className="px-2 py-2.5 text-right font-bold">Paid</th>
+                    <th className="px-2 py-2.5 font-bold">Method</th>
+                    <th className="px-2 py-2.5 text-right font-bold">Balance</th>
+                    <th className="px-2 py-2.5 text-right font-bold">Change</th>
+                    <th className="px-3 py-2.5 text-right font-bold">Status</th>
+                    <th className="px-2 py-2.5 text-center font-bold">Settled</th>
+                    <th className="px-3 py-2.5 text-right font-bold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="text-muted px-4 py-12 text-center">
+                        No players match this view.
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((row) => (
+                      <tr
+                        key={row.sessionPlayerId}
+                        className="border-line/50 hover:bg-cream/30 border-b transition"
+                      >
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <LevelBadge level={row.level} />
+                            <div>
+                              <p className="font-semibold">{row.nickname}</p>
+                              <p className="text-muted text-[9px]">{feeNote(row)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2.5 text-center font-mono font-bold">{row.gamesPlayed}</td>
+                        <td className="px-2 py-2.5 text-right font-mono">{formatPeso(row.perGameFee)}</td>
+                        <td
+                          className="px-2 py-2.5 text-right font-mono"
+                          title={[
+                            row.gripCount ? `${row.gripCount} grip${row.gripCount === 1 ? "" : "s"}` : "",
+                            row.otherCharge
+                              ? `${row.otherNote || "Other"} ${formatPeso(row.otherCharge)}`
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        >
+                          {row.extras ? formatPeso(row.extras) : "—"}
+                        </td>
+                        <td className="px-2 py-2.5 text-right font-mono font-bold">
+                          {formatPeso(row.total)}
+                        </td>
+                        <td className="text-muted px-2 py-2.5 text-right font-mono">
+                          {formatPeso(row.amountPaid)}
+                        </td>
+                        <td className="px-2 py-2.5 font-semibold">{paymentMethodLabel(row) ?? "—"}</td>
+                        <td className="px-2 py-2.5 text-right font-mono font-bold">
+                          {row.balance ? formatPeso(row.balance) : "—"}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-2 py-2.5 text-right font-mono",
+                            row.change > 0 && !row.settled ? "text-coral font-bold" : "text-muted",
+                          )}
+                        >
+                          {row.change ? formatPeso(row.change) : "—"}
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <FeeStatus row={row} />
+                        </td>
+                        <td className="px-2 py-2.5 text-center">
+                          <input
+                            type="checkbox"
+                            checked={row.settled}
+                            disabled={pending || !row.paid}
+                            onChange={(event) =>
+                              act(() => setSettled(row.sessionPlayerId, event.target.checked))
+                            }
+                            aria-label={`${row.nickname} settled`}
+                            title={row.paid ? "Paid and change handed back" : "Not paid in full yet"}
+                            className="accent-forest h-5 w-5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <Button
+                            size="sm"
+                            variant="paper"
+                            onClick={() => openPayment(row)}
+                            disabled={pending}
+                          >
+                            Record
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         <div className="border-line/80 bg-cream/40 flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3 text-[11px]">
           <span className="text-muted">
-            {rows.length} of {report.rows.length} players shown
+            {view === "sheet"
+              ? `All ${sheetRows.length} players, as in the Excel report`
+              : `${rows.length} of ${report.rows.length} players shown`}
           </span>
           <span className="font-semibold">
             Outstanding:{" "}
