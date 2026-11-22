@@ -9,8 +9,11 @@ import type { TrackerRow } from "./finance-tracker";
  * Pure, so the copy format is unit-tested; the grid itself is `components/app/fee-sheet.tsx`.
  */
 
+/** A sheet row as shown and copied: the tracker row without the app's own id. */
+export type SheetRow = Omit<TrackerRow, "sessionPlayerId">;
+
 export type SheetColumn = {
-  key: keyof TrackerRow;
+  key: keyof SheetRow;
   /** The Excel sheet's own heading. */
   label: string;
   align: "left" | "center" | "right";
@@ -35,7 +38,7 @@ export const SHEET_COLUMNS: SheetColumn[] = [
 const pesoDisplay = new Intl.NumberFormat("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** What the cell shows, matching the Excel formatting. */
-export function displayValue(row: TrackerRow, column: SheetColumn): string {
+export function displayValue(row: SheetRow, column: SheetColumn): string {
   const value = row[column.key];
   if (column.key === "verified") return value ? "✓" : "";
   if (column.peso) return `₱${pesoDisplay.format(Number(value))}`;
@@ -46,7 +49,7 @@ export function displayValue(row: TrackerRow, column: SheetColumn): string {
  * What the cell copies as: what Excel would hold. Amounts and games as plain numbers (so they
  * paste as numbers, not text), VERIFIED? as TRUE/FALSE like the sheet's checkbox column.
  */
-export function copyValue(row: TrackerRow, column: SheetColumn): string {
+export function copyValue(row: SheetRow, column: SheetColumn): string {
   const value = row[column.key];
   if (column.key === "verified") return value ? "TRUE" : "FALSE";
   return String(value ?? "");
@@ -75,7 +78,7 @@ export function clampRange(range: Range, rows: number, cols: number): Range | nu
   return { ...range, bottom: Math.min(range.bottom, rows - 1), right: Math.min(range.right, cols - 1) };
 }
 
-function grid(rows: TrackerRow[], range: Range, headers: boolean): string[][] {
+function grid(rows: SheetRow[], range: Range, headers: boolean): string[][] {
   const columns = SHEET_COLUMNS.slice(range.left, range.right + 1);
   const body = rows
     .slice(range.top, range.bottom + 1)
@@ -84,7 +87,7 @@ function grid(rows: TrackerRow[], range: Range, headers: boolean): string[][] {
 }
 
 /** Tab-separated, one line per row: what Excel and Google Sheets read as cells when pasted. */
-export function rangeToTsv(rows: TrackerRow[], range: Range, headers = false): string {
+export function rangeToTsv(rows: SheetRow[], range: Range, headers = false): string {
   const clean = (value: string) => value.replace(/[\t\r\n]+/g, " ");
   return grid(rows, range, headers)
     .map((line) => line.map(clean).join("\t"))
@@ -92,7 +95,7 @@ export function rangeToTsv(rows: TrackerRow[], range: Range, headers = false): s
 }
 
 /** The same cells as an HTML table, which some apps (Word, Docs, Sheets) paste more faithfully. */
-export function rangeToHtml(rows: TrackerRow[], range: Range, headers = false): string {
+export function rangeToHtml(rows: SheetRow[], range: Range, headers = false): string {
   const escape = (value: string) =>
     value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const lines = grid(rows, range, headers).map(
