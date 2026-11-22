@@ -80,7 +80,7 @@ const flow = [
     step: "06",
     icon: Wallet,
     title: "Settle and export",
-    body: "The fee ledger adds the flat fee (court rent ÷ players) + shuttle rate per game as games finish. Record payments, then download the Excel workbook or PDF for the treasurer.",
+    body: "The fee ledger adds the base price (a flat rate by default, or court rent ÷ players) + shuttle rate per game as games finish. Record payments, then download the Excel workbook or PDF for the treasurer.",
     detail: "Fees → Record · Reports → Excel / PDF",
     href: "/app",
   },

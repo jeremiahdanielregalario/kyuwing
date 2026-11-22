@@ -191,8 +191,8 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
           >
             {(
               [
-                ["SPLIT", "Split court cost"],
                 ["FLAT", "Flat rate"],
+                ["SPLIT", "Split court cost"],
               ] as const
             ).map(([mode, label]) => (
               <button

@@ -126,7 +126,7 @@ const faqs = [
   },
   {
     q: "How are fees calculated?",
-    a: "Total = flat fee + (games played × shuttle rate). The flat fee is the total court rent (DASC ₱300, KBC ₱250 per court per hour) divided by the number of players who checked in. The shuttle rate per game depends on player type.",
+    a: "Total = base price + (games played × shuttle rate). The base price is a flat rate by default (DASC ₱150, KBC ₱100); the queue master can instead split the total court rent (DASC ₱300, KBC ₱250 per court per hour) among the players who checked in. The shuttle rate per game depends on player type.",
   },
   {
     q: "Can we export the day's records?",
