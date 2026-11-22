@@ -152,7 +152,7 @@ export function VenueSettings({ venues }: { venues: VenueRecord[] }) {
                   )}
                 </Select>
               </Field>
-              <Field label="Courts">
+              <Field label="Courts" hint="For Tipid days. Regular days start with 3, MEGA with 4.">
                 <Input
                   type="number"
                   min={1}

@@ -106,6 +106,14 @@ export function fitPlan<T extends PlanBlock>(blocks: T[], start: string, end: st
   return kept;
 }
 
+/** Courts a new game day's blocks start with, by type. Other types use the venue's default. */
+export const DEFAULT_COURTS_BY_TYPE: Partial<Record<string, number>> = { REGULAR: 3, MEGA: 4 };
+
+/** How many courts a new block starts with: 3 for a regular day, 4 for MEGA, else the venue's. */
+export function defaultCourtsFor(type: string, venueDefault: number): number {
+  return DEFAULT_COURTS_BY_TYPE[type] ?? venueDefault;
+}
+
 /** A MEGA game day starts out with this much more court time than a regular one. */
 export const MEGA_EXTRA_MINUTES = 60;
 

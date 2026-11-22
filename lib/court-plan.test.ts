@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  defaultCourtsFor,
   fitPlan,
   MEGA_EXTRA_MINUTES,
   shiftPlanEnd,
@@ -242,5 +243,16 @@ describe("times offered for a mid-day court", () => {
     expect(latestChoiceAtOrBefore(choices, "16:00")).toBe("17:45");
     expect(latestChoiceAtOrBefore(choices, "22:00")).toBe("19:00");
     expect(addCourtStartChoices([])).toEqual([]);
+  });
+});
+
+describe("defaultCourtsFor", () => {
+  it("starts regular days with 3 courts and MEGA days with 4, whatever the venue", () => {
+    expect(defaultCourtsFor("REGULAR", 4)).toBe(3);
+    expect(defaultCourtsFor("MEGA", 3)).toBe(4);
+  });
+
+  it("uses the venue's default for other types", () => {
+    expect(defaultCourtsFor("TIPID", 5)).toBe(5);
   });
 });
