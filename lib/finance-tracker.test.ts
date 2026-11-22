@@ -73,12 +73,17 @@ describe("trackerRows", () => {
     ]);
   });
 
-  it("lists queue masters on duty first as QM, and carries the voucher", () => {
+  it("gives queue masters on duty their own membership status, and carries the voucher", () => {
     const rows = trackerRows([
       row({ nickname: "Wan" }),
       row({ nickname: "Roniel", queueMaster: true, voucher: 100 }),
+      row({ nickname: "Jgops", queueMaster: true, category: "ALUMNI" }),
     ]);
-    expect(rows.map((r) => `${r.status} ${r.name} ${r.voucher}`)).toEqual(["QM Roniel 100", "Mem Wan 0"]);
+    expect(rows.map((r) => `${r.status} ${r.name} ${r.voucher}`)).toEqual([
+      "Inact/Alum Jgops 0",
+      "Mem Roniel 100",
+      "Mem Wan 0",
+    ]);
   });
 
   it("leaves the payment blank for someone who has not paid", () => {
@@ -161,6 +166,14 @@ describe("financeSummary", () => {
     expect(summary.totalByMethod).toBe(600);
     expect(summary.estimatedRevenue).toBe(600 - 1640);
     expect(summary.counts).toEqual({ members: 2, inactiveAlumni: 1, applicants: 1, plusOnes: 1 });
+  });
+
+  it("counts queue masters on duty under their own membership status", () => {
+    const summary = financeSummary(
+      report([row({ nickname: "Roniel", queueMaster: true }), row({ nickname: "Wan" })], 4),
+      880,
+    );
+    expect(summary.counts).toEqual({ members: 2, inactiveAlumni: 0, applicants: 0, plusOnes: 0 });
   });
 
   it("lists Bank and Other only when something came in that way", () => {
