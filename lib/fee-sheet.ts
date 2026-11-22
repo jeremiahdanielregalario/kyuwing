@@ -96,12 +96,3 @@ export function rangeToHtml(rows: TrackerRow[], range: Range, headers = false): 
   );
   return `<table>${lines.join("")}</table>`;
 }
-
-/** A short label for the selection, like Excel's name box: "C3", "B2:E7". */
-export function rangeLabel(range: Range): string {
-  const letter = (col: number) => String.fromCharCode(66 + col); // The sheet's table starts in column B.
-  const cell = (row: number, col: number) => `${letter(col)}${row + 6}`; // and its first player row is 6.
-  return range.top === range.bottom && range.left === range.right
-    ? cell(range.top, range.left)
-    : `${cell(range.top, range.left)}:${cell(range.bottom, range.right)}`;
-}
