@@ -71,15 +71,24 @@ Totals across the session (billed, collected, outstanding) are shown at the top.
 
 ### Sheet view
 
-The **Ledger / Sheet** switch in the Fee ledger's header shows the Excel report's player table instead: the same rows and columns as the first sheet of the export (VERIFIED?, Membership Status, Name, No. of Games, Total Amount, Mode of Payment, Voucher, Remarks, from `trackerRows()`), laid out as a spreadsheet grid (headings and cells only, with no column letters or row numbers). It always shows every player in the report, ignoring the ledger's filter and search. The choice is remembered on the device.
+The Fee ledger opens in **Sheet** view, the default way to record payments. The **Sheet / Ledger** switch in its header changes to the Ledger above, and each device remembers the choice. Sheet view shows the Excel report's player table: the same rows and columns as the first sheet of the export (VERIFIED?, Membership Status, Name, No. of Games, Total Amount, Mode of Payment, Voucher, Remarks, from `trackerRows()`), laid out as a spreadsheet grid (headings and cells only, with no column letters or row numbers). It always shows every player in the report, ignoring the ledger's filter and search.
 
-Cells can be selected and copied into Excel or Google Sheets:
+Three columns can be edited in place. The rest are worked out by the app:
+
+- **VERIFIED?** is a tick box. Ticking it records the player as paid in full (keeping their method, or Cash). Unticking it clears the payment.
+- **Mode of Payment** is a dropdown. Picking a method on an unpaid player records them as paid in full that way. Changing it on a paid player keeps the amount they paid. Picking **—** clears the payment.
+- **Voucher:** double-click it (on a tablet, tap the selected cell again), press Enter, or just type a number, then press Enter to save or Esc to cancel. A player who had paid exactly stays paid at the new total; otherwise the amount paid is kept.
+- **Any other cell:** double-click it (tap it again on a tablet, or press Enter) to open the full **Record payment** form, for partial amounts, grips and other charges.
+
+The rules are `paymentForEdit()` in `lib/fee-sheet.ts`; each edit is an ordinary `setPayment` op, so it works offline like the rest of the Fees page. **Settled** (change handed back) is ticked in Ledger view.
+
+Cells can also be selected and copied into Excel or Google Sheets:
 
 - **Mouse or pen:** drag across cells, or click one and Shift+click another. Click a heading for the whole column (Shift+click another heading for several). Arrow keys move the selection (Shift extends it), Ctrl/Cmd+A selects all and Esc clears.
 - **Touch:** tap one corner, then tap the opposite corner, or tap a heading for its column. The table still scrolls with a finger.
 - **Copy:** Ctrl/Cmd+C, or the **Copy selection** button (**Copy all** when nothing is selected). **Include headings** adds the column headings as the first row.
 
-The copy is tab-separated text plus an HTML table, so it pastes as cells. Amounts and games paste as plain numbers (the grid shows ₱1,234.00 like the sheet) and VERIFIED? pastes as TRUE/FALSE, so selecting from B6 pastes straight into the finance team's tracker template. The pure helpers are in `lib/fee-sheet.ts` (tested in `lib/fee-sheet.test.ts`); the grid is `components/app/fee-sheet.tsx`. Sheet view is read-only: record payments in Ledger view.
+The copy is tab-separated text plus an HTML table, so it pastes as cells. Amounts and games paste as plain numbers (the grid shows ₱1,234.00 like the sheet) and VERIFIED? pastes as TRUE/FALSE, so selecting from B6 pastes straight into the finance team's tracker template. The pure helpers are in `lib/fee-sheet.ts` (tested in `lib/fee-sheet.test.ts`); the grid is `components/app/fee-sheet.tsx`.
 
 ### Recording payment
 

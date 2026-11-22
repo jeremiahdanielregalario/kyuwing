@@ -1,3 +1,6 @@
+import type { PaymentInput } from "./board-engine/fees";
+import type { PaymentMethod } from "./board-engine/types";
+import type { FeeRow } from "./board-types";
 import type { TrackerRow } from "./finance-tracker";
 
 /**
@@ -13,17 +16,19 @@ export type SheetColumn = {
   align: "left" | "center" | "right";
   /** Peso amounts: shown as ₱1,234.00 like the sheet, copied as plain numbers. */
   peso?: boolean;
+  /** Cells the queue master can change in place; the rest are worked out by the app. */
+  edit?: "check" | "method" | "amount";
 };
 
 /** Same columns, in the same order, as the Excel report's first sheet. */
 export const SHEET_COLUMNS: SheetColumn[] = [
-  { key: "verified", label: "VERIFIED?", align: "center" },
+  { key: "verified", label: "VERIFIED?", align: "center", edit: "check" },
   { key: "status", label: "Membership Status", align: "center" },
   { key: "name", label: "Name", align: "left" },
   { key: "games", label: "No. of Games", align: "center" },
   { key: "total", label: "Total Amount", align: "right", peso: true },
-  { key: "payment", label: "Mode of Payment", align: "center" },
-  { key: "voucher", label: "Voucher", align: "right", peso: true },
+  { key: "payment", label: "Mode of Payment", align: "center", edit: "method" },
+  { key: "voucher", label: "Voucher", align: "right", peso: true, edit: "amount" },
   { key: "remarks", label: "Remarks", align: "left" },
 ];
 
@@ -95,4 +100,45 @@ export function rangeToHtml(rows: TrackerRow[], range: Range, headers = false): 
       `<tr>${line.map((value) => (headers && index === 0 ? `<th>${escape(value)}</th>` : `<td>${escape(value)}</td>`)).join("")}</tr>`,
   );
   return `<table>${lines.join("")}</table>`;
+}
+
+/** A change made in a sheet cell. */
+export type SheetEdit = { verified: boolean } | { method: PaymentMethod | null } | { voucher: number };
+
+/**
+ * The payment to record for a sheet edit, following the finance sheet: a ticked VERIFIED? or a
+ * filled-in Mode of Payment means paid in full; unticking or clearing it means not paid. A new
+ * voucher keeps the payment as it was, except that someone who had paid exactly stays paid
+ * exactly at the new total.
+ */
+export function paymentForEdit(row: FeeRow, edit: SheetEdit): PaymentInput {
+  const method = (row.paymentMethod as PaymentMethod | null) ?? "CASH";
+  if ("verified" in edit) return edit.verified ? { paid: true, method } : { paid: false, amountPaid: 0 };
+  if ("method" in edit) {
+    if (!edit.method) return { paid: false, amountPaid: 0 };
+    return row.paid
+      ? { paid: true, amountPaid: row.amountPaid, method: edit.method }
+      : { paid: true, method: edit.method };
+  }
+  const exact = row.paid && row.amountPaid === row.total;
+  return {
+    paid: row.paid,
+    ...(exact ? {} : { amountPaid: row.amountPaid }),
+    method: row.paid ? method : null,
+    charges: {
+      gripCount: row.gripCount,
+      otherCharge: row.otherCharge,
+      otherNote: row.otherNote,
+      voucher: Math.max(0, Math.round(edit.voucher)),
+    },
+  };
+}
+
+/** A typed voucher: a whole number of pesos (₱ and commas allowed), or null when it isn't one. */
+export function parseAmount(text: string): number | null {
+  const cleaned = text.replace(/[₱,\s]/g, "");
+  if (cleaned === "") return 0;
+  if (!/^\d+(\.\d+)?$/.test(cleaned)) return null;
+  const value = Math.round(Number(cleaned));
+  return value <= 100000 ? value : null;
 }

@@ -43,6 +43,7 @@ describe("trackerRows", () => {
   it("maps a fee row to the template's columns", () => {
     expect(trackerRows([row({})])).toEqual([
       {
+        sessionPlayerId: "s",
         verified: true,
         status: "Mem",
         name: "Jess",

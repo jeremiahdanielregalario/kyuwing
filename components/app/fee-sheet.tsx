@@ -4,29 +4,56 @@ import * as React from "react";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { TrackerRow } from "@/lib/finance-tracker";
+import type { PaymentMethod } from "@/lib/board-engine/types";
+import type { FeeRow } from "@/lib/board-types";
+import { TRACKER_PAYMENT, type TrackerRow } from "@/lib/finance-tracker";
 import {
   SHEET_COLUMNS,
   clampRange,
   displayValue,
   inRange,
+  parseAmount,
   rangeOf,
   rangeToHtml,
   rangeToTsv,
   type Cell,
   type Range,
+  type SheetEdit,
 } from "@/lib/fee-sheet";
+import { PAYMENT_METHOD_KEYS } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
 const COLS = SHEET_COLUMNS.length;
 
 /**
- * The Excel report's player table as a spreadsheet grid. Drag (or Shift+click) to select a block,
- * tap a heading for the whole column, then Ctrl/Cmd+C or Copy: the cells
- * paste into Excel or Google Sheets as cells, with amounts as plain numbers. On touch, tap one
- * corner and then the other; the table still scrolls with a finger.
+ * The Excel report's player table as a spreadsheet grid, and the Fees page's default way to record
+ * payments. VERIFIED? is a tick box and Mode of Payment a dropdown (either records the payment);
+ * double-click a Voucher (tap a selected cell again on touch, or Enter) to type it, and do the same
+ * on any other cell for the full payment form. Drag (or Shift+click) to select a block, tap a
+ * heading for the whole column, then Ctrl/Cmd+C or Copy: the cells paste into Excel or Google
+ * Sheets as cells, with amounts as plain numbers. On touch, tap one corner and then the other;
+ * the table still scrolls with a finger.
  */
-export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
+export function FeeSheet({
+  rows,
+  feeRows,
+  pending,
+  onEdit,
+  onOpen,
+}: {
+  rows: TrackerRow[];
+  feeRows: FeeRow[];
+  pending: boolean;
+  onEdit: (row: FeeRow, edit: SheetEdit) => void;
+  onOpen: (row: FeeRow) => void;
+}) {
+  const byId = React.useMemo(() => new Map(feeRows.map((row) => [row.sessionPlayerId, row])), [feeRows]);
+  const [editing, setEditing] = React.useState<Cell | null>(null);
+  const [draft, setDraft] = React.useState("");
+  // The cell being typed in, for the handlers: moving focus away blurs the box, which must not
+  // save twice or save a cancelled edit.
+  const editRef = React.useRef<Cell | null>(null);
+  const typedStart = React.useRef(false);
   const [anchor, setAnchor] = React.useState<Cell | null>(null);
   const [focus, setFocus] = React.useState<Cell | null>(null);
   const [headings, setHeadings] = React.useState(false);
@@ -72,10 +99,57 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
   const onCellClick = (cell: Cell) => {
     if (pointer.current !== "touch") return;
     focusGrid();
-    // Touch: the first tap picks a corner, the next tap on another cell spans to it.
+    // Touch: the first tap picks a corner, the next tap on another cell spans to it, and a
+    // second tap on the same cell edits it.
     const single = range && range.top === range.bottom && range.left === range.right;
-    if (single && anchor && (anchor.row !== cell.row || anchor.col !== cell.col)) setFocus(cell);
+    const same = anchor && anchor.row === cell.row && anchor.col === cell.col;
+    if (single && same) activate(cell);
+    else if (single && anchor) setFocus(cell);
     else select(cell, cell);
+  };
+
+  /** Edit a cell: type a voucher, tick VERIFIED?, or open the payment form for the rest. */
+  const activate = (cell: Cell, typed?: string) => {
+    const tracker = rows[cell.row];
+    const fee = tracker && byId.get(tracker.sessionPlayerId);
+    if (!fee || pending) return;
+    const column = SHEET_COLUMNS[cell.col];
+    select(cell, cell);
+    if (column.edit === "amount") {
+      setDraft(typed ?? (fee.voucher ? String(fee.voucher) : ""));
+      editRef.current = cell;
+      typedStart.current = typed !== undefined;
+      setEditing(cell);
+    } else if (column.edit === "check") {
+      onEdit(fee, { verified: !fee.paid });
+    } else if (column.edit === "method") {
+      gridRef.current
+        ?.querySelector<HTMLSelectElement>(`[data-cell="${cell.row}-${cell.col}"] select`)
+        ?.focus();
+    } else {
+      onOpen(fee);
+    }
+  };
+
+  const commitVoucher = () => {
+    const cell = editRef.current;
+    if (!cell) return;
+    editRef.current = null;
+    const fee = byId.get(rows[cell.row]?.sessionPlayerId ?? "");
+    const value = parseAmount(draft);
+    setEditing(null);
+    focusGrid();
+    if (!fee) return;
+    if (value === null) {
+      toast.error("Enter the voucher in whole pesos.");
+      return;
+    }
+    if (value !== fee.voucher) onEdit(fee, { voucher: value });
+  };
+  const cancelVoucher = () => {
+    editRef.current = null;
+    setEditing(null);
+    focusGrid();
   };
 
   const pickColumn = (event: React.MouseEvent, col: number) => {
@@ -91,7 +165,23 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.target !== event.currentTarget) return; // A cell's own control is handling it.
     const mod = event.metaKey || event.ctrlKey;
+    if (focus && !mod && (event.key === "Enter" || event.key === "F2")) {
+      event.preventDefault();
+      activate(focus);
+      return;
+    }
+    if (focus && event.key === " " && SHEET_COLUMNS[focus.col].edit === "check") {
+      event.preventDefault();
+      activate(focus);
+      return;
+    }
+    if (focus && !mod && /^[0-9]$/.test(event.key) && SHEET_COLUMNS[focus.col].edit === "amount") {
+      event.preventDefault();
+      activate(focus, event.key); // Typing a number into a voucher cell starts editing it, like Excel.
+      return;
+    }
     if (mod && event.key.toLowerCase() === "a") {
       event.preventDefault();
       pickAll();
@@ -122,7 +212,7 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
 
   // Ctrl/Cmd+C while the grid has focus: hand the clipboard the cells directly.
   const onCopy = (event: React.ClipboardEvent) => {
-    if (!target) return;
+    if (!target || event.target !== event.currentTarget) return;
     event.preventDefault();
     event.clipboardData.setData("text/plain", rangeToTsv(rows, target, headings));
     event.clipboardData.setData("text/html", rangeToHtml(rows, target, headings));
@@ -157,7 +247,11 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
           {range ? (
             <span className="text-ink font-semibold">{selectionSize(range)} selected</span>
           ) : (
-            "Drag across cells to select. Copy takes everything when nothing is selected."
+            <>
+              Tick <span className="text-ink font-semibold">VERIFIED?</span> or pick a{" "}
+              <span className="text-ink font-semibold">Mode of Payment</span> to record a payment.
+              Double-click (or tap twice) a Voucher to change it, or any other cell for the payment form.
+            </>
           )}
         </p>
         <div className="flex items-center gap-3">
@@ -180,7 +274,7 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
         ref={gridRef}
         tabIndex={0}
         role="grid"
-        aria-label="Fee sheet: select cells to copy"
+        aria-label="Fee sheet: record payments and select cells to copy"
         aria-multiselectable="true"
         onKeyDown={onKeyDown}
         onCopy={onCopy}
@@ -219,24 +313,106 @@ export function FeeSheet({ rows }: { rows: TrackerRow[] }) {
                     const cell = { row: r, col };
                     const selected = inRange(range, r, col);
                     const isFocus = focus?.row === r && focus.col === col && !!range;
+                    const fee = byId.get(row.sessionPlayerId);
+                    const isEditing = editing?.row === r && editing.col === col;
+                    // Clicks on a cell's own control shouldn't also start a selection drag.
+                    const own = {
+                      onPointerDown: (event: React.PointerEvent) => event.stopPropagation(),
+                      onClick: (event: React.MouseEvent) => event.stopPropagation(),
+                    };
+                    let content: React.ReactNode = displayValue(row, column);
+                    if (fee && column.edit === "check") {
+                      content = (
+                        <input
+                          type="checkbox"
+                          {...own}
+                          checked={fee.paid}
+                          disabled={pending}
+                          onChange={(event) => {
+                            onEdit(fee, { verified: event.target.checked });
+                            focusGrid();
+                          }}
+                          aria-label={`${row.name} verified (paid in full)`}
+                          className="accent-forest h-5 w-5 cursor-pointer align-middle disabled:opacity-40"
+                        />
+                      );
+                    } else if (fee && column.edit === "method") {
+                      content = (
+                        <select
+                          {...own}
+                          value={fee.paymentMethod ?? ""}
+                          disabled={pending}
+                          onChange={(event) => {
+                            onEdit(fee, { method: (event.target.value || null) as PaymentMethod | null });
+                            focusGrid();
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") focusGrid();
+                          }}
+                          aria-label={`${row.name} mode of payment`}
+                          className="h-9 w-full min-w-24 cursor-pointer appearance-none bg-transparent text-center outline-none"
+                        >
+                          <option value="">—</option>
+                          {PAYMENT_METHOD_KEYS.map((key) => (
+                            <option key={key} value={key}>
+                              {TRACKER_PAYMENT[key] ?? key}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    } else if (isEditing) {
+                      content = (
+                        <input
+                          {...own}
+                          autoFocus
+                          inputMode="numeric"
+                          value={draft}
+                          onChange={(event) => setDraft(event.target.value)}
+                          onBlur={commitVoucher}
+                          onKeyDown={(event) => {
+                            event.stopPropagation();
+                            if (event.key === "Enter" || event.key === "Tab") {
+                              event.preventDefault();
+                              commitVoucher();
+                            } else if (event.key === "Escape") {
+                              event.preventDefault();
+                              cancelVoucher();
+                            }
+                          }}
+                          onFocus={(event) => {
+                            // Started by typing a digit: keep it and carry on typing after it.
+                            const end = event.target.value.length;
+                            if (typedStart.current) event.target.setSelectionRange(end, end);
+                            else event.target.select();
+                          }}
+                          aria-label={`${row.name} voucher`}
+                          className="h-8 w-24 bg-white text-right font-mono outline-none"
+                        />
+                      );
+                    }
                     return (
                       <td
                         key={column.key}
                         role="gridcell"
+                        data-cell={`${r}-${col}`}
                         aria-selected={selected}
                         onPointerDown={(event) => onCellPointerDown(event, cell)}
                         onPointerEnter={() => onCellPointerEnter(cell)}
                         onClick={() => onCellClick(cell)}
+                        onDoubleClick={() => {
+                          if (pointer.current !== "touch" && !column.edit?.match(/check|method/))
+                            activate(cell);
+                        }}
                         className={cn(
-                          "border-line h-9 cursor-cell border-r border-b px-3 whitespace-nowrap select-none",
+                          "border-line h-9 cursor-cell border-r border-b whitespace-nowrap select-none",
+                          column.edit === "method" ? "px-1" : "px-3",
                           column.align === "center" && "text-center",
                           column.align === "right" && "text-right font-mono",
-                          column.key === "verified" && "text-forest font-bold",
                           selected ? "bg-lime/25" : "bg-paper",
-                          isFocus && "ring-forest ring-2 ring-inset",
+                          (isFocus || isEditing) && "ring-forest ring-2 ring-inset",
                         )}
                       >
-                        {displayValue(row, column)}
+                        {content}
                       </td>
                     );
                   })}
