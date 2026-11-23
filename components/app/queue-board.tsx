@@ -70,6 +70,7 @@ import {
   Zap,
   ArrowRightToLine,
 } from "lucide-react";
+import { BoardLock } from "@/components/app/board-lock";
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { keepGameDayPages } from "@/lib/offline/keep-pages";
 import { syncLabel, useOfflineGameDay } from "@/components/app/use-offline-game-day";
@@ -369,7 +370,14 @@ export function QueueBoard({
 }) {
   // The game day lives on this device: presses apply at once and are sent in the background,
   // so the board keeps working on weak or no signal (see lib/offline/game-day-sync.ts).
-  const { state, status: syncStatus, actions, refresh, dismissRejected } = useOfflineGameDay(bootstrap);
+  const {
+    state,
+    status: syncStatus,
+    actions,
+    refresh,
+    dismissRejected,
+    takeOver,
+  } = useOfflineGameDay(bootstrap);
   const {
     addCourt,
     endGameDay,
@@ -1447,6 +1455,7 @@ export function QueueBoard({
     <TapMoveContext value={tapMove}>
       <SavingPill show={pending} />
       <RejectedChanges changes={syncStatus.rejected} onDismiss={dismissRejected} />
+      <BoardLock status={syncStatus} onTakeOver={takeOver} />
       <DndContext
         sensors={sensors}
         collisionDetection={collisionFor}

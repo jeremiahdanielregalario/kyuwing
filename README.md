@@ -19,24 +19,24 @@ Running open-play doubles by hand is a juggling act: who has waited longest, who
 
 ## Feature tour
 
-| Area            | What it does                                                                                                    |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| Game days       | Draft → Live → Completed lifecycle, venue, date, type, court blocks                                             |
-| Sign-ups        | Add from the player database, add all active players, CSV/JSON import, walk-ins, bracket spread of the list     |
-| Live board      | Expected / Waiting / Playing / Done lanes, live wait timers, court-surface cards                                |
-| Court control   | Tap or drag: move a match to another court, swap players between slots, place four players on an open court     |
-| Pairing         | Multi-court auto-pair, single-court suggestions, drag-and-drop edits, requests                                  |
-| Requests        | Partner-with, play-against, and permanent partners per game day                                                 |
-| Players         | 19-level ladder (`E-` … `A+`), nickname + full name, category, active flag                                      |
-| Public roster   | View-only `/roster` for players: levels, type, recency, attendance and awards; no contacts, edits or exports    |
-| Public playbook | View-only `/playbook` for members: the queue master playbook and the pairing formula; no player data            |
-| Recency         | Log and edit game-day and tournament chat lists; each player is scored and banded by how recently they play     |
-| Awards          | Paste tournament results; podium players get a trophy showing each title and their doubles partner or teammates |
-| Fees            | Fee rules, per-player ledger, cash/GCash/bank/other, view-only fees link (QR) for finance                       |
-| Reports         | Session summary, player breakdown, Excel (`.xlsx`) and PDF export                                               |
-| Ops guide       | In-app queue-master playbook with checklists and FAQs                                                           |
-| Install         | Installable web app (manifest + service worker): its own window and home-screen icon                            |
-| Offline         | Board, Fees and Sign-ups keep working on weak or no signal once opened; changes sync in the background          |
+| Area            | What it does                                                                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Game days       | Draft → Live → Completed lifecycle, venue, date, type, court blocks                                                                                                                               |
+| Sign-ups        | Add from the player database, add all active players, CSV/JSON import, walk-ins, bracket spread of the list                                                                                       |
+| Live board      | Expected / Waiting / Playing / Done lanes, live wait timers, court-surface cards                                                                                                                  |
+| Court control   | Tap or drag: move a match to another court, swap players between slots, place four players on an open court                                                                                       |
+| Pairing         | Multi-court auto-pair, single-court suggestions, drag-and-drop edits, requests                                                                                                                    |
+| Requests        | Partner-with, play-against, and permanent partners per game day                                                                                                                                   |
+| Players         | 19-level ladder (`E-` … `A+`), nickname + full name, category, active flag                                                                                                                        |
+| Public roster   | View-only `/roster` for players: levels, type, recency, attendance and awards; no contacts, edits or exports                                                                                      |
+| Public playbook | View-only `/playbook` for members: the queue master playbook and the pairing formula; no player data                                                                                              |
+| Recency         | Log and edit game-day and tournament chat lists; each player is scored and banded by how recently they play                                                                                       |
+| Awards          | Paste tournament results; podium players get a trophy showing each title and their doubles partner or teammates                                                                                   |
+| Fees            | Fee rules, per-player ledger, cash/GCash/bank/other, view-only fees link (QR) for finance                                                                                                         |
+| Reports         | Session summary, player breakdown, Excel (`.xlsx`) and PDF export                                                                                                                                 |
+| Ops guide       | In-app queue-master playbook with checklists and FAQs                                                                                                                                             |
+| Install         | Installable web app (manifest + service worker): its own window and home-screen icon                                                                                                              |
+| Offline         | Board, Fees and Sign-ups keep working on weak or no signal once opened; changes sync in the background. While the holding tablet is offline, other devices are view only (or take the board over) |
 
 ### Player levels
 
@@ -197,7 +197,7 @@ app/
     gamedays/                    List, create, board, sign-ups, fees, reports, settings
     players/  venues/  guide/    Roster, fee rules, playbook
   api/gamedays/[id]/
-    sync/  state/                Offline board: send presses, catch up
+    sync/  state/  takeover/     Offline board: send presses, catch up, take the board over
     export/xlsx/  export/pdf/    Report downloads
 components/
   app/                           Board, sign-ups, fees, settings, nav

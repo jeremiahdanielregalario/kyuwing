@@ -262,6 +262,7 @@ model GameDay {
   leaveRequests LeaveRequest[]
   attendance    AttendanceEvent?
   boardOps      BoardOp[]
+  boardLease    BoardLease?
 
   @@index([date])
   @@index([status])
@@ -398,6 +399,22 @@ model SignInLog {
 
 /// A change pressed on the board (or Fees, Sign-ups) and saved through the engine. The id comes
 /// from the device, so a change sent twice over a weak connection is only applied once.
+/// Which device holds a game day's board: the one that changed it last. While it is out of touch
+/// (no sync or poll for 30 s) other devices can't change the game day, so only its offline copy
+/// moves; `epoch` goes up on a takeover so the old holder's late changes are refused.
+model BoardLease {
+  gameDayId String   @id
+  deviceId  String
+  /// When the holder last reached the server.
+  seenAt    DateTime
+  epoch     Int      @default(0)
+  /// Who and what, for the "held by" line: the queue master's name and e.g. "iPad · Safari".
+  name      String?
+  device    String?
+
+  gameDay GameDay @relation(fields: [gameDayId], references: [id], onDelete: Cascade)
+}
+
 model BoardOp {
   id        String   @id
   gameDayId String

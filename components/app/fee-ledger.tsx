@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FeeSheet } from "@/components/app/fee-sheet";
+import { BoardLock } from "@/components/app/board-lock";
 import { RejectedChanges } from "@/components/app/rejected-changes";
 import { useOfflineGameDay } from "@/components/app/use-offline-game-day";
 import { toFeeReport } from "@/lib/board-engine/view";
@@ -86,7 +87,7 @@ function useLedgerView(): ["ledger" | "sheet", (view: "ledger" | "sheet") => voi
 export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
   // Payments are recorded on this device's copy of the game day, like the board, so the finance
   // member can keep going on weak signal (see lib/offline/game-day-sync.ts).
-  const { state, status: syncStatus, actions, dismissRejected } = useOfflineGameDay(bootstrap);
+  const { state, status: syncStatus, actions, dismissRejected, takeOver } = useOfflineGameDay(bootstrap);
   const { markAllPaid, setBaseFee, setCourtHours, setPayment, setSettled } = actions;
   const [loadedAt] = React.useState(() => bootstrap.loadedAt);
   const report = React.useMemo(() => toFeeReport(state, loadedAt), [state, loadedAt]);
@@ -222,6 +223,7 @@ export function FeeLedger({ bootstrap }: { bootstrap: GameDayBootstrap }) {
   return (
     <div className="space-y-5">
       <RejectedChanges changes={syncStatus.rejected} onDismiss={dismissRejected} />
+      <BoardLock status={syncStatus} onTakeOver={takeOver} />
       <div className="border-line bg-paper rounded-2xl border px-4 py-3 text-[13px] leading-relaxed">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-muted text-[10px] font-bold tracking-[0.14em] uppercase">Base fee</p>

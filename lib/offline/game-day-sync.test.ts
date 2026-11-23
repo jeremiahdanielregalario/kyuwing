@@ -3,6 +3,7 @@ import { syncLabel } from "@/components/app/use-offline-game-day";
 import { applyOps, type BoardOp } from "@/lib/board-engine/ops";
 import { blankSignup } from "@/lib/board-engine/players";
 import type { EngineState } from "@/lib/board-engine/types";
+import type { LeaseView } from "@/lib/board-lease";
 import { GameDaySync, type SyncStatus } from "./game-day-sync";
 
 const DAY = Date.UTC(2026, 10, 14);
@@ -46,9 +47,19 @@ function keeper() {
 }
 
 /** A server that applies what it is sent with the same engine, like /api/gamedays/[id]/sync. */
-function fakeServer(start: EngineState, refuse: (op: BoardOp) => string | null = () => null) {
+function fakeServer(
+  start: EngineState,
+  refuse: (op: BoardOp) => string | null = () => null,
+  lease?: () => LeaseView,
+) {
   let state = start;
-  return vi.fn(async (_url: string, init: RequestInit) => {
+  return vi.fn(async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/state"))
+      return new Response(null, {
+        status: 304,
+        headers: lease ? { "X-Board-Lease": encodeURIComponent(JSON.stringify(lease())) } : {},
+      });
+    if (url.endsWith("/takeover")) return new Response(JSON.stringify({ lease: lease?.() }));
     const { ops } = JSON.parse(String(init.body)) as { ops: BoardOp[] };
     const results = ops.map((op) => {
       const error = refuse(op);
@@ -56,7 +67,9 @@ function fakeServer(start: EngineState, refuse: (op: BoardOp) => string | null =
       state = applyOps(state, [op]);
       return { ok: true };
     });
-    return new Response(JSON.stringify({ results, state, hash: `h${Math.random()}`, loadedAt: Date.now() }));
+    return new Response(
+      JSON.stringify({ results, state, hash: `h${Math.random()}`, loadedAt: Date.now(), lease: lease?.() }),
+    );
   });
 }
 
@@ -150,6 +163,80 @@ describe("GameDaySync", () => {
   });
 });
 
+describe("GameDaySync board lease", () => {
+  const other = (ageMs: number, epoch = 0): LeaseView => ({
+    holder: "other",
+    epoch,
+    ageMs,
+    name: "Ana",
+    label: "iPad · Safari",
+  });
+
+  function bodies(server: ReturnType<typeof fakeServer>) {
+    return server.mock.calls
+      .filter(([url]) => String(url).endsWith("/sync"))
+      .map(([, init]) => JSON.parse(String(init?.body)) as { ops: BoardOp[]; epoch?: number });
+  }
+
+  it("goes view only while the holder is out of touch, and changes nothing", async () => {
+    let lease = other(1_000);
+    const server = fakeServer(
+      fixture(),
+      () => null,
+      () => lease,
+    );
+    vi.stubGlobal("fetch", server);
+    const sync = keeper();
+    expect(sync.run({ type: "checkIn", sessionPlayerId: "sp0" }).ok).toBe(true);
+    await vi.waitFor(() => expect(sync.getSnapshot().status.lease?.holder).toBe("other"));
+    expect(sync.getSnapshot().status.locked).toBeNull();
+
+    lease = other(45_000);
+    expect(sync.run({ type: "checkIn", sessionPlayerId: "sp1" }).ok).toBe(true);
+    await vi.waitFor(() => expect(sync.getSnapshot().status.locked).toContain("Ana (iPad · Safari)"));
+    const refused = sync.run({ type: "setPriority", sessionPlayerId: "sp1", priority: true });
+    expect(refused.ok).toBe(false);
+    expect(sync.getSnapshot().status.pending).toBe(0);
+    expect(sync.getSnapshot().state.players[1].priority).toBe(false);
+  });
+
+  it("sends each press with the epoch it was made under", async () => {
+    const server = fakeServer(
+      fixture(),
+      () => null,
+      () => ({ ...other(0, 2), holder: "you" }),
+    );
+    vi.stubGlobal("fetch", server);
+    const sync = keeper();
+    sync.run({ type: "checkIn", sessionPlayerId: "sp0" });
+    await vi.waitFor(() => expect(sync.getSnapshot().status.lease?.epoch).toBe(2));
+    sync.run({ type: "checkIn", sessionPlayerId: "sp1" });
+    await vi.waitFor(() => expect(sync.getSnapshot().status.pending).toBe(0));
+    expect(bodies(server).map((body) => body.epoch)).toEqual([undefined, 2]);
+  });
+
+  it("can take the board over and then change it", async () => {
+    let lease = other(60_000);
+    const server = fakeServer(
+      fixture(),
+      () => null,
+      () => lease,
+    );
+    vi.stubGlobal("fetch", server);
+    const sync = keeper();
+    sync.run({ type: "checkIn", sessionPlayerId: "sp0" });
+    await vi.waitFor(() => expect(sync.getSnapshot().status.locked).not.toBeNull());
+
+    lease = { ...other(0, 1), holder: "you" };
+    const result = await sync.takeOver();
+    expect(result).toEqual({ ok: true, message: "This device now holds the board." });
+    expect(sync.getSnapshot().status.locked).toBeNull();
+    expect(sync.run({ type: "checkIn", sessionPlayerId: "sp1" }).ok).toBe(true);
+    await vi.waitFor(() => expect(sync.getSnapshot().status.pending).toBe(0));
+    expect(bodies(server).at(-1)?.epoch).toBe(1);
+  });
+});
+
 describe("syncLabel", () => {
   const base: SyncStatus = {
     online: true,
@@ -158,6 +245,9 @@ describe("syncLabel", () => {
     syncedAt: 1,
     problem: null,
     rejected: [],
+    lease: null,
+    locked: null,
+    takingOver: false,
   };
   it("says saved, saving, offline or signed out", () => {
     expect(syncLabel(base)).toEqual({ text: "Saved · live on all devices", tone: "ok" });
@@ -166,5 +256,8 @@ describe("syncLabel", () => {
       "Offline · 1 change saved on this tablet",
     );
     expect(syncLabel({ ...base, problem: "Signed out." }).tone).toBe("warn");
+    expect(syncLabel({ ...base, locked: "Held elsewhere." }).text).toBe(
+      "View only · another device holds the board",
+    );
   });
 });
