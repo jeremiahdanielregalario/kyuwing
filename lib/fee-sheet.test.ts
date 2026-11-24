@@ -6,7 +6,10 @@ import {
   clampRange,
   copyValue,
   displayValue,
+  edgeScroll,
+  handleAnchor,
   inRange,
+  parseCellKey,
   parseAmount,
   paymentForEdit,
   rangeOf,
@@ -174,5 +177,28 @@ describe("fee sheet edits", () => {
     expect(parseAmount(" ")).toBe(0);
     expect(parseAmount("abc")).toBeNull();
     expect(parseAmount("-5")).toBeNull();
+  });
+});
+
+describe("touch selection helpers", () => {
+  it("reads a cell from its data-cell key", () => {
+    expect(parseCellKey("3-5")).toEqual({ row: 3, col: 5 });
+    expect(parseCellKey("x")).toBeNull();
+    expect(parseCellKey(null)).toBeNull();
+  });
+
+  it("stretches a selection from the corner opposite the handle", () => {
+    const range = { top: 1, left: 2, bottom: 4, right: 6 };
+    expect(handleAnchor(range, "end")).toEqual({ row: 1, col: 2 });
+    expect(handleAnchor(range, "start")).toEqual({ row: 4, col: 6 });
+  });
+
+  it("scrolls only near the grid's edges, faster closer to them", () => {
+    const box = { left: 0, top: 0, right: 400, bottom: 600 };
+    expect(edgeScroll({ x: 200, y: 300 }, box)).toEqual({ dx: 0, dy: 0 });
+    expect(edgeScroll({ x: 200, y: 590 }, box).dy).toBeGreaterThan(0);
+    expect(edgeScroll({ x: 200, y: 10 }, box).dy).toBeLessThan(0);
+    expect(edgeScroll({ x: 395, y: 300 }, box).dx).toBeGreaterThan(edgeScroll({ x: 370, y: 300 }, box).dx);
+    expect(edgeScroll({ x: -50, y: 300 }, box).dx).toBe(-16);
   });
 });
