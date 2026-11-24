@@ -3,10 +3,12 @@ import {
   EMPTY_DRAFT,
   draftCourt,
   firstFreePlace,
+  emptyWaitingKey,
   isWaitingDraft,
-  newWaitingDraft,
+  nextWaitingKey,
   placeInDrafts,
   removeFromDrafts,
+  waitingCourtKeys,
   waitingDrafts,
 } from "./court-drafts";
 
@@ -66,32 +68,35 @@ describe("waiting courts filled by hand", () => {
     expect(draftCourt(4)).toBe(4);
   });
 
-  it("starts with one empty waiting court at 0", () => {
+  it("shows one empty waiting court when none is open or in use", () => {
     expect(waitingDrafts({})).toEqual([]);
-    expect(newWaitingDraft({})).toBe(0);
-    expect(newWaitingDraft({ 0: EMPTY_DRAFT, 2: ["a", null, null, null] })).toBe(0);
+    expect(waitingCourtKeys({}, [])).toEqual([0]);
+    expect(waitingCourtKeys({ 0: EMPTY_DRAFT, 2: ["a", null, null, null] }, [])).toEqual([0]);
+    expect(nextWaitingKey({}, [])).toBe(-1);
+    expect(emptyWaitingKey({}, [])).toBe(0);
   });
 
-  it("offers another empty waiting court while others are only part-filled", () => {
-    const drafts = { 0: ["a", null, null, null], 3: ["b", null, null, null] };
-    expect(waitingDrafts(drafts)).toEqual([0]);
-    expect(newWaitingDraft(drafts)).toBe(-1);
-    const more = placeInDrafts(drafts, -1, 2, "c");
-    expect(waitingDrafts(more)).toEqual([0, -1]);
-    expect(newWaitingDraft(more)).toBe(-2);
+  it("adds empty waiting courts without filling the others", () => {
+    // Add waiting court pins the ones shown and opens the next key.
+    const opened = [0, nextWaitingKey({}, [])];
+    expect(waitingCourtKeys({}, opened)).toEqual([0, -1]);
+    const more = [...waitingCourtKeys({}, opened), nextWaitingKey({}, opened)];
+    expect(waitingCourtKeys({}, more)).toEqual([0, -1, -2]);
   });
 
-  it("keeps the order of part-filled waiting courts when an earlier one empties", () => {
-    const drafts = { 0: EMPTY_DRAFT, [-1]: ["c", null, null, null] };
+  it("keeps part-filled waiting courts in order, with the opened ones", () => {
+    const drafts = { 0: EMPTY_DRAFT, [-1]: ["c", null, null, null], 3: ["b", null, null, null] };
     expect(waitingDrafts(drafts)).toEqual([-1]);
-    expect(newWaitingDraft(drafts)).toBe(-2);
+    expect(waitingCourtKeys(drafts, [-2])).toEqual([-1, -2]);
+    expect(nextWaitingKey(drafts, [-2])).toBe(-3);
+    expect(emptyWaitingKey(drafts, [-2])).toBe(-2);
+    expect(emptyWaitingKey(drafts, [])).toBeUndefined();
+    // Real courts never count as waiting courts.
+    expect(waitingCourtKeys(drafts, [2])).toEqual([-1]);
   });
 
-  it("fills a part-filled waiting court before starting a new one", () => {
+  it("fills the first waiting court with a free place", () => {
     const drafts = { 0: ["a", "b", "c", "d"], [-1]: ["e", null, null, null] };
-    expect(firstFreePlace(drafts, [...waitingDrafts(drafts), newWaitingDraft(drafts)])).toEqual({
-      court: -1,
-      index: 1,
-    });
+    expect(firstFreePlace(drafts, waitingCourtKeys(drafts, []))).toEqual({ court: -1, index: 1 });
   });
 });

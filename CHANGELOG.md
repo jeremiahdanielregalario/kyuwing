@@ -6,7 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
-- **Fill several waiting courts at once** — putting a player on the empty waiting court now opens another empty one after it, so a queue master can start setting the next game while earlier waiting courts are still only part-filled. Each part-filled waiting court keeps its players and becomes a waiting game, in line, once its fourth player goes in or **Fill the rest** is pressed. Taking a player out of an unstarted waiting game now always leaves the other three on a waiting court of their own, even while another one is being filled.
+- **Add waiting court** — a new **Add waiting court** button beside the Waiting courts heading opens another empty waiting court whenever the queue master wants one, even while the others are empty or only part-filled. Several waiting courts can be filled by hand at once, in any order; each keeps its players and becomes a waiting game, in line, once its fourth player goes in or **Fill the rest** is pressed. A waiting court that isn't needed comes off with its red **−**. Taking a player out of an unstarted waiting game now always leaves the other three on a waiting court of their own, even while another one is being filled.
 
 - **Transfer to Court on every waiting game** — while a court is free, every waiting game whose four players are off court now shows **Transfer to Court**, not only the earliest one, so you can send a later game first when the next game's players aren't ready. The earliest games still get the free courts in order; the rest point at the first free court.
 

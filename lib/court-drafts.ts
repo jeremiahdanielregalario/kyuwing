@@ -2,7 +2,7 @@
  * Hand-filled courts on the queue board: the players dropped into an open court's four places
  * before it becomes a game. Kept per court number (places 0-1 are team A, 2-3 team B). Waiting
  * courts being filled by hand are keyed QUEUED_COURT (0) and below (-1, -2, ...), so several can
- * be part-filled at once; each becomes a waiting game (court 0) when its four are in. Pure, so
+ * be open and part-filled at once; each becomes a waiting game (court 0) when its four are in. Pure, so
  * the moves are unit-tested.
  */
 import { QUEUED_COURT } from "@/lib/datetime";
@@ -78,10 +78,21 @@ export function waitingDrafts(drafts: CourtDrafts): number[] {
 }
 
 /**
- * The key for the empty waiting court shown after the part-filled ones: below every one in use,
- * so it never lands on (or reorders) a court someone is filling. Back to 0 once all are empty.
+ * The waiting courts to show, in order (0, -1, -2, ...): every one with a player placed plus the
+ * empty ones the queue master opened with Add waiting court. With none, one empty waiting court
+ * (0), so there is always somewhere to start.
  */
-export function newWaitingDraft(drafts: CourtDrafts): number {
-  const used = waitingDrafts(drafts);
-  return used.length ? Math.min(...used) - 1 : QUEUED_COURT;
+export function waitingCourtKeys(drafts: CourtDrafts, opened: number[]): number[] {
+  const keys = new Set([...waitingDrafts(drafts), ...opened.filter(isWaitingDraft)]);
+  return keys.size ? [...keys].sort((a, b) => b - a) : [QUEUED_COURT];
+}
+
+/** The key for one more waiting court: below every one shown, so it never reorders them. */
+export function nextWaitingKey(drafts: CourtDrafts, opened: number[]): number {
+  return Math.min(...waitingCourtKeys(drafts, opened)) - 1;
+}
+
+/** The first shown waiting court with nobody placed, if any. */
+export function emptyWaitingKey(drafts: CourtDrafts, opened: number[]): number | undefined {
+  return waitingCourtKeys(drafts, opened).find((key) => !(drafts[key] ?? EMPTY_DRAFT).some(Boolean));
 }
