@@ -6,6 +6,7 @@ All notable changes to Kyuwing are documented here. The format follows [Keep a C
 
 ### Changed
 
+- **Recency score scaled 1–100** — the recency score on each badge (Players, the player database and the public roster) is now scaled across everyone with history: the most active player scores 100, the least active 1, and the rest in proportion. The sort order is unchanged, and the bands (Playing often and so on) are worked out as before.
 - **Selecting cells on a phone** — on the fees Sheet (the finance officer's shared link and the Fees page), touch now selects like a mouse: tap a cell and drag the round handles on the selection's corners, or press and hold a cell and drag across the others. The table scrolls along at its edge, and a quick swipe still just scrolls. This replaces tapping one corner and then the other.
 - **Add waiting court** — a new **Add waiting court** button beside the Waiting courts heading opens another empty waiting court whenever the queue master wants one, even while the others are empty or only part-filled. Several waiting courts can be filled by hand at once, in any order; each keeps its players and becomes a waiting game, in line, once its fourth player goes in or **Fill the rest** is pressed. A waiting court that isn't needed comes off with its red **−**. Taking a player out of an unstarted waiting game now always leaves the other three on a waiting court of their own, even while another one is being filled.
 

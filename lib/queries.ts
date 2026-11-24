@@ -11,7 +11,13 @@ import type { CourtSlot } from "./datetime";
 import { awardsByPlayer, type AwardRow, type PlayerAward } from "./awards";
 import { levelLabel } from "./levels";
 import { toPublicRoster, type PublicRoster } from "./public-roster";
-import { recencySummary, toRecencySnapshot, type RecencyEntry, type RecencySnapshot } from "./recency";
+import {
+  recencySummary,
+  scaleRecencyScores,
+  type RecencyEntry,
+  type RecencySnapshot,
+  type RecencySummary,
+} from "./recency";
 
 const gameDayInclude = {
   venue: true,
@@ -144,10 +150,9 @@ export async function getAttendanceOverview(): Promise<AttendanceOverview> {
   }
 
   const now = new Date();
-  const byPlayer: Record<string, RecencySnapshot> = {};
-  for (const [playerId, rows] of rowsByPlayer) {
-    byPlayer[playerId] = toRecencySnapshot(recencySummary(rows, now));
-  }
+  const summaries: Record<string, RecencySummary> = {};
+  for (const [playerId, rows] of rowsByPlayer) summaries[playerId] = recencySummary(rows, now);
+  const byPlayer = scaleRecencyScores(summaries);
 
   return {
     events: events.map((event) => ({

@@ -185,14 +185,14 @@ How players are banded:
 
 | Band          | Meaning                                                                        |
 | ------------- | ------------------------------------------------------------------------------ |
-| Playing often | Active in the last 30 days and plays regularly (score 55+)                     |
+| Playing often | Active in the last 30 days and plays regularly (own score 55+, before scaling) |
 | Playing       | Played or waitlisted in the last 30 days                                       |
 | Tournament only | Seen only on tournament lists in the last 90 days, never on a game-day list |
 | Cooling off   | Last seen 31–90 days ago                                                       |
 | Dormant       | Not seen in over 90 days                                                       |
 | No history    | Not on any logged list                                                         |
 
-The score, a whole number from 0 to 100, appears next to the status on each badge and sorts the **Recency** column. The player database and the public roster open sorted by it, highest first (ties A to Z); click another column or use **Sort** to change it. Each list counts less as it ages (half weight after 60 days, none after a year), and a waitlist place counts 40% of a game, because joining the waitlist still shows the player wants to play.
+The score, a whole number from 1 to 100, appears next to the status on each badge and sorts the **Recency** column. It is scaled across everyone with history: the most active player scores 100, the least active 1, and the rest in proportion between, so it reads as a ranking and shifts as other players come and go. The **Playing often** band still uses each player's own score (55+ before scaling), so it doesn't depend on who else is listed. The player database and the public roster open sorted by it, highest first (ties A to Z); click another column or use **Sort** to change it. Each list counts less as it ages (half weight after 60 days, none after a year), and a waitlist place counts 40% of a game, because joining the waitlist still shows the player wants to play.
 
 ## Applying a club leveling sheet
 

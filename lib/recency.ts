@@ -22,7 +22,10 @@ export type RecencyEntry = {
 export type RecencyBand = "hot" | "warm" | "tournament" | "cooling" | "dormant" | "new";
 
 export type RecencySummary = {
+  /** The player's own score, 0 to 100, before scaling against the others (see scaleRecencyScores). */
   score: number;
+  /** The decayed weight of every list in the last year, unrounded; what the scaling ranks. */
+  weighted: number;
   band: RecencyBand;
   bandLabel: string;
   lastPlayed: Date | null;
@@ -38,6 +41,7 @@ export type RecencySummary = {
 
 /** Client-safe version of the summary (dates as ISO strings). */
 export type RecencySnapshot = {
+  /** The score shown and sorted on: 1 to 100 across everyone with history (see scaleRecencyScores). */
   score: number;
   band: RecencyBand;
   bandLabel: string;
@@ -48,9 +52,9 @@ export type RecencySnapshot = {
   waitlist90: number;
 };
 
-export function toRecencySnapshot(summary: RecencySummary): RecencySnapshot {
+export function toRecencySnapshot(summary: RecencySummary, score = summary.score): RecencySnapshot {
   return {
-    score: summary.score,
+    score,
     band: summary.band,
     bandLabel: summary.bandLabel,
     lastPlayed: summary.lastPlayed?.toISOString() ?? null,
@@ -161,6 +165,7 @@ export function recencySummary(entries: RecencyEntry[], now: Date = new Date()):
 
   return {
     score,
+    weighted,
     band,
     bandLabel: RECENCY_BAND_LABELS[band],
     lastPlayed,
@@ -172,4 +177,24 @@ export function recencySummary(entries: RecencyEntry[], now: Date = new Date()):
     totalPlayed,
     totalEvents: entries.length,
   };
+}
+
+/**
+ * Min-max scales the scores across players: the most active player gets 100, the least active
+ * 1, and everyone else in proportion between. Only players with history are scaled (No history
+ * shows no score). When everyone ties, all get 100. The bands keep using each player's own score,
+ * so "Playing often" doesn't depend on who else is on the list.
+ */
+export function scaleRecencyScores(
+  summaries: Record<string, RecencySummary>,
+): Record<string, RecencySnapshot> {
+  const values = Object.values(summaries).map((summary) => summary.weighted);
+  const min = Math.min(...values);
+  const span = Math.max(...values) - min;
+  return Object.fromEntries(
+    Object.entries(summaries).map(([id, summary]) => [
+      id,
+      toRecencySnapshot(summary, span > 0 ? Math.round(1 + (99 * (summary.weighted - min)) / span) : 100),
+    ]),
+  );
 }
