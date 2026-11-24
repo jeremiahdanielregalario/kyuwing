@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recencySummary } from "./recency";
+import { recencySummary, scaleRecencyScores } from "./recency";
 
 const NOW = new Date("2026-11-03T00:00:00.000Z");
 
@@ -115,5 +115,35 @@ describe("recencySummary", () => {
     );
     expect(summary.daysSincePlayed).toBe(90);
     expect(summary.lastWaitlist).not.toBeNull();
+  });
+});
+
+describe("scaleRecencyScores", () => {
+  const most = recencySummary(
+    [0, 7, 14, 21].map((days) => ({ date: daysAgo(days), status: "PLAYED" as const })),
+    NOW,
+  );
+  const middle = recencySummary([{ date: daysAgo(20), status: "PLAYED" }], NOW);
+  const least = recencySummary([{ date: daysAgo(200), status: "WAITLIST" }], NOW);
+
+  it("gives the most active player 100 and the least active 1", () => {
+    const scaled = scaleRecencyScores({ a: most, b: middle, c: least });
+    expect(scaled.a.score).toBe(100);
+    expect(scaled.c.score).toBe(1);
+    expect(scaled.b.score).toBeGreaterThan(1);
+    expect(scaled.b.score).toBeLessThan(100);
+  });
+
+  it("keeps the order of the raw scores, and the bands from the player's own score", () => {
+    const scaled = scaleRecencyScores({ a: most, b: middle, c: least });
+    expect(scaled.a.score).toBeGreaterThan(scaled.b.score);
+    expect(scaled.a.band).toBe(most.band);
+    expect(scaled.b.band).toBe(middle.band);
+  });
+
+  it("gives everyone 100 when they tie, and handles no players", () => {
+    expect(scaleRecencyScores({ a: middle }).a.score).toBe(100);
+    expect(scaleRecencyScores({ a: middle, b: middle }).b.score).toBe(100);
+    expect(scaleRecencyScores({})).toEqual({});
   });
 });
