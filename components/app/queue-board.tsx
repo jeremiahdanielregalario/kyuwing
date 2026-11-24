@@ -94,11 +94,12 @@ import {
   EMPTY_DRAFT,
   draftCourt,
   firstFreePlace,
+  emptyWaitingKey,
   isWaitingDraft,
-  newWaitingDraft,
+  nextWaitingKey,
   placeInDrafts,
   removeFromDrafts,
-  waitingDrafts,
+  waitingCourtKeys,
   type CourtDrafts,
 } from "@/lib/court-drafts";
 import { canDropOn, canTapOn, dropVerb, eventPoint, samePick, type DropVerbData } from "@/lib/drag-targets";
@@ -479,6 +480,18 @@ export function QueueBoard({
   const [editTeam1, setEditTeam1] = React.useState<string[]>([]);
   const [editTeam2, setEditTeam2] = React.useState<string[]>([]);
   const [drafts, setDrafts] = React.useState<CourtDrafts>({});
+  // Waiting courts opened with Add waiting court, kept on screen while empty (see waitingCourtKeys).
+  const [openWaiting, setOpenWaiting] = React.useState<number[]>([]);
+  const waitingKeys = waitingCourtKeys(drafts, openWaiting);
+  /** A hand-filled court is done (it became a game, or was emptied): clear it, and close it if waiting. */
+  const closeDraft = (court: number) => {
+    setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
+    if (isWaitingDraft(court)) setOpenWaiting((prev) => prev.filter((key) => key !== court));
+  };
+  const addWaitingCourt = () => {
+    haptic("tap");
+    setOpenWaiting([...waitingKeys, nextWaitingKey(drafts, openWaiting)]);
+  };
   const [activeDrag, setActiveDrag] = React.useState<DragPayload | null>(null);
   const [picked, setPicked] = React.useState<DragPayload | null>(null);
   React.useEffect(() => {
@@ -554,6 +567,8 @@ export function QueueBoard({
     const all = placeInDrafts(drafts, court, index, playerId, from);
     const next = all[court];
     setDrafts(all);
+    // A waiting court stays on screen once used, even if its players are taken off again.
+    if (isWaitingDraft(court) && !openWaiting.includes(court)) setOpenWaiting((prev) => [...prev, court]);
 
     if (!next.every(Boolean) || creatingDrafts.current.has(court)) return;
     creatingDrafts.current.add(court);
@@ -570,7 +585,8 @@ export function QueueBoard({
       if (result.ok) toast.success(result.message ?? "Court set.");
       else toast.error(result.error);
       creatingDrafts.current.delete(court);
-      setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
+      if (result.ok) closeDraft(court);
+      else setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
     });
   };
 
@@ -606,7 +622,9 @@ export function QueueBoard({
     // waiting game would move onto the freed court.
     const waiting = court === QUEUED_COURT;
     const keep = waiting || !data.activeMatches.some((item) => item.courtNumber === QUEUED_COURT);
-    const place = waiting ? newWaitingDraft(drafts) : court;
+    const place = waiting
+      ? (emptyWaitingKey(drafts, openWaiting) ?? nextWaitingKey(drafts, openWaiting))
+      : court;
     if (keep) {
       setDrafts((prev) => {
         const cleared = places.reduce<CourtDrafts>(
@@ -1103,7 +1121,7 @@ export function QueueBoard({
         isWaitingDraft(court)
           ? generateMatches(data.gameDay.id, slotIndex, 1, { queue: true, seeds })
           : generateMatches(data.gameDay.id, slotIndex, 1, { courtNumber: court, seeds }),
-      () => setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT })),
+      () => closeDraft(court),
     );
   };
 
@@ -1310,8 +1328,9 @@ export function QueueBoard({
     const openCourts = courtNumbers.filter(
       (court) => !data.activeMatches.some((match) => match.courtNumber === court),
     );
-    // Someone still playing can only be planned into a waiting court: a part-filled one first.
-    const waitingCourts = [...waitingDrafts(drafts), newWaitingDraft(drafts)];
+    // Someone still playing can only be planned into a waiting court. When every waiting court
+    // shown is full, a new one opens.
+    const waitingCourts = [...waitingKeys, nextWaitingKey(drafts, openWaiting)];
     const place = firstFreePlace(
       drafts,
       player.status === "PLAYING" ? waitingCourts : [...openCourts, ...waitingCourts],
@@ -1944,21 +1963,21 @@ export function QueueBoard({
                             </span>
                           )}
                         </h3>
+                        <Button variant="paper" size="sm" onClick={addWaitingCourt} disabled={pending}>
+                          <Plus className="h-3.5 w-3.5" /> Add waiting court
+                        </Button>
                         <span data-trim-id="board.waiting-hint" className="text-muted text-[11px]">
                           Plan ahead, even with players still on court. When a court frees up, press Transfer
-                          to Court on the next game. Add as many as you like, beyond the reserved courts, and
-                          start a new one before the others are full. A player can sit in several planned
-                          games but can&apos;t be on two playing courts at once.
+                          to Court on the next game. Press Add waiting court for as many as you like, beyond
+                          the reserved courts, even before the others are full. A player can sit in several
+                          planned games but can&apos;t be on two playing courts at once.
                         </span>
                       </div>
                       <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
                         {[
                           ...queued.map((match) => ({ match, court: QUEUED_COURT })),
-                          // Waiting courts being filled by hand, then always one empty one to start another.
-                          ...[...waitingDrafts(drafts), newWaitingDraft(drafts)].map((court) => ({
-                            match: undefined,
-                            court,
-                          })),
+                          // Waiting courts being filled by hand, and empty ones opened with Add waiting court.
+                          ...waitingKeys.map((court) => ({ match: undefined, court })),
                         ].map(({ match, court }, index) => (
                           <div key={match?.id ?? `waiting-new${court}`} className="space-y-1.5">
                             <CourtCard
@@ -2008,6 +2027,9 @@ export function QueueBoard({
                                   tone: "danger",
                                   onConfirm: () => act(() => cancelMatch(id)),
                                 })
+                              }
+                              onRemove={
+                                !match && waitingKeys.length > 1 ? () => closeDraft(court) : undefined
                               }
                               onClearDraft={(slotPosition) =>
                                 setDrafts((prev) => ({
