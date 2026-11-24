@@ -92,9 +92,13 @@ import { CATEGORY_SHORT, GAMEDAY_TYPE_LABELS, effectiveCourtRate, formatPeso } f
 import { LEVEL_OPTIONS, isUnrated, levelLabel, levelTone, levelValue } from "@/lib/levels";
 import {
   EMPTY_DRAFT,
+  draftCourt,
   firstFreePlace,
+  isWaitingDraft,
+  newWaitingDraft,
   placeInDrafts,
   removeFromDrafts,
+  waitingDrafts,
   type CourtDrafts,
 } from "@/lib/court-drafts";
 import { canDropOn, canTapOn, dropVerb, eventPoint, samePick, type DropVerbData } from "@/lib/drag-targets";
@@ -562,7 +566,7 @@ export function QueueBoard({
     if (mismatch) toast.warning(mismatch.short, { description: mismatch.detail, duration: 8000 });
 
     startTransition(async () => {
-      const result = await createManualMatch(data.gameDay.id, court, next as string[]);
+      const result = await createManualMatch(data.gameDay.id, draftCourt(court), next as string[]);
       if (result.ok) toast.success(result.message ?? "Court set.");
       else toast.error(result.error);
       creatingDrafts.current.delete(court);
@@ -597,26 +601,26 @@ export function QueueBoard({
     const places = [match.team1[0], match.team1[1], match.team2[0], match.team2[1]].map((row) =>
       row && row.playerId !== playerId ? row.playerId : null,
     );
-    // The others can only stay if the court stays empty: a waiting game would move onto a freed
-    // court, and the waiting court has one set of places.
-    const keep =
-      court === QUEUED_COURT
-        ? !(drafts[QUEUED_COURT] ?? EMPTY_DRAFT).some(Boolean)
-        : !data.activeMatches.some((item) => item.courtNumber === QUEUED_COURT);
+    // Out of a waiting game, the others stay on a waiting court of their own, next to any being
+    // filled by hand. Out of a court's game, they can only stay if the court stays empty: a
+    // waiting game would move onto the freed court.
+    const waiting = court === QUEUED_COURT;
+    const keep = waiting || !data.activeMatches.some((item) => item.courtNumber === QUEUED_COURT);
+    const place = waiting ? newWaitingDraft(drafts) : court;
     if (keep) {
       setDrafts((prev) => {
         const cleared = places.reduce<CourtDrafts>(
           (all, id) => (id ? removeFromDrafts(all, id) : all),
           removeFromDrafts(prev, playerId),
         );
-        return { ...cleared, [court]: places };
+        return { ...cleared, [place]: places };
       });
     }
     startTransition(async () => {
       const result = await cancelMatch(match.id);
       if (!result.ok) {
         refresh();
-        if (keep) setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT }));
+        if (keep) setDrafts((prev) => ({ ...prev, [place]: EMPTY_DRAFT }));
         haptic("warning");
         toast.error(result.error);
         return;
@@ -701,7 +705,7 @@ export function QueueBoard({
     }
 
     if (active.kind === "match") {
-      if (over.kind === "court" && over.courtNumber !== QUEUED_COURT) {
+      if (over.kind === "court" && !isWaitingDraft(over.courtNumber)) {
         act(() => moveMatchToCourt(active.matchId, over.courtNumber));
       } else if (
         // A waiting game dropped on another waiting game takes its place in line.
@@ -723,7 +727,7 @@ export function QueueBoard({
           over.kind === "slot" || (over.kind === "court" && over.matchId)
             ? data.activeMatches.find((item) => item.id === over.matchId)?.courtNumber
             : over.courtNumber;
-        if (target !== QUEUED_COURT) {
+        if (target === undefined || !isWaitingDraft(target)) {
           toast.error(`${active.nickname} is still playing. Drop them into a waiting game to plan ahead.`);
           return;
         }
@@ -1096,7 +1100,7 @@ export function QueueBoard({
     );
     act(
       () =>
-        court === QUEUED_COURT
+        isWaitingDraft(court)
           ? generateMatches(data.gameDay.id, slotIndex, 1, { queue: true, seeds })
           : generateMatches(data.gameDay.id, slotIndex, 1, { courtNumber: court, seeds }),
       () => setDrafts((prev) => ({ ...prev, [court]: EMPTY_DRAFT })),
@@ -1306,10 +1310,11 @@ export function QueueBoard({
     const openCourts = courtNumbers.filter(
       (court) => !data.activeMatches.some((match) => match.courtNumber === court),
     );
-    // Someone still playing can only be planned into the waiting court.
+    // Someone still playing can only be planned into a waiting court: a part-filled one first.
+    const waitingCourts = [...waitingDrafts(drafts), newWaitingDraft(drafts)];
     const place = firstFreePlace(
       drafts,
-      player.status === "PLAYING" ? [QUEUED_COURT] : [...openCourts, QUEUED_COURT],
+      player.status === "PLAYING" ? waitingCourts : [...openCourts, ...waitingCourts],
     );
     if (!place) {
       toast.error("No free place. Pair or clear a court first.");
@@ -1318,7 +1323,7 @@ export function QueueBoard({
     haptic("tap");
     placeInDraft(place.court, place.index, player.playerId);
     toast(
-      `${player.nickname} → ${place.court === QUEUED_COURT ? "Waiting court" : courtName(slot, place.court)}`,
+      `${player.nickname} → ${isWaitingDraft(place.court) ? "Waiting court" : courtName(slot, place.court)}`,
       { duration: 1800 },
     );
   };
@@ -1941,16 +1946,23 @@ export function QueueBoard({
                         </h3>
                         <span data-trim-id="board.waiting-hint" className="text-muted text-[11px]">
                           Plan ahead, even with players still on court. When a court frees up, press Transfer
-                          to Court on the next game. Add as many as you like, beyond the reserved courts. A
-                          player can sit in several planned games but can&apos;t be on two playing courts at
-                          once.
+                          to Court on the next game. Add as many as you like, beyond the reserved courts, and
+                          start a new one before the others are full. A player can sit in several planned
+                          games but can&apos;t be on two playing courts at once.
                         </span>
                       </div>
                       <div className="grid gap-3 @lg:grid-cols-2 @5xl:grid-cols-3">
-                        {[...queued, undefined].map((match, index) => (
-                          <div key={match?.id ?? "waiting-new"} className="space-y-1.5">
+                        {[
+                          ...queued.map((match) => ({ match, court: QUEUED_COURT })),
+                          // Waiting courts being filled by hand, then always one empty one to start another.
+                          ...[...waitingDrafts(drafts), newWaitingDraft(drafts)].map((court) => ({
+                            match: undefined,
+                            court,
+                          })),
+                        ].map(({ match, court }, index) => (
+                          <div key={match?.id ?? `waiting-new${court}`} className="space-y-1.5">
                             <CourtCard
-                              court={QUEUED_COURT}
+                              court={court}
                               name={match ? `Waiting ${index + 1}` : "Waiting court"}
                               match={match}
                               queuePosition={match ? index + 1 : undefined}
@@ -1965,12 +1977,12 @@ export function QueueBoard({
                                   ? () => transferGame(match.id, transfers.get(match.id)!)
                                   : undefined
                               }
-                              draft={drafts[QUEUED_COURT] ?? EMPTY_DRAFT}
+                              draft={drafts[court] ?? EMPTY_DRAFT}
                               playerById={playerById}
                               now={now}
                               pending={pending}
                               isCompleted={isCompleted}
-                              onPair={() => pairCourt(QUEUED_COURT)}
+                              onPair={() => pairCourt(court)}
                               onStart={(id) => requestStart(1, (free) => startGame(id, free))}
                               onRegenerate={(id) =>
                                 act(() => regenerateMatches(data.gameDay.id, slotIndex, id))
@@ -2000,7 +2012,7 @@ export function QueueBoard({
                               onClearDraft={(slotPosition) =>
                                 setDrafts((prev) => ({
                                   ...prev,
-                                  [QUEUED_COURT]: (prev[QUEUED_COURT] ?? EMPTY_DRAFT).map((id, position) =>
+                                  [court]: (prev[court] ?? EMPTY_DRAFT).map((id, position) =>
                                     position === slotPosition ? null : id,
                                   ),
                                 }))
@@ -3086,10 +3098,11 @@ function CourtCard({
   /** Opens the rename dialog (real courts only). */
   onRename?: () => void;
 }) {
-  // A waiting court (court 0) holds a game ahead of time; it is not a real court.
-  const waiting = court === QUEUED_COURT;
+  // A waiting court (court 0, or below while filled by hand) holds a game ahead of time; it is
+  // not a real court.
+  const waiting = isWaitingDraft(court);
   const { setNodeRef: setCourtRef, isOver: courtOver } = useDroppable({
-    id: waiting ? `waiting-${match?.id ?? "new"}` : `court-${court}`,
+    id: waiting ? `waiting-${match?.id ?? `new${court}`}` : `court-${court}`,
     data: { kind: "court", courtNumber: court, matchId: match?.id } satisfies DropTarget,
     disabled: isCompleted,
   });

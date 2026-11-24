@@ -69,6 +69,15 @@ describe("canTapOn", () => {
     expect(canTapOn(picked, { kind: "slot", matchId: "q1", playerId: "p2" }, courtOf)).toBe(true);
     expect(canTapOn(picked, { kind: "draft-slot", courtNumber: 2 }, courtOf)).toBe(false);
     expect(canTapOn(picked, { kind: "draft-slot", courtNumber: 0 }, courtOf)).toBe(true);
+    // A second waiting court being filled by hand (keyed below 0) is a waiting court too.
+    expect(canTapOn(picked, { kind: "draft-slot", courtNumber: -1 }, courtOf)).toBe(true);
+    expect(canTapOn(picked, { kind: "court", courtNumber: -2 }, courtOf)).toBe(true);
+  });
+
+  it("does not drop a game onto an empty waiting court, whichever one it is", () => {
+    const onCourt = { kind: "match", matchId: "m1", courtNumber: 1 };
+    expect(canTapOn(onCourt, { kind: "court", courtNumber: 0 }, courtOf)).toBe(false);
+    expect(canTapOn(onCourt, { kind: "court", courtNumber: -1 }, courtOf)).toBe(false);
   });
 
   it("moves a court game to other courts, and a waiting game also within the line", () => {

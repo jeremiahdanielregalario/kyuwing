@@ -1,3 +1,4 @@
+import { isWaitingDraft } from "@/lib/court-drafts";
 import { QUEUED_COURT } from "@/lib/datetime";
 
 /**
@@ -74,14 +75,16 @@ export function canTapOn(
   if (!picked || !canDropOn(picked, target)) return false;
   if (target.kind === "slot" && target.playerId === picked.playerId) return false;
   const targetCourt = target.kind === "slot" ? courtOf(target.matchId ?? "") : target.courtNumber;
+  // Waiting courts being filled by hand are keyed 0, -1, -2, ...; all of them are waiting courts.
+  const targetWaiting = targetCourt !== undefined && isWaitingDraft(targetCourt);
   if (picked.kind === "match") {
     const pickedWaiting = picked.courtNumber === QUEUED_COURT;
     // Waiting games trade places with other waiting games; nothing lands on an empty waiting court.
-    if (targetCourt === QUEUED_COURT) return pickedWaiting && !!target.matchId;
+    if (targetWaiting) return pickedWaiting && !!target.matchId;
     // A waiting game only takes a free court; games on courts can also swap courts.
     return !pickedWaiting || !target.matchId;
   }
-  if (picked.kind === "queue-player" && picked.status === "PLAYING") return targetCourt === QUEUED_COURT;
+  if (picked.kind === "queue-player" && picked.status === "PLAYING") return targetWaiting;
   return true;
 }
 
