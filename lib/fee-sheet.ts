@@ -72,6 +72,37 @@ export function inRange(range: Range | null, row: number, col: number): boolean 
   return !!range && row >= range.top && row <= range.bottom && col >= range.left && col <= range.right;
 }
 
+/** A cell from its `data-cell` attribute ("row-col"), or null for anything else. */
+export function parseCellKey(key: string | null | undefined): Cell | null {
+  const match = /^(\d+)-(\d+)$/.exec(key ?? "");
+  return match ? { row: Number(match[1]), col: Number(match[2]) } : null;
+}
+
+/**
+ * The corner that stays put while a selection handle is dragged: the opposite one. The
+ * bottom-right handle stretches from the top-left corner, and the other way round.
+ */
+export function handleAnchor(range: Range, handle: "start" | "end"): Cell {
+  return handle === "end" ? { row: range.top, col: range.left } : { row: range.bottom, col: range.right };
+}
+
+/**
+ * How far to scroll the grid while a drag is held near (or past) one of its edges, so a
+ * selection can reach cells off screen. Faster the closer the finger is to the edge.
+ */
+export function edgeScroll(
+  point: { x: number; y: number },
+  box: { left: number; top: number; right: number; bottom: number },
+  zone = 40,
+  max = 16,
+): { dx: number; dy: number } {
+  const speed = (gap: number) => Math.round(Math.min(1, Math.max(0, (zone - gap) / zone)) * max);
+  return {
+    dx: speed(point.x - box.left) ? -speed(point.x - box.left) : speed(box.right - point.x),
+    dy: speed(point.y - box.top) ? -speed(point.y - box.top) : speed(box.bottom - point.y),
+  };
+}
+
 /** Row and column counts kept inside the sheet (rows/columns can shrink while a range is held). */
 export function clampRange(range: Range, rows: number, cols: number): Range | null {
   if (rows === 0 || cols === 0 || range.top > rows - 1 || range.left > cols - 1) return null;

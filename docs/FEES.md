@@ -85,7 +85,7 @@ The rules are `paymentForEdit()` in `lib/fee-sheet.ts`; each edit is an ordinary
 Cells can also be selected and copied into Excel or Google Sheets:
 
 - **Mouse or pen:** drag across cells, or click one and Shift+click another. Click a heading for the whole column (Shift+click another heading for several). Arrow keys move the selection (Shift extends it), Ctrl/Cmd+A selects all and Esc clears.
-- **Touch:** tap one corner, then tap the opposite corner, or tap a heading for its column. The table still scrolls with a finger.
+- **Touch:** tap a cell, then drag the round handles on the selection's corners to stretch it; or press and hold a cell for a moment and drag across the others, like a mouse drag (the table scrolls along when you reach its edge). Tap a heading for its column. A quick swipe still scrolls the table.
 - **Copy:** Ctrl/Cmd+C, or the **Copy selection** button (**Copy all** when nothing is selected). **Include headings** adds the column headings as the first row.
 
 The copy is tab-separated text plus an HTML table, so it pastes as cells. Amounts and games paste as plain numbers (the grid shows ₱1,234.00 like the sheet) and VERIFIED? pastes as TRUE/FALSE, so selecting from B6 pastes straight into the finance team's tracker template. The pure helpers are in `lib/fee-sheet.ts` (tested in `lib/fee-sheet.test.ts`); the grid is `components/app/fee-sheet.tsx`.
