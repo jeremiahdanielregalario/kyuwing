@@ -63,4 +63,27 @@ describe("Transfer to Court", () => {
     ]);
     expect(transferTargets(data, [1], QUEUED).size).toBe(0);
   });
+
+  it("offers every eligible waiting game a court, not just the first, while one is free", () => {
+    const data = board(
+      [],
+      [
+        on(match("live", "LIVE", ["a", "b", "c", "d"]), 1),
+        on(match("w1", "SUGGESTED", ["e", "f", "g", "h"]), QUEUED),
+        on(match("w2", "SUGGESTED", ["a", "i", "j", "k"]), QUEUED), // a is still playing
+        on(match("w3", "SUGGESTED", ["l", "m", "n", "o"]), QUEUED),
+        on(match("w4", "SUGGESTED", ["p", "q", "r", "s"]), QUEUED),
+      ],
+    );
+    expect([...transferTargets(data, [1, 2], QUEUED)]).toEqual([
+      ["w1", 2],
+      ["w3", 2],
+      ["w4", 2],
+    ]);
+    expect([...transferTargets(data, [1, 2, 3], QUEUED)]).toEqual([
+      ["w1", 2],
+      ["w3", 3],
+      ["w4", 2],
+    ]);
+  });
 });
